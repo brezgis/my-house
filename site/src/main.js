@@ -121,7 +121,7 @@ const life = bringToLife({ scene, outdoors, vis, quality: QUALITY, renderer, cam
 
 // Hooks for the parts of the house that move and answer back. The garden may
 // return setup(ctx); the staff (robots, cats) live in staff.js if it exists.
-const ctx = { THREE, scene, camera, renderer, materials, house, items, garden, colliders: builder.colliders, interact: life.interact, animated: life.animated, loadModel: life.loadModel, track: life.track, zoneAt: life.zoneAt, sound, day, get walker() { return walker; }, get mode() { return mode; }, get flashlight() { return torch.intensity > 0; } };
+const ctx = { THREE, scene, camera, renderer, materials, house, items, garden, colliders: builder.colliders, interact: life.interact, animated: life.animated, loadModel: life.loadModel, track: life.track, zoneAt: life.zoneAt, sound, day, get walker() { return walker; }, get mode() { return mode; }, get aimed() { return aimed; }, get flashlight() { return torch.intensity > 0; } };
 mark('life');
 garden?.setup?.(Object.create(ctx, { scene: { value: outdoors } }));      // the garden's own things go in the outdoors group
 mark('gardenSetup');
@@ -129,7 +129,9 @@ if (Q.get('staff') !== '0') import('./staff.js').then(m => m.hireStaff?.(ctx)).c
 import('./tv.js').then(m => m.setupTV(ctx)).catch(e => console.warn('tv', e));
 import('./toys.js').then(m => m.setupToys(ctx)).catch(e => console.warn('toys', e));      // chess, telescope, globe
 import('./welcome.js').then(m => m.setupWelcome(ctx)).catch(e => console.warn('welcome', e));      // the fade into the hall, the card on the hall table
+import('./reticle.js').then(m => m.setupReticle(ctx)).catch(e => console.warn('reticle', e));      // the mark in the middle, and the ring on what it has hold of
 if (Q.get('friends') !== '0') import('./friends.js').then(m => m.setupFriends?.(ctx)).catch(() => {});      // the telephone, and the friends it brings round
+if (Q.get('hands') !== '0') import('./hands.js').then(m => m.setupHands?.(ctx)).catch(() => {});      // picking things up, taking books down, using the computers
 
 // ---- Lamps ---------------------------------------------------------------------------
 // Only four lights are ever lit (three on the low tier), shared out among the lamps nearest

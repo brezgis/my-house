@@ -41,10 +41,8 @@ export default function (kit) {
   // The pink iMac, on its own little table, with a pinboard over it
   const it = fr(19.5, 30.0, F1, 3); table(it.sub(0, 1.2), 2.6, 2.2, 2.4);
   const im = it.sub(0, 1.25, 2.4), PINK = 'c#f0609a/0.25', MILK = 'c#f6eef0/0.3';
-  im.soft(PINK, -0.62, 0.62, -0.75, 0.3, 0.12, 1.45, 0.3); im.soft(MILK, -0.66, 0.66, 0.2, 0.62, 0.05, 1.5, 0.14); im.soft(MILK, -0.5, 0.5, -0.1, 0.6, 0, 0.14, 0.05);
-  im.box(PINK, -0.3, 0.3, -0.3, 0.1, 1.45, 1.55);
-  { const [a, c] = world(im, 0, 0.625); extras.push({ canvas: 'imac', glow: 1.0, x: a, y: im.h + 0.85, z: c, rotY: yawOf(im.dir), w: 0.92, h: 0.7 }); }
-  im.box(MILK, -0.6, 0.6, 0.8, 1.15, 0, 0.06); im.cyl(PINK, 0.85, 0.95, 0, 0.07, 0.13);
+  model('imac_g3', im, 0, 0.2, 0, 0, { turn: 1.5708 });      // the iMac G3 itself, in strawberry, with its keyboard and mouse (see CREDITS.md)
+  { const [a, c] = world(im, 0.18, 0.625); extras.push({ canvas: 'imac', glow: 1.0, x: a, y: im.h + 0.79, z: c, rotY: yawOf(im.dir), w: 1.0, h: 0.74 }); }      // the picture on its screen, just in front of the model's glass
   it.box('fir', -1.4, 1.4, 0.0, 0.08, 4.05, 5.85, G);
   sign(it, 0, 0.09, 4.95, 2.6, 1.7, DRAWN.pinboard, { cw: 640, ch: 420, rough: 0.95 });
   // Chalkboard, on the wall by the door

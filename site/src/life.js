@@ -176,7 +176,8 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
       const tex = canvas(SIZE, SH, g => {
         g.fillStyle = '#e9e2d0'; g.fillRect(0, 0, SIZE, SH);
         batch.forEach((b, i) => {
-          const rec = choose(b.lying ? b.sx + b.sz : b.sy), cx = (i % COLS) * CW, cy = Math.floor(i / COLS) * CH;
+          const rec = choose(b.lying ? b.sx + b.sz : b.sy); b.rec = rec;      /* which book this is (hands.js lets you take it down) */
+          const cx = (i % COLS) * CW, cy = Math.floor(i / COLS) * CH;
           const col = new THREE.Color(rec.colour ?? '#6b2a25'), lum = 0.3 * col.r + 0.59 * col.g + 0.11 * col.b, ink = lum > 0.5 ? '#1c1a17' : '#f1e9d6';
           g.fillStyle = '#' + col.getHexString(); g.fillRect(cx, cy, CW, CH);
           const sh = g.createLinearGradient(cx, 0, cx + CW, 0); sh.addColorStop(0, 'rgba(0,0,0,.28)'); sh.addColorStop(0.18, 'rgba(0,0,0,0)'); sh.addColorStop(0.82, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,.3)');
@@ -263,6 +264,7 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
       if (e.glow && e.canvas !== 'chalk') { mat.emissiveMap = map; mat.emissive.set(0xffffff); mat.emissiveIntensity = e.glow; mat.color.set(0x111111); }
       mesh = new THREE.Mesh(new THREE.PlaneGeometry(e.w, e.h), mat);
       mesh.rotation.y = e.rotY;
+      e.map = map;      // kept so that a screen can be redrawn (hands.js)
     }
     mesh.position.set(e.x, e.y, e.z); mesh.userData.cat = e.rug ? 'rugs' : 'extras'; scene.add(mesh);
     track(mesh, zoneAt(e.x, e.y, e.z, Math.max(e.w ?? 0.5, e.h ?? 0, e.d ?? 0) / 2));
@@ -555,6 +557,7 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
     const rope = new THREE.MeshStandardMaterial({ color: 0x9a8a6a, roughness: 1 }), wood = new THREE.MeshStandardMaterial({ color: 0x5a4636, roughness: 0.9 });
     for (const dz of [-0.85, 0.85]) { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, s.len, 6), rope); r.position.set(0, -s.len / 2, dz); g.add(r); }
     const board = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.12, 2.0), wood); board.position.y = -s.len; board.castShadow = true; g.add(board);
+  let lastAim = null;
     animated.push(t => { g.rotation.z = 0.16 * Math.sin(t * 1.25 + i * 1.9); });
   }
 
@@ -587,12 +590,20 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
   }
   function target(camera) {
     camera.getWorldDirection(fwd);
-    let best = null, score = 0.9;
+    // A thing is aimed at when the centre of the view is within its own width of it (so a near
+    // thing is easy to catch and a far one must be looked at), the nearest to the centre wins,
+    lastAim = best;
+    // and the one already held keeps a little advantage so the choice does not flutter.
+    let best = null, least = Infinity;
     for (const it of interact) {
       to.set(it.x - camera.position.x, it.y - camera.position.y, it.z - camera.position.z);
-      const d = to.length(); if (d > it.reach) continue;
-      const dot = to.multiplyScalar(1 / d).dot(fwd) - d * 0.004;
-      if (dot > score && !walled(camera.position, it)) { score = dot; best = it; }
+      const d = to.length(); if (d > it.reach || d < 1e-3) continue;
+      const ang = Math.acos(Math.max(-1, Math.min(1, to.multiplyScalar(1 / d).dot(fwd))));
+      const size = it.size ?? (it.seat ? 1.9 : it.reach >= 7 ? 1.7 : 1.05);            // feet: seats, doors and other big things are wider targets
+      const allow = Math.min(0.45, Math.atan(size / d) + 0.09);
+      if (ang > allow) continue;
+      const err = ang / allow + d * 0.012 - (it === lastAim ? 0.2 : 0);
+      if (err < least && !walled(camera.position, it)) { least = err; best = it; }
     }
     return best;
   }

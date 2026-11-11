@@ -54,3 +54,8 @@ All textures and the lighting environment are CC0 (public domain).
   "Squirrel" by Poly by Google, https://poly.pizza/m/caxos24uWC9 (assets/models/v_squirrel);
   "Dragonfly" by Poly by Google, https://poly.pizza/m/0myA_BOcZrD (assets/models/v_dragonfly);
   "Bluejay" by jeremy, https://poly.pizza/m/dWfeVtr7M49 (assets/models/v_kingfisher_bluejay).
+- The pink iMac in the office is "iMac G3" by isabelle123, from Trimble 3D Warehouse
+  (https://3dwarehouse.sketchup.com/model/78b88a1bb2a9faf1e4b68d3b17c43658/iMac-G3), used under the
+  3D Warehouse Terms of Use as one part of this larger work; recoloured from Bondi blue to
+  strawberry, made opaque, resized and re-exported (assets/models/imac_g3; tools/imac_pink.py).
+  The model is its author's; iMac is a trademark of Apple Inc., with which this house has no connection.
