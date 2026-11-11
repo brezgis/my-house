@@ -215,7 +215,7 @@ export function makeParty(ctx, ui) {
   function glide(g, pts, then) { g.gl = pts; g.gi = 0; g.glThen = then; g.mode = 'glide'; g.m.stop(); }
 
   // ---- Making themselves at home: the furniture is for sitting on -----------------------------------
-  const SEATS = (ctx.items.seats ?? []).map(q => { const top = q.y - 2.45, f = top > nav.FLOORS[1] - 0.6 ? 1 : 0; return { x: q.x, z: q.z, top, yaw: q.yaw, f, by: null }; })
+  const SEATS = (ctx.items.seats ?? []).map(q => { const top = q.y - 2.45, f = top > nav.FLOORS[1] - 0.6 ? 1 : 0; return { x: q.x, z: q.z, top, yaw: q.yaw + Math.PI, f, by: null }; })      // a seat's yaw is the sitter's view (camera convention); a body's heading is the opposite angle
     .filter(q => q.top - nav.FLOORS[q.f] > 0.9 && q.top - nav.FLOORS[q.f] < 2.7);
   const inHall = (f, x, z) => { const r = nav.roomAt(x, nav.FLOORS[f] + 1, z); return !!r && /hall/i.test(r.name); };
   function takeSeat(g) {
