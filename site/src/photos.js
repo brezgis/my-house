@@ -2,7 +2,7 @@
 // with no camera or location data). The frames are drawn onto shared label sheets as the house is put together;
 // each is drawn again when its photograph has arrived. A photo that fails to
 // load leaves the frame with its drawn stand-in.
-const N = 9;
+const N = 14;
 const one = i => new Promise(ok => {
   if (typeof Image === 'undefined') return ok(null);
   const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null);

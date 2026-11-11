@@ -286,7 +286,7 @@ export function upstairsProps(kit, seed = 1) {
   function photo(f, x, y, z, draw, w = 0.42, h = 0.55, frameMat = 'c#2a2622/0.4') {
     f.box(frameMat, x - w / 2, x + w / 2, y - 0.03, y + 0.03, z, z + h);
     f.box(frameMat, x - 0.04, x + 0.04, y - 0.2, y - 0.03, z, z + h * 0.6);
-    kit.sign(f, x, y + 0.035, z + h / 2, w - 0.08, h - 0.08, photoDraw(nextPhoto() + 2, draw), { cw: 256, ch: Math.round(256 * (h - 0.08) / (w - 0.08)) });      // one of the family's own photographs
+    kit.sign(f, x, y + 0.035, z + h / 2, w - 0.08, h - 0.08, photoDraw(nextPhoto(), draw), { cw: 256, ch: Math.round(256 * (h - 0.08) / (w - 0.08)) });      // one of the family's own photographs
   }
   // Drawn snapshots for photos: a sky, a horizon and a couple of figures.
   const snap = (sky, ground, figs = 2) => (g, w, h) => {
