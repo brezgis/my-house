@@ -272,7 +272,7 @@ export function makeParty(ctx, ui) {
     const o = O(), x = doorX(), pts = [], m = g.m;
     if (m.z > 15 && o) { const path = o.path(0, m.x, m.z, 0, x, 16.5, 2); if (path) for (const q of path) pts.push([q.x, 0.05, q.z]); else pts.push([x, 0.05, 16.5]); }
     if (m.z > 8.6) pts.push([x, PORCH_Y, 9.2]);
-    pts.push([x, PORCH_Y, 2.1]);
+    pts.push([x + (g.i - 1) * 1.9, PORCH_Y, 2.5 + Math.abs(g.i - 1) * 0.5]);      // each to their own place on the step, as when they arrived
     g.glK = 1.8;
     glide(g, pts, () => {
       const tryIn = () => {

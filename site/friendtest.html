@@ -146,7 +146,7 @@ async function runTest() {
       if (d < 40) { M.frames++; if (d < 3.6) { M.close++; if (still && g.m.v < 0.1 && !g.engaged) { M.closeStill++; M.closeWho.set(`${g.name}/${g.mode}${g.away ? '@' + g.away.spot.key : ''} ${d.toFixed(1)}ft`, Math.round(now)); } } if (still && !g.away && g.mode === 'idle') M.dist.push(d); }
       if (g.mode === 'idle' && g.m.v < 0.05 && !g.engaged) if (party.nearDoor(g.m.f, g.m.x, g.m.z, 1.5)) { M.door++; M.doorWho.set(`${g.name}@${g.m.x.toFixed(1)},${g.m.z.toFixed(1)}`, Math.round(now)); }
       if (g.engaged && d < 12 && P.now < g.engagedUntil && g.look === v) { if (!M.engStart.has(g)) M.engStart.set(g, now); if (now - M.engStart.get(g) > 1.5) { M.engaged++; let a = Math.atan2(v.x - g.m.x, v.z - g.m.z) - g.m.yaw; a = Math.abs(Math.atan2(Math.sin(a), Math.cos(a))); if (a < 0.45) M.facing++; if (g.m.v < 0.15) M.still++; } } else M.engStart.delete(g);
-      for (const o of P.guests) if (o !== g && o.state === 'here' && o.m.f === g.m.f && Math.hypot(o.m.x - g.m.x, o.m.z - g.m.z) < 1.2) M.pairClose++;
+      for (const o of P.guests) if (o !== g && o.state === 'here' && o.m.f === g.m.f && Math.hypot(o.m.x - g.m.x, o.m.z - g.m.z) < 1.2) { M.pairClose++; const k = `${g.id}/${g.mode}${g.sitting ? '+sit' : ''}${g.garden ? '+garden' : ''}${g.out ? '+out' : ''} with ${o.id}/${o.mode}${o.sitting ? '+sit' : ''}${o.garden ? '+garden' : ''} near ${Math.round(g.m.x)},${Math.round(g.m.z)}`; (M.pairWho ??= new Map()).set(k, (M.pairWho.get(k) ?? 0) + 1); }
       if (staff) for (const a of staff.H.robots) if (a.f === g.m.f && Math.hypot(a.x - g.m.x, a.z - g.m.z) < 1.1) M.staffClose++;
       if (walker.pos.x > g.box.x0 && walker.pos.x < g.box.x1 && walker.pos.z > g.box.z0 && walker.pos.z < g.box.z1 && Math.abs(walker.pos.y - g.m.y) < 2) M.inBody++;
     }
@@ -167,6 +167,7 @@ async function runTest() {
   R.push(`FOLLOWING: at each checkpoint, guests on her floor and within 16 ft: ${pct(M.follow.reduce((a, b) => a + b, 0), M.follow.length)} of ${M.follow.length}`);
   R.push(`ATTENTION while speaking to her (after the first 1.5 s): facing her ${pct(M.facing, M.engaged)}, holding still ${pct(M.still, M.engaged)} of ${M.engaged} frames`);
   R.push(`DOORWAYS: frames a guest stood idle in a doorway, a cased opening or at the stair (within 1.5 ft): ${M.door} ${[...M.doorWho].slice(0, 6).join(' ')}`);
+  if (M.pairWho) R.push('OVERLAPS: ' + [...M.pairWho].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, n]) => `${n} ${k}`).join(' | '));
   R.push(`BODIES: frames her centre was inside a guest: ${M.inBody}; guest-on-guest overlaps (under 1.2 ft): ${M.pairClose}; guest-on-staff (under 1.1 ft): ${M.staffClose}`);
   R.push(`INSIDE-COLLIDER SAMPLES: ${M.bad}`); for (const b of M.firstBad) R.push('  ' + b);
   R.push('', 'THE AFTERNOON:', ...lines, '', 'NOTES SHOWN TO THE VISITOR:', ...P.notes.map(n => '  ' + n), '', 'WHAT WAS SAID:');
