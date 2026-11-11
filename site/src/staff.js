@@ -24,6 +24,7 @@ import { makeOutdoor } from './staff/outdoor.js';
 import { Gardener, gardenSpots } from './staff/gardeners.js';
 import { POIS } from './staff/lines.js';
 import { rngFrom } from './staff/agent.js';
+import { shuffle } from './shuffle.js';
 
 const PLAN_W = 43.33;
 const wx = X => X - PLAN_W / 2, wz = Y => -Y;
@@ -57,7 +58,7 @@ export function hireStaff(ctx) {
     let b = H.bags.get(key);
     if (!b || b.i >= b.order.length || b.order.length !== list.length) {
       const last = b?.order[b.order.length - 1];
-      const order = list.map((_, i) => i).sort(() => H.rnd() - 0.5);
+      const order = shuffle(list.map((_, i) => i), H.rnd);
       if (order.length > 1 && order[0] === last) order.push(order.shift());
       b = { order, i: 0 }; H.bags.set(key, b);
     }

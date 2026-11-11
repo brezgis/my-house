@@ -5,6 +5,7 @@
 
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { paint } from './models.js';
+import { shuffle } from '../shuffle.js';
 
 let THREE, glassMat, solidMat;
 export function useThreeDrinks(T) { THREE = T; }
@@ -36,7 +37,7 @@ export function drinksFor(hour) {
 }
 // Three things to offer at this hour, the robot's favourites first
 export function menuFor(hour, likes, rnd) {
-  const ok = drinksFor(hour).sort(() => rnd() - 0.5);
+  const ok = shuffle(drinksFor(hour), rnd);
   ok.sort((a, b) => (likes.includes(b.id) ? 1 : 0) - (likes.includes(a.id) ? 1 : 0));
   const out = ok.slice(0, 2);
   const calm = ok.find(d => !out.includes(d) && ['sparkling', 'apple', 'jasmine', 'chamomile', 'tea'].includes(d.id));

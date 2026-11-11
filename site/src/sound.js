@@ -1,3 +1,4 @@
+import { shuffle } from './shuffle.js';
 // Sound: quiet music as if someone had put a record on, and the small noises
 // of a lived-in house - birds outside, the fire, a clock. Nothing plays until
 // the visitor steps in (browsers require a gesture). M mutes. The piano is a
@@ -113,7 +114,7 @@ export function makeSound() {
   }
   let onNote = () => {};
   let order = [];
-  const shuffled = list => { const a = [...list]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const shuffled = list => shuffle([...list]);
   function nextTrack() {
     tube?.remove(); tube = null;
     if (trackNo >= order.length) { const last = order.at(-1); do order = shuffled(tracks); while (tracks.length > 1 && order[0] === last); trackNo = 0; }

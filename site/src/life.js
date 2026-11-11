@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { shuffle } from './shuffle.js';
 
 const FT = 3.28084;
 
@@ -166,7 +167,7 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
     const r = rng(1906), CW = 32, CH = 256, SIZE = 2048, COLS = SIZE / CW, PER = COLS * (SIZE / CH);
     const pools = { small: [], medium: [], large: [], folio: [] };
     for (const b of list) (pools[b.size] ?? pools.medium).push(b);
-    for (const k in pools) pools[k].sort(() => r() - 0.5);
+    for (const k in pools) shuffle(pools[k], r);
     const taken = { small: 0, medium: 0, large: 0, folio: 0 };
     const choose = tall => { const k = tall > 0.92 ? 'folio' : tall > 0.82 ? 'large' : tall > 0.7 ? 'medium' : 'small', p = pools[k].length ? pools[k] : list; return p[taken[k]++ % p.length]; };
     const FONTS = ['Georgia, serif', '"Palatino Linotype", Palatino, serif', 'Helvetica, Arial, sans-serif', '"Gill Sans", "Trebuchet MS", sans-serif', '"Times New Roman", serif'];
