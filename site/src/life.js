@@ -261,10 +261,10 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
       map = e.canvas ? canvas(e.canvas === 'chalk' ? 1300 : 900, e.canvas === 'chalk' ? 766 : e.canvas === 'imac' ? 680 : 540, DRAW[e.canvas]) : texLoader.load(`assets/art/${e.file}.jpg`, t => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; });
       if (!e.canvas) map.colorSpace = THREE.SRGBColorSpace;
       const mat = new THREE.MeshStandardMaterial({ map, roughness: e.canvas === 'chalk' ? 0.95 : 0.6, envMapIntensity: 0.15 });
+      e.map = map;      // kept so that a screen can be redrawn (hands.js)
       if (e.glow && e.canvas !== 'chalk') { mat.emissiveMap = map; mat.emissive.set(0xffffff); mat.emissiveIntensity = e.glow; mat.color.set(0x111111); }
       mesh = new THREE.Mesh(new THREE.PlaneGeometry(e.w, e.h), mat);
       mesh.rotation.y = e.rotY;
-      e.map = map;      // kept so that a screen can be redrawn (hands.js)
     }
     mesh.position.set(e.x, e.y, e.z); mesh.userData.cat = e.rug ? 'rugs' : 'extras'; scene.add(mesh);
     track(mesh, zoneAt(e.x, e.y, e.z, Math.max(e.w ?? 0.5, e.h ?? 0, e.d ?? 0) / 2));
@@ -557,7 +557,6 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
     const rope = new THREE.MeshStandardMaterial({ color: 0x9a8a6a, roughness: 1 }), wood = new THREE.MeshStandardMaterial({ color: 0x5a4636, roughness: 0.9 });
     for (const dz of [-0.85, 0.85]) { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, s.len, 6), rope); r.position.set(0, -s.len / 2, dz); g.add(r); }
     const board = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.12, 2.0), wood); board.position.y = -s.len; board.castShadow = true; g.add(board);
-  let lastAim = null;
     animated.push(t => { g.rotation.z = 0.16 * Math.sin(t * 1.25 + i * 1.9); });
   }
 
@@ -570,6 +569,7 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
 
   // What, if anything, is in front of you to use
   const fwd = new THREE.Vector3(), to = new THREE.Vector3();
+  let lastAim = null;
   // Is there a wall (or a shut door) between the eye and the thing? Only tall obstacles count,
   // and not one the thing itself sits in or against, so furniture never hides its own prompt.
   function walled(eye, it) {
@@ -592,7 +592,6 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
     camera.getWorldDirection(fwd);
     // A thing is aimed at when the centre of the view is within its own width of it (so a near
     // thing is easy to catch and a far one must be looked at), the nearest to the centre wins,
-    lastAim = best;
     // and the one already held keeps a little advantage so the choice does not flutter.
     let best = null, least = Infinity;
     for (const it of interact) {
@@ -605,6 +604,7 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
       const err = ang / allow + d * 0.012 - (it === lastAim ? 0.2 : 0);
       if (err < least && !walled(camera.position, it)) { least = err; best = it; }
     }
+    lastAim = best;
     return best;
   }
 

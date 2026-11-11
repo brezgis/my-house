@@ -128,10 +128,10 @@ mark('gardenSetup');
 if (Q.get('staff') !== '0') import('./staff.js').then(m => m.hireStaff?.(ctx)).catch(() => {});
 import('./tv.js').then(m => m.setupTV(ctx)).catch(e => console.warn('tv', e));
 import('./toys.js').then(m => m.setupToys(ctx)).catch(e => console.warn('toys', e));      // chess, telescope, globe
-import('./welcome.js').then(m => m.setupWelcome(ctx)).catch(e => console.warn('welcome', e));      // the fade into the hall, the card on the hall table
 import('./reticle.js').then(m => m.setupReticle(ctx)).catch(e => console.warn('reticle', e));      // the mark in the middle, and the ring on what it has hold of
-if (Q.get('friends') !== '0') import('./friends.js').then(m => m.setupFriends?.(ctx)).catch(() => {});      // the telephone, and the friends it brings round
+import('./welcome.js').then(m => m.setupWelcome(ctx)).catch(e => console.warn('welcome', e));      // the fade into the hall, the card on the hall table
 if (Q.get('hands') !== '0') import('./hands.js').then(m => m.setupHands?.(ctx)).catch(() => {});      // picking things up, taking books down, using the computers
+if (Q.get('friends') !== '0') import('./friends.js').then(m => m.setupFriends?.(ctx)).catch(() => {});      // the telephone, and the friends it brings round
 
 // ---- Lamps ---------------------------------------------------------------------------
 // Only four lights are ever lit (three on the low tier), shared out among the lamps nearest
