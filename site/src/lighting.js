@@ -155,7 +155,7 @@ export function makeWindowGlow({ scene, materials, windows, rooms }) {
   return {
     // night: 0..1; outside: is the eye outdoors (glass glows only from outside)
     update(night, outside, glowsOn) {
-      const k = smooth(night, 0.25, 0.9);
+      const k = Math.max(smooth(night, 0.25, 0.9), 0.6 * (Number(glowsOn) || 0));      // the windows begin to glow as the lamps come on at dusk
       glass.emissiveIntensity = outside ? 0.9 * k : 0.04 * k;
       spillMat.opacity = 0.22 * k; spill.visible = k > 0.01;
     },
@@ -244,7 +244,7 @@ export function makeLampPool({ scene, lamps, vis, size, day, camera }) {
 // in never goes black.
 export function makeExposure(Q) {
   const inDay = Number(Q.get('exp') ?? 1.6);
-  const T = { in: [inDay, 2.0, 2.6], half: [1.35, 1.9, 2.45], out: [0.8, 1.35, 2.2] };     // day, dusk, night
+  const T = { in: [inDay, 2.0, 2.6], half: [1.35, 1.9, 2.45], out: [0.8, 1.6, 2.2] };     // day, dusk, night
   let cur = null;
   function target(where, day) {
     const [a, b, c] = T[where] ?? T.out, on = lampOn(day);

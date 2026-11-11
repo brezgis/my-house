@@ -40,6 +40,8 @@ export default function (kit) {
   const vt = fr(42.45, 33.4, F2, 1);                                   // faces west; local x runs toward +Y
   P.legs(vt, -1.2, 1.2, 0.05, 1.4, 2.5, OAKW, { leg: 0.13 });
   vt.box(OAKW, -1.05, 1.05, 1.3, 1.36, 2.05, 2.3); vt.box(BRASS, -0.15, 0.15, 1.36, 1.39, 2.15, 2.2);      // drawer
+  // a warm brass sconce on the wall beside the window (the other side is curtain): the room's own light after dark
+  { const sw = fr(42.826, 33.4, F2, 1); P.sconce(sw, -1.75, 5.5, { power: 0.9 }); }
   // a tilting oval-ish glass on a stand
   const mf = vt.sub(0, 0.3, 2.5, 0);
   for (const x of [-0.62, 0.62]) mf.box(OAKW, x - 0.04, x + 0.04, -0.05, 0.05, 0.0, 1.55);

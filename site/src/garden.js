@@ -227,7 +227,6 @@ export function plantGarden(B, items) {
     const ty = F1 - 0.4;
     K.model('outdoor_table_chair_set_01', px(-6.4), 5.0, 0.6, { y: ty, collide: true }); K.seat(px(-6.4) + 1.2, ty + 1.5, 3.4, 0.6, 'sit on the terrace');
     K.model('outdoor_table_chair_set_01', px(-6.0), -6.0, -0.4, { y: ty, collide: true }); K.seat(px(-6.0) - 1.1, ty + 1.5, -4.4, -0.4 + Math.PI, 'sit under the lights');
-    K.model('Lantern_01', px(-6.4), 5.0, 0.4, { y: ty + 2.42 });
     const corner = [[-30.2, 8.4, 1.6, 'magnolia'], [-30.2, -8.4, 1.6, 'lilac'], [-8.6, 9.4, 1.15, null], [-23.1, 10.2, 1.2, null], [-22.6, -10.0, 1.1, null]];
     for (const [x, z, s, tree] of corner) {
       const top = K.pot(x, ty, z, s, tree ? [] : [[K.pick(['hydrangea', 'lavender', 'fern', 'catmint']), 0.6]]);
@@ -267,6 +266,7 @@ export function plantGarden(B, items) {
   // ======================================================================================
   {
     const cx = -8, z0 = -140.4, z1 = -130, x0 = cx - 7.5, x1 = cx + 7.5, fl = 1.05, eave = 8.6, ridge = 12.6;
+    (K.F.keepOut ??= []).push([x0 - 0.3, x1 + 0.3, z0 - 0.3, z1 + 0.3]);      // the summerhouse floor
     K.box('brick', x0, x1, 0, fl - 0.15, z0, z1); K.box('timber', x0 + 0.1, x1 - 0.1, fl - 0.15, fl, z0 + 0.1, z1 - 0.1, { grain: 'long' });
     K.box('brick', cx - 2.5, cx + 2.5, 0, fl / 2, z1, z1 + 1.1);
     K.surface(x0, x1, z0, z1, fl); K.surface(cx - 2.5, cx + 2.5, z1, z1 + 1.1, fl / 2);
@@ -283,9 +283,9 @@ export function plantGarden(B, items) {
     for (let x = x0 + 0.8; x < x1 - 0.5; x += 0.55) K.box('timber', x - 0.06, x + 0.06, fl, fl + 3, z0 + 0.3, z0 + 0.42);
     K.box('timber', x0, x1, fl + 3, fl + 3.25, z0 + 0.2, z0 + 0.6); K.collide(x0, x1, z0, z0 + 0.6, 6);
     for (const x of [x0 + 0.4, x1 - 0.4]) { for (let z = z0 + 0.8; z < z1 - 0.8; z += 0.55) K.box('timber', x - 0.06, x + 0.06, fl, fl + 3, z - 0.06, z + 0.06); K.box('timber', x - 0.2, x + 0.2, fl + 3, fl + 3.25, z0, z1); K.collide(x - 0.25, x + 0.25, z0, z1, 6); }
-    K.model('vintage_day_bed', cx, z0 + 3.2, 0, { y: fl, collide: true });
-    K.seat(cx, fl + 0.9, z0 + 3.4, 0, 'lie on the day bed');
-    K.model('side_table_01', cx + 4.6, z0 + 2.4, 0, { y: fl });
+    K.model('st_sofa_18_cream', cx, z0 + 3.2, 0, { y: fl, collide: true });      // (the day bed is the sleeping porch's; out here, a deep cream sofa)
+    K.seat(cx, fl + 0.9, z0 + 3.4, 0, 'sit in the pavilion');
+    K.model('round_wooden_table_02', cx + 4.6, z0 + 2.4, 0, { y: fl, scale: 0.85 });
     K.model('vintage_oil_lamp', cx + 4.6, z0 + 2.4, 0.4, { y: fl + 2.05, scale: 1 }); K.lamp(cx + 4.6, fl + 3, z0 + 2.4, 0.25, 'candle');
     K.model('ArmChair_01', cx - 4.5, z0 + 4.2, 0.5, { y: fl, seat: 1.5 });
     K.model('wicker_basket_01', cx - 5.6, z0 + 1.6, 0, { y: fl });

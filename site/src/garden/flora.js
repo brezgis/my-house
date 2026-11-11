@@ -63,6 +63,8 @@ export class Flora {
   }
 
   build(scene) {
+    // nothing grows up through a floor: ground plants inside a built footprint are left out
+    if (this.keepOut?.length) this.list = this.list.filter(p => p.y > 0.5 || !this.keepOut.some(([x0, x1, z0, z1]) => p.x > x0 && p.x < x1 && p.z > z0 && p.z < z1));
     const atlas = paintFlora(2048), W = atlas.canvas.width;
     const tex = atlasTexture(atlas.canvas, Object.values(atlas.rects));
     const mats = cardMaterials(tex, { sway: 0.06, roughness: 0.8, env: 0.7, alphaTest: 0.45 });

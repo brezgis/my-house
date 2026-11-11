@@ -128,7 +128,7 @@ export function buildSky(scene, renderer, centre) {
     { h: 0, fog: 0x0b1220, shade: 0x1b2333, hemi: 0.14 }, { h: 4.6, fog: 0x10192a, shade: 0x202a3c, hemi: 0.15 },
     { h: 6.2, fog: 0xb99a84, shade: 0x6f6a78, hemi: 0.24 }, { h: 8, fog: 0xd5e0da, shade: 0x97a4b6, hemi: 0.38 },
     { h: 12, fog: 0xcfe0e8, shade: 0x9aa9bd, hemi: 0.46 }, { h: 15.5, fog: 0xd3e2e6, shade: 0x9aa9bd, hemi: 0.44 },
-    { h: 17.3, fog: 0xe6cba6, shade: 0x8b7f8a, hemi: 0.3 }, { h: 18.6, fog: 0x9a7660, shade: 0x4b4660, hemi: 0.14 },
+    { h: 17.3, fog: 0xe6cba6, shade: 0x8b7f8a, hemi: 0.42 }, { h: 18.6, fog: 0x9a7660, shade: 0x4b4660, hemi: 0.2 },
     { h: 20, fog: 0x121a2b, shade: 0x1f2738, hemi: 0.15 }, { h: 24, fog: 0x0b1220, shade: 0x1b2333, hemi: 0.14 },
   ];
   const cA = new THREE.Color(), cB = new THREE.Color();

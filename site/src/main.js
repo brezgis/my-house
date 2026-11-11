@@ -324,7 +324,7 @@ renderer.setAnimationLoop(() => {
   // Eyes adjust: rooms are far dimmer than the garden, and night dimmer still (lighting.js).
   exposure.update(renderer, where, day, dt, Q.has('view'));
   lampPool.update(camera.position, Q.has('view') ? 1 : dt, t);
-  winGlow.update(day.night, where === 'out');
+  winGlow.update(day.night, where === 'out', 1 - THREE.MathUtils.smoothstep(day.light, 0.42, 0.97));      // third: how far the lamps are on (as lighting.js lampOn)
   vignette.set(day.night);
   halos.update(t);
   life.update(t, dt);

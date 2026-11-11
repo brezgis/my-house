@@ -305,16 +305,19 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
     for (const it of list) if (it.rug) it.c.width = it.c.height = 0;      // the rugs' own canvases are no longer needed
   }
   // Paintings: one sheet per room (no taller than the GPU allows), made when its pictures have loaded
+  // On the lighter tiers the pictures are held a little smaller (they are a quarter of all texture memory at full size)
+  const artScale = quality.tex === 'half' ? 0.55 : quality.tex === 'detail' ? 0.72 : 1;
+  const artSize = img => { if (artScale === 1) return img; const c = document.createElement('canvas'); c.width = Math.round(img.width * artScale); c.height = Math.round(img.height * artScale); const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(img, 0, 0, c.width, c.height); return c; };
   const imgLoader = new THREE.ImageLoader(lazy), maxTex = Math.min(8192, renderer.capabilities.maxTextureSize);
   for (const [zone, list] of art) {
-    Promise.all(list.map(e => new Promise(ok => imgLoader.load(`assets/art/${e.file}.jpg`, img => ok({ e, c: img, w: e.w, h: e.h }), undefined, () => ok(null))))).then(items => {
+    Promise.all(list.map(e => new Promise(ok => imgLoader.load(`assets/art/${e.file}.jpg`, img => ok({ e, c: artSize(img), w: e.w, h: e.h }), undefined, () => ok(null))))).then(items => {
       items = items.filter(Boolean);
       const groups = [[]]; let h = 0;
       for (const it of items.sort((a, b) => b.c.height - a.c.height)) { if (h + it.c.height > maxTex * 0.9 && groups.at(-1).length) { groups.push([]); h = 0; } groups.at(-1).push(it); h += it.c.height / 2; }
       for (const g of groups) {
         if (!g.length) continue;
         const { geo, tex } = packSheet(g);
-        const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, envMapIntensity: 0.15 }));
+        const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: tex, color: 0xd6d1c8, roughness: 0.95, envMapIntensity: 0.15 }));      // matt, and a little under white, so pale drawings do not glare in afternoon light
         mesh.userData.cat = 'extras'; scene.add(mesh); track(mesh, zone);
       }
     });
@@ -563,6 +566,24 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
 
   // What, if anything, is in front of you to use
   const fwd = new THREE.Vector3(), to = new THREE.Vector3();
+  // Is there a wall (or a shut door) between the eye and the thing? Only tall obstacles count,
+  // and not one the thing itself sits in or against, so furniture never hides its own prompt.
+  function walled(eye, it) {
+    const dx = it.x - eye.x, dy = it.y - eye.y, dz = it.z - eye.z;
+    for (const c of colliders) {
+      if (c.off || c.y1 - c.y0 < 5.5) continue;
+      if (it.x > c.x0 - 0.45 && it.x < c.x1 + 0.45 && it.z > c.z0 - 0.45 && it.z < c.z1 + 0.45) continue;
+      if (eye.x > c.x0 - 0.1 && eye.x < c.x1 + 0.1 && eye.z > c.z0 - 0.1 && eye.z < c.z1 + 0.1) continue;
+      let t0 = 0, t1 = 0.97, hit = true;
+      for (const [o, d, lo, hi] of [[eye.x, dx, c.x0, c.x1], [eye.z, dz, c.z0, c.z1], [eye.y, dy, c.y0, c.y1]]) {
+        if (Math.abs(d) < 1e-6) { if (o < lo || o > hi) { hit = false; break; } continue; }
+        let a = (lo - o) / d, b = (hi - o) / d; if (a > b) [a, b] = [b, a];
+        t0 = Math.max(t0, a); t1 = Math.min(t1, b); if (t0 > t1) { hit = false; break; }
+      }
+      if (hit) return true;
+    }
+    return false;
+  }
   function target(camera) {
     camera.getWorldDirection(fwd);
     let best = null, score = 0.9;
@@ -570,7 +591,7 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
       to.set(it.x - camera.position.x, it.y - camera.position.y, it.z - camera.position.z);
       const d = to.length(); if (d > it.reach) continue;
       const dot = to.multiplyScalar(1 / d).dot(fwd) - d * 0.004;
-      if (dot > score) { score = dot; best = it; }
+      if (dot > score && !walled(camera.position, it)) { score = dot; best = it; }
     }
     return best;
   }

@@ -111,7 +111,15 @@ export default function (kit) {
   P.pothos(et, 0.15, 0.6, ETall, { dir: 1.57, spread: 2.6, trail: 2.2, size: 0.9 });
   // robe and a spare towel on brass hooks east of the door
   const rb = fr(25.45, Y0, F2, 0); rb.cyl(BRASS, 0, 0.05, 5.95, 6.13, 0.05, 0.05, 10); P.rod(rb, BRASS, [0, 0, 6.04], [0, 0.34, 6.1], 0.03, 8);
-  kit.coatOnPeg(rb, 0, 0.3, 5.95, 'wool#d8d0bd', 'coat', { squash: 1.05 });         // the robe: the kit's lofted coat, not puffed out
+  kit.coatOnPeg(rb, 0, 0.3, 5.95, 'wool#d8d0bd', 'coat', { squash: 1.05 });
+  { // what makes it a robe: a rolled shawl collar, a tied belt with its ends hanging, the front edge
+    const RB = 'wool#c9bfa8', y = 0.56;
+    for (const s of [-1, 1]) P.rod(rb, RB, [s * 0.2, y - 0.06, 5.72], [s * 0.03, y, 4.22], 0.065, 8);
+    P.rod(rb, RB, [-0.6, y - 0.05, 4.15], [0.6, y - 0.05, 4.15], 0.06, 8);
+    rb.cyl(RB, 0.08, y, 4.07, 4.23, 0.09, 0.09, 10);
+    P.rod(rb, RB, [0.1, y, 4.1], [0.2, y, 3.35], 0.04, 6); P.rod(rb, RB, [0.06, y, 4.1], [-0.02, y, 3.5], 0.04, 6);
+    P.rod(rb, 'wool#b3a88f', [0.03, y - 0.03, 4.05], [0.06, y - 0.05, 2.75], 0.014, 5);
+  }         // the robe: the kit's lofted coat, not puffed out
   const hk = fr(26.8, Y0, F2, 0); hk.cyl(BRASS, 0, 0.06, 5.25, 5.37, 0.035, 0.035, 8); P.rod(hk, BRASS, [0, 0, 5.3], [0, 0.27, 5.38], 0.025, 6);
   P.hungTowel(fr(26.8, Y0 + 0.27, F2, 0), -0.3, 0.3, 0, 5.38, TERRY2, 1.6);
 

@@ -142,7 +142,7 @@ export default function (kit) {
     for (const [a, R, z] of [[0.4, 0.62, 2.8], [2.1, 0.7, 3.1], [3.6, 0.6, 3.5], [5.0, 0.68, 2.95], [1.2, 0.5, 3.7]]) fruit(nw, 'lemon', x + Math.cos(a) * R, y + Math.sin(a) * R * 0.85, z, 1.1);
     for (let i = 0; i < 3; i++) fruit(nw, 'lemon', x + 0.25 - i * 0.2, y + 0.35, 0.92);
   }
-  model('Rockingchair_01', fr(41.0, 39.75, PH, 0), 0, 0, 0.015, 0, { turn: 0.6, seat: 1.5, collide: true });
+  model('khr_sheen_chair', fr(41.0, 39.75, PH, 0), 0, 0, 0.015, 0, { turn: 0.6, seat: 1.5, collide: true });      // a mango velvet lounge chair (the rocking chairs are the front porch's)
   { const t = fr(41.75, 42.65, PH, 0);
     const z = kit.sideTable(t, 0, 0, { kind: 'round', h: 2.0, r: 0.85 }) + 0.015;
     lantern(t, 0.15, -0.1, z, 0.34, 0.55, true); lampAt(t, 0.15, -0.1, z + 0.45, 0.45);
