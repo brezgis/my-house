@@ -56,7 +56,7 @@ export function makeParty(ctx, ui) {
 
   const P = {
     now: 0, dt: 1 / 60, active: false, guests: [], byId: {}, queue: [], notes: [], brain, nav, demo: false,
-    v: { present: false, x: 0, y: 0, z: 0, f: 0, fx: 0, fz: -1, room: null, roomSince: 0, outside: false, outSince: 0, seated: false, movedAt: 0, lx: 0, lz: 0 },
+    v: { present: false, x: 0, y: 0, z: 0, f: 0, fx: 0, fz: -1, room: null, roomSince: 0, outside: false, outSince: 0, seated: false, movedAt: 0, lx: 0, lz: 0, dx: 0, dz: -1, speed: 0 },
     chatWith: null, lastInput: -99, nextGroup: 0, nextWatch: 0, script: null, nextBanter: 40, nextSolo: 18, danceUntil: 0, nextHum: 0, lastFollowSay: -99, saidWait: false, saidSeat: -99, lastStaffSay: -99,
     been: new Set(), lastArrive: -99, lastRoomNote: -99, door: null, doorOpenedByUs: false, closeDoorAt: 0,
     events: { rings: 0, arrivals: 0, leaves: 0, lines: 0, follows: 0, backoffs: 0, banters: 0, solos: 0, drifts: 0, dances: 0, doors: 0, glides: 0, fails: 0, nudges: 0, rescues: 0 },
@@ -111,11 +111,11 @@ export function makeParty(ctx, ui) {
   function spotNear(g, cx, cz, f, o = {}) {
     const F = nav.floors[f], base = o.facing ? Math.atan2(v.fx, v.fz) : Math.atan2(g.m.x - cx, g.m.z - cz);
     let best = null, bs = -1e9;
-    for (const [minClear, see, radii] of [[4.2, true, [KEEP, 6.6, 5.1]], [3.2, true, [KEEP, 7.4, 5.0]], [2.6, false, [6.5, 8.5, 5.0]]]) {
+    for (const [minClear, see, radii, hallOk] of [[4.2, true, [KEEP, 6.6, 5.1], false], [3.2, true, [KEEP, 7.4, 5.0], false], [3.2, true, [KEEP, 7.4, 5.0], true], [2.6, false, [6.5, 8.5, 5.0], true]]) {
       for (let k = 0; k < 16; k++) for (const r of radii) {
         const a = base + (k / 16) * Math.PI * 2, x = cx + Math.sin(a) * (o.r ?? r), z = cz + Math.cos(a) * (o.r ?? r), c = nav.cellOf(x, z);
         if (c < 0 || !nav.free(f, c, 2, true) || F.door[c] >= 0 || F.clear[c] < minClear) continue;
-        if (nearDoor(f, x, z, 2.6) || taken(g, x, z, 3.1)) continue;
+        if (nearDoor(f, x, z, 2.6) || taken(g, x, z, 3.1) || (!hallOk && inHall(f, x, z))) continue;
         if (!o.facing && v.present && v.f === f && Math.hypot(v.x - x, v.z - z) < 4.8) continue;
         if (see && !nav.see(f, cx, cz, x, z)) continue;
         let rel = a - Math.atan2(v.fx, v.fz); rel = Math.atan2(Math.sin(rel), Math.cos(rel));
@@ -204,10 +204,116 @@ export function makeParty(ctx, ui) {
 
   function goTo(g, f, x, z, onArrive = null, speedK = 1) {
     if (g.out || g.mode === 'glide' || (g.mode === 'go' && onStair(g))) return false;
+    if (g.sitting) {                                              // up off the seat first, then on the way
+      const a = g.seatAccess; g.sitting = false; if (g.seat) g.seat.by = null; g.seat = null; g.drop = 0;
+      glide(g, [[a.x, nav.FLOORS[a.f], a.z]], () => { g.m.place(a.x, a.z, a.f); goTo(g, f, x, z, onArrive, speedK); });
+      return true;
+    }
     if (!g.m.goTo(f, x, z)) { P.events.fails++; return false; }
     g.mode = 'go'; g.onArrive = onArrive; g.tries = 3; g.speedK = speedK; return true;
   }
   function glide(g, pts, then) { g.gl = pts; g.gi = 0; g.glThen = then; g.mode = 'glide'; g.m.stop(); }
+
+  // ---- Making themselves at home: the furniture is for sitting on -----------------------------------
+  const SEATS = (ctx.items.seats ?? []).map(q => { const top = q.y - 2.45, f = top > nav.FLOORS[1] - 0.6 ? 1 : 0; return { x: q.x, z: q.z, top, yaw: q.yaw, f, by: null }; })
+    .filter(q => q.top - nav.FLOORS[q.f] > 0.9 && q.top - nav.FLOORS[q.f] < 2.7);
+  const inHall = (f, x, z) => { const r = nav.roomAt(x, nav.FLOORS[f] + 1, z); return !!r && /hall/i.test(r.name); };
+  function takeSeat(g) {
+    if (g.sitting || g.out || !v.present || v.outside) return false;
+    const m = g.m; let best = null, bs = 1e9, bc = -1;
+    for (const q of SEATS) {
+      if (q.f !== m.f || q.f !== v.f || q.by) continue;
+      const dv = Math.hypot(q.x - v.x, q.z - v.z); if (dv < 2.8 || dv > 22) continue;
+      if (v.room && nav.roomAt(q.x, q.top + 1, q.z)?.name !== v.room) continue;                      // somewhere in the room she is in
+      if (taken(g, q.x, q.z, 1.6) || SEATS.some(o => o !== q && o.by && o.by !== g && Math.hypot(o.x - q.x, o.z - q.z) < 2.3)) continue;      // not on top of somebody, nor in their lap
+      const c = nav.nearest(q.f, q.x, q.z, 2, 3.4, true); if (c < 0) continue;
+      const score = Math.abs(dv - 8) + Math.hypot(q.x - m.x, q.z - m.z) * 0.15 + rnd() * 2.5;
+      if (score < bs) { bs = score; best = q; bc = c; }
+    }
+    if (!best) return false;
+    const ax = nav.cx(bc), az = nav.cz(bc), f = best.f;
+    best.by = g; g.seatWant = best;
+    const ok = goTo(g, f, ax, az, () => {
+      if (best.by !== g) return;
+      if (v.seated && Math.hypot(best.x - v.x, best.z - v.z) < 2.4) { best.by = null; g.seatWant = null; return; }   // she got there first
+      glide(g, [[best.x, nav.FLOORS[f], best.z]], () => {
+        g.sitting = true; g.seat = best; g.seatWant = null; g.seatAccess = { x: ax, z: az, f };
+        g.drop = Math.max(0, g.spec.hover - (best.top - nav.FLOORS[f]) - 0.86 * (g.spec.tall ?? 1));
+        g.m.x = best.x; g.m.z = best.z; g.m.v = 0;
+        if (rnd() < 0.5 && P.now - P.saidSeat > 50) { P.saidSeat = P.now; line(g, g.C.pools.sitDown ? 'sitDown' : 'seated', { toGuest: false, secs: 3 }); }
+      });
+    }, 0.8);
+    if (!ok) { best.by = null; g.seatWant = null; }
+    return ok;
+  }
+  // A place to be that is a room, not a way through
+  function roomSpot(g) {
+    const m = g.m, F = nav.floors[m.f];
+    const c = nav.nearest(m.f, m.x, m.z, 2, 16, true, c => F.clear[c] >= 3 && !inHall(m.f, nav.cx(c), nav.cz(c)) && !nearDoor(m.f, nav.cx(c), nav.cz(c), 2.8) && !taken(g, nav.cx(c), nav.cz(c), 2.6));
+    return c < 0 ? null : { f: m.f, x: nav.cx(c), z: nav.cz(c) };
+  }
+
+  // ---- Coming outside with her ---------------------------------------------------------------------
+  const O = () => staff()?.H?.out ?? null;                        // the garden's own plan (the gardeners')
+  const doorX = () => P.door?.cx ?? wx(21.95);
+  function stepOut(g) {
+    if (g.outing || g.out || g.state !== 'here') return;
+    const to = landing(g) ?? P.inside; g.outing = true;
+    const cross = () => {
+      if (!v.outside || doorwayBusy(g)) { later(1.5, () => { g.outing = false; }); return; }
+      openDoor(); const x = doorX();
+      g.out = true; g.crossing = true; g.garden = true; g.away = null; g.gSettled = false;
+      glide(g, [[x + Math.max(-0.4, Math.min(0.8, g.m.x - x)), nav.FLOORS[0], -1.3], [x, PORCH_Y + 0.05, 0.9], [x, PORCH_Y, 2.4], [x + (g.i - 1) * 2.1, PORCH_Y, 5.4]], () => { g.crossing = false; g.outing = false; closeDoorSoon(2.5); });
+    };
+    if (!goTo(g, 0, to.x, to.z, cross, 1.1)) g.outing = false;
+  }
+  function comeIn(g) {
+    if (g.cominIn) return; g.cominIn = true;
+    const o = O(), x = doorX(), pts = [], m = g.m;
+    if (m.z > 15 && o) { const path = o.path(0, m.x, m.z, 0, x, 16.5, 2); if (path) for (const q of path) pts.push([q.x, 0.05, q.z]); else pts.push([x, 0.05, 16.5]); }
+    if (m.z > 8.6) pts.push([x, PORCH_Y, 9.2]);
+    pts.push([x, PORCH_Y, 2.1]);
+    g.glK = 1.8;
+    glide(g, pts, () => {
+      const tryIn = () => {
+        const to = doorwayBusy(g) ? null : landing(g);
+        if (!to) { g.waitUntil = P.now + 0.8; g.glThen = tryIn; g.mode = 'knock'; return; }
+        openDoor(); g.crossing = true; g.glK = 1;
+        glide(g, [[x, PORCH_Y + 0.05, 0.9], [x + Math.max(-0.4, Math.min(0.8, to.x - x)), nav.FLOORS[0], -1.3], [to.x, nav.FLOORS[0], to.z]], () => {
+          g.out = false; g.garden = false; g.crossing = false; g.cominIn = false; g.gSettled = false; g.m.place(to.x, to.z, 0); g.mode = 'idle'; g.thinkAt = 0; closeDoorSoon(3);
+        });
+      };
+      tryIn();
+    });
+  }
+  // Out of doors: stay on the porch if that is where she is, otherwise find a place near her in the garden
+  function gardenThink(g) {
+    const m = g.m, o = O();
+    if (g.crossing || g.mode === 'glide' || g.mode === 'knock' || g.cominIn || !v.present) return;
+    if (!v.outside) { if (P.now - (v.inSince ?? 0) > 4) comeIn(g); return; }
+    const x0 = doorX(), onPorch = v.z > -1 && v.z < 11 && Math.abs(v.x - x0) < 14 && v.y > 0.9;
+    if (onPorch) {
+      if (m.z > 12) { g.glK = 1.8; g.gSettled = false; glide(g, [[x0, PORCH_Y, 9.2], [x0 + (g.i - 1) * 2.1, PORCH_Y, 5.4]], () => { g.glK = 1; }); }
+      return;
+    }
+    if (!o) return;
+    const d = Math.hypot(m.x - v.x, m.z - v.z);
+    if (g.gSettled && d < 15) return;
+    for (const o2 of P.guests) if (o2 !== g && o2.garden && o2.mode === 'glide' && Math.hypot(o2.m.x - m.x, o2.m.z - m.z) < 7) return;      // one at a time down the path
+    if (P.now - v.movedAt < 1.2 && d < 40) return;                       // let her get where she is going first
+    const base = Math.atan2(v.fx, v.fz) + g.sideSign * 0.9;
+    for (let k = 0; k < 12; k++) {
+      const a = base + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.5, r = 6.4 + (k > 5 ? 2 : 0), x = v.x + Math.sin(a) * r, z = v.z + Math.cos(a) * r;
+      if (!o.freeAt(0, x, z, 2) || taken(g, x, z, 3)) continue;
+      const pts = []; let sx = m.x, sz = m.z;
+      if (m.z < 15 && m.y > 1) { pts.push([x0, PORCH_Y, 9.2], [x0, 0.05, 16.5]); sx = x0; sz = 16.5; }
+      const path = o.path(0, sx, sz, 0, x, z, 2); if (!path) continue;
+      for (const q of path) pts.push([q.x, 0.05, q.z]);
+      g.glK = 1.9; glide(g, pts, () => { g.glK = 1; g.gSettled = true; g.look = v; g.lookUntil = P.now + 3; });
+      if (!P.saidOut || P.now - P.saidOut > 120) { P.saidOut = P.now; line(g, 'follow', { toGuest: false, secs: 2.8 }); }
+      return;
+    }
+  }
 
   // ---- Coming and going ------------------------------------------------------------------------------
   function ring(id) {
@@ -225,7 +331,7 @@ export function makeParty(ctx, ui) {
     g.m.x = x + 0.5 + g.i * 0.9 - 0.9; g.m.z = 10.6; g.m.y = PORCH_Y; g.m.f = 0; g.m.yaw = Math.PI; g.m.v = 0;
     if (id_is(g, 'gigi')) { g.hasCup = false; g.body.cup.visible = false; g.wantCoffee = P.now + 38 + rnd() * 20; }
     note(`${g.C.short} is at the front door.`);
-    glide(g, [[x, PORCH_Y, 2.1]], () => {
+    glide(g, [[x + (g.i - 1) * 1.9, PORCH_Y, 2.5 + Math.abs(g.i - 1) * 0.5]], () => {      // each to their own place on the step
       // knock, wait for the door, come in
       g.bubble.say('*knock knock*', 1.6, P.now); ctx.sound?.note?.(45, 0, 0.12, 0.09); ctx.sound?.note?.(45, 0.22, 0.12, 0.09); ctx.sound?.note?.(45, 0.44, 0.12, 0.07);
       g.waitUntil = P.now + (P.door?.isOpen ? 0.5 : 1.3);
@@ -303,7 +409,7 @@ export function makeParty(ctx, ui) {
   function talkTo(g, focus = true) {
     if (!here(g)) return;
     staff()?.H?.talk?.close?.();                         // one conversation at a time
-    P.chatWith = g; P.lastInput = P.now; g.engagedUntil = P.now + 2.5; g.look = v; g.lookUntil = P.now + 6; g.expr = 'happy'; g.exprUntil = P.now + 2.5;
+    P.script = null; P.chatWith = g; P.lastInput = P.now; g.engagedUntil = P.now + 2.5; g.look = v; g.lookUntil = P.now + 6; g.expr = 'happy'; g.exprUntil = P.now + 2.5;
     if (g.mode === 'go' && !g.dance && !onStair(g)) { g.m.stop(); g.mode = 'idle'; }
     ui?.chat.show({ id: g.id, name: g.C.name, short: g.C.short, tag: g.C.tag }, chatApi, focus);
   }
@@ -316,6 +422,7 @@ export function makeParty(ctx, ui) {
     for (const l of r.lines) {
       const who = P.byId[l.who]; if (!who || !here(who)) continue;
       const main = l.kind !== 'react';
+      if (!main) continue;                               // the others keep their own counsel while you two talk
       later(t, () => { if (!here(who) && who.state !== 'leaving') return; const speaker = P.byId[r.to]; say(who, l.text, { expr: l.expr, toGuest: main || l.who === r.to, look: main ? null : (rnd() < 0.5 ? speaker?.m : v) }); });
       const dur = Math.min(5.2, 1.5 + l.text.length * 0.04); if (main) mainDur = dur;
       t += dur;
@@ -360,7 +467,7 @@ export function makeParty(ctx, ui) {
     if (announce && audible(g)) line(g, 'drift:' + s.key, { expr: 'happy' });
     return true;
   }
-  // Gigi and the coffee bar: she goes, "makes" one, and comes back with a cup
+  // Geneva and the coffee bar: she goes, "makes" one, and comes back with a cup
   function coffeeRun(g, announce = true) {
     const s = SPOTS.gigi[0], at = spotFor(g, s); if (!at) { g.wantCoffee = P.now + 20; return; }
     const machine = { x: wx(s.look[0]), z: wz(s.look[1]) };
@@ -378,10 +485,12 @@ export function makeParty(ctx, ui) {
 
   // ---- What a guest does next (about four times a second) ------------------------------------------
   function think(g) {
+    if (g.garden) { gardenThink(g); return; }
     const m = g.m, d = v.present && v.f === m.f ? dist(m, v) : 99, chatting = P.chatWith === g;
+    if (!g.sitting && g.seatWant && g.mode === 'idle') { if (g.seatWant.by === g) g.seatWant.by = null; g.seatWant = null; }      // a seat she never reached
     if (g.anim && P.now > g.animUntil && !g.dance) g.anim = null;
     // stranded somewhere there is no floor (a plan that fell through on the stair, furniture that arrived late): glide to the nearest good place
-    if (g.mode === 'idle' && !nav.freeAt(m.f, m.x, m.z, 1, true)) {
+    if (g.mode === 'idle' && !g.sitting && !nav.freeAt(m.f, m.x, m.z, 1, true)) {
       if ((g.offFloor += 0.25) > 1) {
         g.offFloor = 0; P.events.rescues++;
         const st = nav.stair;
@@ -391,17 +500,23 @@ export function makeParty(ctx, ui) {
     } else g.offFloor = 0;
     if (g.engaged || (P.script && P.script.who.includes(g.id))) return;
     // manners: not too close, and never left standing in a doorway
-    if (d < (chatting ? 2.8 : 4.4) && P.now - g.lastBack > 2.5 && (g.mode === 'idle' || g.dance || m.v < 0.15)) {
+    if (!g.sitting && d < (chatting ? 2.8 : 4.4) && P.now - g.lastBack > 2.5 && (g.mode === 'idle' || g.dance || m.v < 0.15)) {
       g.lastBack = P.now;
       const a = Math.atan2(m.x - v.x, m.z - v.z), s = politeSpot(g, v.x + Math.sin(a) * (KEEP + 1), v.z + Math.cos(a) * (KEEP + 1), m.f, 3);
       if (s && goTo(g, s.f, s.x, s.z, null, 0.7)) { P.events.backoffs++; return; }
       const s2 = spotNear(g, v.x, v.z, m.f, { facing: true }); if (s2 && dist(s2, v) > d + 0.8 && goTo(g, s2.f, s2.x, s2.z, null, 0.7)) { P.events.backoffs++; return; }
     }
-    if (g.mode === 'idle' && P.now - g.nudgeAt < 0.6 && P.now - g.lastNudge > 3) {
+    if (g.mode === 'idle' && !g.sitting && P.now - g.nudgeAt < 0.6 && P.now - g.lastNudge > 3) {
       g.lastNudge = P.now; P.events.nudges++;
       for (const r of [4.5, 3.2, 6]) { const s = spotNear(g, m.x, m.z, m.f, { r }); if (s && goTo(g, s.f, s.x, s.z, null)) return; }
     }
-    if (g.mode === 'idle' && nearDoor(m.f, m.x, m.z, 2.3)) { const s = politeSpot(g, m.x, m.z, m.f, 6); if (s && goTo(g, s.f, s.x, s.z, null)) return; }
+    if (g.mode === 'idle' && !g.sitting && nearDoor(m.f, m.x, m.z, 2.3)) { const s = politeSpot(g, m.x, m.z, m.f, 6); if (s && goTo(g, s.f, s.x, s.z, null)) return; }
+    // nobody is left standing in a hall: it is a way through, not a place to be
+    if (g.mode === 'idle' && !g.sitting && !g.dance && inHall(m.f, m.x, m.z) && P.now - (g.hallAt ?? -9) > 3) {
+      g.hallAt = P.now;
+      const s = (v.present && !v.outside && v.f === m.f && !inHall(v.f, v.x, v.z) ? spotNear(g, v.x, v.z, v.f, { facing: true }) : null) ?? roomSpot(g);
+      if (s && goTo(g, s.f, s.x, s.z, null)) return;
+    }
     if (g.dance) return;
     if (id_is(g, 'gigi') && g.wantCoffee && P.now > g.wantCoffee && !g.away && g.mode === 'idle' && !chatting && m.f === 0) { coffeeRun(g, true); return; }
     // off enjoying something: stay a while, unless she has gone somewhere else entirely
@@ -412,16 +527,20 @@ export function makeParty(ctx, ui) {
       else return;
     }
     if (!v.present || v.outside) {
-      if (v.present && v.outside && !P.saidWait && P.now - v.outSince > 1.5 && P.now - v.outSince < 12) { P.saidWait = true; const t = brain.say(g.id, 'waitOutside'); say(g, t, { toGuest: false }); note(`${g.C.short}: “${t}”`); }
+      if (v.present && v.outside && !/screened/i.test(v.room ?? '') && P.now - v.outSince > 3.5 + g.i * 2.5 && !g.outing && g.mode !== 'glide') {      // out we go too
+        if (!P.saidWait && P.now - v.outSince < 20) { P.saidWait = true; const t = brain.say(g.id, 'waitOutside'); say(g, t, { toGuest: false }); note(`${g.C.short}: “${t}”`); }
+        stepOut(g); if (g.outing) return;
+      }
       if (g.mode === 'idle' && P.now > g.nextAct) { g.nextAct = P.now + 30 + rnd() * 30; const list = SPOTS[g.id].filter(s => s.f === m.f); const s = list[Math.floor(rnd() * list.length)]; if (s) { drift(g, s, false); if (g.away) g.away.until = P.now + 40; } }
       return;
     }
     // company: follow when she has gone somewhere else
     const sees = d < 30 && nav.see(v.f, v.x, v.z, m.x, m.z);
     const stale = g.mode === 'go' && m.goal && (m.goal.f !== v.f || Math.hypot(m.goal.x - v.x, m.goal.z - v.z) > 11 || Math.hypot(m.goal.x - v.x, m.goal.z - v.z) < 3.4);
+    if (g.sitting && v.f === m.f && d < 30) { g.followSince = 0; if (P.now > g.nextAct && !chatting) { g.nextAct = P.now + 14 + rnd() * 14; if (rnd() < 0.5) { g.anim = g.id === 'feyn' ? 'drum' : g.id === 'nano' ? 'type' : g.hasCup ? 'sip' : 'bow'; g.animUntil = P.now + 3 + rnd() * 2; } } return; }      // comfortable where they are
     if (m.f !== v.f || d > 15 || (!sees && d > 7)) {
       if (!g.followSince) g.followSince = P.now;
-      if (P.now - g.followSince > g.lag && (g.mode === 'idle' || stale) && (P.now - v.movedAt > 0.5 || d > 20)) {
+      if (P.now - g.followSince > g.lag + (g.sitting ? 6 : 0) && (g.mode === 'idle' || stale) && (P.now - v.movedAt > 0.5 || d > 20)) {
         const s = spotNear(g, v.x, v.z, v.f, { facing: true });
         if (s && goTo(g, s.f, s.x, s.z, () => { g.look = v; g.lookUntil = P.now + 3; })) {
           P.events.follows++; g.drop = 0;
@@ -435,7 +554,8 @@ export function makeParty(ctx, ui) {
     if (stale && !onStair(g)) { m.stop(); g.mode = 'idle'; }
     if (g.mode !== 'idle') return;
     // settled near her
-    g.drop += ((v.seated && d < 12 ? 0.55 : 0) - g.drop) * 0.3;
+    if (!g.sitting && !chatting && !g.dance && P.now > (g.nextSeat ?? 0) && P.now - v.movedAt > 2 && P.now - v.roomSince > 4) { g.nextSeat = P.now + 10 + rnd() * 10; if (takeSeat(g)) return; }
+    if (!g.sitting) g.drop += ((v.seated && d < 12 ? 0.55 : 0) - g.drop) * 0.3;
     if (v.seated && P.now - P.saidSeat > 90 && d < 12 && rnd() < 0.3) { P.saidSeat = P.now; line(g, 'seated', { toGuest: true }); return; }
     if (P.now < g.nextAct || chatting) return;
     g.nextAct = P.now + 11 + rnd() * 12;
@@ -486,7 +606,7 @@ export function makeParty(ctx, ui) {
     if (P.now < P.nextGroup) return;
     P.nextGroup = P.now + 0.5;
     let talking = false; for (const g of P.guests) if (g.bubble.talking(P.now)) talking = true;
-    const quiet = P.now - P.lastInput > 10 && P.danceUntil < P.now && !talking;
+    const quiet = P.now - P.lastInput > 10 && P.danceUntil < P.now && !talking && !(P.chatWith && ui?.chat.open);      // their own talk waits while you are in a conversation
     if (P.now > P.nextBanter && quiet) {
       P.nextBanter = P.now + 6;
       let n = 0; for (const g of P.guests) if (here(g) && !g.away && g.mode === 'idle' && inSight(g)) n++;
@@ -518,7 +638,7 @@ export function makeParty(ctx, ui) {
     if (P.now >= g.thinkAt && (here(g) || g.state === 'leaving')) { g.thinkAt = P.now + 0.25; if (here(g)) think(g); watchdog(g); }
     // moving
     if (g.mode === 'glide') {
-      const p = g.gl[g.gi], dx = p[0] - m.x, dz = p[2] - m.z, L = Math.hypot(dx, dz), step = g.spec.speed * 1.05 * dt;
+      const p = g.gl[g.gi], dx = p[0] - m.x, dz = p[2] - m.z, L = Math.hypot(dx, dz), step = g.spec.speed * 1.05 * (g.glK ?? 1) * dt;
       m.face(Math.atan2(dx, dz), dt * 1.6);
       if (L <= step) { m.x = p[0]; m.z = p[2]; m.y = p[1]; if (++g.gi >= g.gl.length) { g.mode = 'idle'; const f = g.glThen; g.glThen = null; f?.(); } }
       else { m.x += dx / L * step; m.z += dz / L * step; m.y += (p[1] - m.y) * Math.min(1, step / L); }
@@ -541,18 +661,29 @@ export function makeParty(ctx, ui) {
       m.v = Math.max(0, m.v - dt * 4);
       if (g.dance && g.danceReady && v.present) m.faceTo(v.x, v.z, dt * 1.2);
       else if (P.now < g.lookUntil && g.look) m.faceTo(g.look.x, g.look.z, dt * 0.9);
-      else if (here(g) && !g.away && v.present && v.f === m.f && !v.outside) m.faceTo(v.x, v.z, dt * 0.35);          // drifting round to keep her in view
+      else if (g.sitting && g.seat && P.chatWith !== g) m.face(g.seat.yaw, dt * 1.2);                                // sat the way the chair faces
+      else if (here(g) && !g.away && v.present && (g.garden ? v.outside : v.f === m.f && !v.outside)) m.faceTo(v.x, v.z, dt * 0.35);          // drifting round to keep her in view
     }
     // a body she cannot walk through; pressed against, it glides aside
     const r = g.spec.radius;
     g.box.x0 = m.x - r; g.box.x1 = m.x + r; g.box.z0 = m.z - r; g.box.z1 = m.z + r; g.box.y0 = m.y + 0.6; g.box.y1 = m.y + g.spec.hover + 0.8;
-    if (here(g) && v.present && Math.abs(v.y - m.y) < 3) {
+    // stepping out of her way: someone standing in the line she is walking moves aside before she arrives
+    if (here(g) && !g.sitting && !g.out && v.present && v.f === m.f && v.speed > 1.5 && (g.mode === 'idle' || g.engaged) && g.mode !== 'glide' && P.now - (g.lastYield ?? -9) > 1.3 && !onStair(g)) {
+      const rx = m.x - v.x, rz = m.z - v.z, ahead = rx * v.dx + rz * v.dz, lat = rx * v.dz - rz * v.dx;
+      if (ahead > 0.3 && ahead < 8 && Math.abs(lat) < 1.9) {
+        g.lastYield = P.now;
+        const s0 = Math.sign(lat) || g.sideSign; let done = false;
+        for (const sgn of [s0, -s0]) { for (const k of [3.2, 2.4, 4.2]) { const x = m.x + v.dz * sgn * k, z = m.z - v.dx * sgn * k; if (nav.freeAt(m.f, x, z, 2, true) && !taken(g, x, z, 1.6) && goTo(g, m.f, x, z, null, 1.7)) { done = true; break; } } if (done) break; }
+        if (done) P.events.yields = (P.events.yields ?? 0) + 1;
+      }
+    }
+    if (here(g) && !g.sitting && !g.out && v.present && Math.abs(v.y - m.y) < 3) {
       const dx = m.x - v.x, dz = m.z - v.z, d = Math.hypot(dx, dz), want = r + 1.12;
       if (d < want && d > 1e-3) { const step = Math.min(want - d, dt * 2.5), x = m.x + dx / d * step, z = m.z + dz / d * step; if (nav.freeAt(m.f, x, z, 2, true)) { m.x = x; m.z = z; P.events.glides++; } }
     }
-    if (here(g)) {
-      for (const o of P.guests) if (o !== g && o.i < g.i && !o.out && o.state !== 'away' && o.m.f === m.f) easeOff(g, o.m.x, o.m.z, 1.7, dt);
-      const H = staff()?.H; if (H) for (const a of H.robots) if (a.f === m.f) easeOff(g, a.x, a.z, 1.7, dt);
+    if (here(g) && !g.sitting && !g.out) {
+      for (const o of P.guests) if (o !== g && o.i < g.i && !o.out && o.state !== 'away' && o.m.f === m.f) easeOff(g, o.m.x, o.m.z, 2.1, dt);
+      const H = staff()?.H; if (H) for (const a of H.robots) if (a.f === m.f) easeOff(g, a.x, a.z, 2.1, dt);
     }
     g.inter.x = m.x; g.inter.z = m.z; g.inter.y = here(g) ? m.y + g.spec.hover - g.dropNow : -1000;
     b.root.position.set(m.x, m.y, m.z);
@@ -635,11 +766,12 @@ export function makeParty(ctx, ui) {
     v.present = present; if (!present) return;
     v.x = w.pos.x; v.y = w.pos.y; v.z = w.pos.z; v.f = nav.floorOf(w.pos.y + 0.5);
     v.fx = -Math.sin(w.yaw); v.fz = -Math.cos(w.yaw); v.seated = !!w.seated;
+    { const ddx = v.x - (v.px ?? v.x), ddz = v.z - (v.pz ?? v.z), L = Math.hypot(ddx, ddz), sp = L / Math.max(P.dt, 1e-3); v.speed = (v.speed ?? 0) * 0.8 + sp * 0.2; if (L > 1e-4 && sp > 0.5) { v.dx = ddx / L; v.dz = ddz / L; } v.px = v.x; v.pz = v.z; }
     if (Math.hypot(v.x - v.lx, v.z - v.lz) > 0.5) { v.lx = v.x; v.lz = v.z; v.movedAt = P.now; }
     if (P.now < P.nextWatch) return;
     P.nextWatch = P.now + 0.2;
     const room = nav.roomAt(v.x, v.y + 0.5, v.z)?.name ?? null, outside = !room || /terrace|front porch|screened porch/i.test(room);
-    if (outside !== v.outside) { v.outside = outside; if (outside) { v.outSince = P.now; P.saidWait = false; } else if (P.now - v.outSince > 25) welcomeBack(); }
+    if (outside !== v.outside) { v.outside = outside; if (outside) { v.outSince = P.now; P.saidWait = false; } else { v.inSince = P.now; if (P.now - v.outSince > 25 && !P.guests.some(g => g.garden)) welcomeBack(); } }
     if (room !== v.room) { v.room = room; v.roomSince = P.now; }
   }
   function welcomeBack() { later(2.5, () => { let best = null, bd = 30; for (const g of P.guests) if (here(g) && !g.engaged && g.m.f === v.f && dist(g.m, v) < bd) { bd = dist(g.m, v); best = g; } if (best && !v.outside) line(best, 'welcomeBack', { expr: 'happy' }); }); }

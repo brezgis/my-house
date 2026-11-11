@@ -152,17 +152,16 @@ export function makeUI({ canvas, touch = 'ontouchstart' in window } = {}) {
         input.value = ''; input.placeholder = `Say something to ${who.short}…`;
         chat.setChips(api.chips(who.id));
       }
-      chatEl.classList.add('on'); chat.rest(!focus || touch);
-      if (focus && !touch) { release(); input.focus({ preventScroll: true }); }
+      chatEl.classList.add('on'); chat.rest(false);      // no typing: you keep walking and looking, and choose a line with 1 to 4
       chat.sync();
     },
     // resting: the card stays up as a record of the talk while you walk about; E on the friend takes up the pen again
-    rest(on) { chat.resting = on; chatEl.classList.toggle('resting', on); if (on && document.activeElement && chatEl.contains(document.activeElement)) document.activeElement.blur(); chat.sync(); },
+    rest(on) { on = false; chat.resting = on; chatEl.classList.toggle('resting', on); if (on && document.activeElement && chatEl.contains(document.activeElement)) document.activeElement.blur(); chat.sync(); },
     hide(quiet) { if (!chat.open) return; const api = chat.api; chat.open = false; chat.resting = false; chatEl.classList.remove('on', 'resting'); if (chatEl.contains(document.activeElement)) document.activeElement.blur(); if (!quiet) { api?.closed?.(); relock(); } },
     sync() {
       if (!chat.open) return;
       danceBtn.textContent = chat.api?.dancing?.() ? 'Stop dancing' : 'Dance';
-      hint.innerHTML = touch ? 'Tap a line, or type your own.' : chat.resting ? `<span class="fr-key">E</span> on ${esc(chat.who.short)} to say more` : 'Enter says it · Esc steps back';
+      hint.innerHTML = touch ? 'Tap a line.' : '<span class="fr-key">1</span>–<span class="fr-key">4</span> say a line · <span class="fr-key">5</span> dance · <span class="fr-key">0</span> goodbye';
     },
     setChips(list) {
       chat.chips = (list ?? []).slice(0, 4);
@@ -180,19 +179,21 @@ export function makeUI({ canvas, touch = 'ontouchstart' in window } = {}) {
       chat.api.say(chat.who.id, text);
     },
   };
-  chatEl.querySelector('form').addEventListener('submit', e => { e.preventDefault(); chat.send(input.value); if (!touch) input.focus({ preventScroll: true }); });
+  chatEl.querySelector('form').style.display = 'none';      // the owner found free typing too much: lines are chosen, not typed
+  addEventListener('keydown', e => {
+    if (!chat.open || phone.open || e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName ?? '')) return;
+    const n = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Numpad1: 0, Numpad2: 1, Numpad3: 2, Numpad4: 3 }[e.code];
+    if (n !== undefined && n < chat.chips.length) { e.preventDefault(); e.stopImmediatePropagation(); chat.send(chat.chips[n]); }
+    else if (e.code === 'Digit5' || e.code === 'Numpad5') { e.preventDefault(); e.stopImmediatePropagation(); chat.api.dance(); chat.sync(); }
+    else if (e.code === 'Digit0' || e.code === 'Numpad0') { e.preventDefault(); e.stopImmediatePropagation(); chat.send('Goodbye'); }
+  }, true);
   chatEl.addEventListener('click', e => {
     const c = e.target.closest('.fr-chip');
-    if (c) { chat.send(chat.chips[Number(c.dataset.i)]); if (!touch && !chat.resting) input.focus({ preventScroll: true }); }
+    if (c) { chat.send(chat.chips[Number(c.dataset.i)]); }
     else if (e.target.closest('.fr-x')) chat.hide();
-    else if (e.target.closest('.fr-dance')) { chat.api.dance(); chat.sync(); if (!touch && !chat.resting) input.focus({ preventScroll: true }); }
+    else if (e.target.closest('.fr-dance')) { chat.api.dance(); chat.sync(); }
   });
-  input.addEventListener('focus', () => { if (chat.open && chat.resting) { release(); chat.rest(false); } });
-  chatEl.addEventListener('keydown', e => {
-    if (e.code === 'Escape') { e.preventDefault(); chat.hide(); return; }
-    const n = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3 }[e.code];
-    if (n !== undefined && !input.value && n < chat.chips.length && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); chat.send(chat.chips[n]); }
-  });
+  chatEl.addEventListener('keydown', e => { if (e.code === 'Escape') { e.preventDefault(); chat.hide(); } });
   // Clicking back into the scene takes the pointer again: the card rests, still readable
   document.addEventListener('pointerlockchange', () => { if (document.pointerLockElement) { hadLock = false; if (chat.open) chat.rest(true); if (phone.open) phone.hide(); } });
 

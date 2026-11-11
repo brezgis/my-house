@@ -6,7 +6,7 @@
 //
 //   Professor Feynbot   a curious physicist robot with a pair of bongos (an affectionate
 //                       homage to a certain physicist; not him, and he says so)
-//   Gigi                a warm, gossipy best friend who runs on coffee (entirely invented)
+//   Geneva                a warm, gossipy best friend who runs on coffee (entirely invented)
 //   nanoKarpathy        a cheerful explainer of neural nets, from scratch (an affectionate
 //                       homage to a certain AI researcher; not him, and he says so)
 //
@@ -21,7 +21,7 @@
 //
 // Test hooks (with view=...):
 //   ?friends=0                 no telephone, no friends
-//   ?friends=phone             the telephone card, open         ?friends=phone:gigi   ...having rung Gigi
+//   ?friends=phone             the telephone card, open         ?friends=phone:gigi   ...having rung Geneva
 //   ?friends=demo              all three posed in front of the camera, saying hello  (demo:feyn,gigi for some)
 //   ?friends=coffee            posed, each at their own fidget (bongos, coffee, typing)
 //   ?friends=dance             posed, dancing

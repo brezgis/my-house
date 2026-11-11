@@ -4,7 +4,7 @@
 // Two of them are affectionate homage ROBOTS, not impersonations: Professor Feynbot
 // (after a certain bongo-playing physicist) and nanoKarpathy (after a certain AI
 // researcher who teaches by building things from scratch). Every line here was
-// written for this house; nothing is a quotation from a real person. Gigi and all
+// written for this house; nothing is a quotation from a real person. Geneva and all
 // the people in her gossip are invented.
 //
 // In a line:  {name} the visitor's name (or a pet name), {, name} the same with a comma
@@ -121,7 +121,7 @@ export const CAST = {
       bye: ['So long for now{, name}! I will be around. Shout if you find a good puzzle.', 'Off you go. I will be here wondering about something.'],
       follow: ['Lead on, I will tag along.', 'Coming! What is in this one?'],
       upstairs: ['Stairs! I float, so this is cheating.'],
-      waitOutside: ['You go on, I will stay in. There is a clock in here I am not finished with.'],
+      waitOutside: ['Outside? Terrific. I will come and look at whatever the bees are doing.'],
       welcomeBack: ['There you are! How was outside? Still there?'],
       idle: ['*drums a quick pattern on thin air*', 'See the shape the lampshade throws on the wall? A cone of light meeting a flat wall. A hyperbola! Lovely.', 'I counted the pegs in that beam. Then I lost count on purpose, to do it again.', 'Listen to this floorboard. *tap* B flat.', 'Now why does the steam from a cup always lean toward the window?'],
       seated: ['Good idea. Thinking is better sitting down.'],
@@ -130,14 +130,14 @@ export const CAST = {
       hum: ['♪ dum, da-dum, tappa-tap ♪', '♪ boom-chicka, boom, tap ♪'],
     },
     others: {
-      gigi: ['Gigi knows everything about everybody. It is an information network with a bow on. I am studying it.', 'Gigi tried to get my romantic history out of me. I gave her the history of the electron. She took notes anyway.'],
+      gigi: ['Geneva knows everything about everybody. It is an information network with a ponytail. I am studying it.', 'Geneva tried to get my romantic history out of me. I gave her the history of the electron. She took notes anyway.'],
       nano: ['Nano builds little thinking machines from scratch to see how they work. A kindred tin can!', 'I like Nano. He writes it all out the long way so anyone can follow. That is how you know someone understands a thing.'],
     },
     react: {
-      gigi: ['She is right, you know. She usually is. I checked.', 'Listen to Gigi. Her error bars are tiny.'],
+      gigi: ['She is right, you know. She usually is. I checked.', 'Listen to Geneva. Her error bars are tiny.'],
       nano: ['What he said. Then ask him why it works. It is fun to watch.', 'Nano builds a thing so that he can understand it. That is the right order.'],
       topics: {
-        gossip: ['I do not know who these people are and I am completely gripped.', 'Gigi has better sources than most journals.'],
+        gossip: ['I do not know who these people are and I am completely gripped.', 'Geneva has better sources than most journals.'],
         nets: ['And nobody is quite sure why it works so well. Is that not marvellous?', 'A machine that guesses, checks, and guesses better. I approve of the method.'],
         drink: ['If Barty is making coffee I will hold a cup. I like the steam.'],
         music: ['Music? I have the percussion covered.'],
@@ -157,10 +157,10 @@ export const CAST = {
 
   // ---------------------------------------------------------------------------------------
   gigi: {
-    id: 'gigi', name: 'Gigi', short: 'Gigi', call: 'babe',
-    tag: 'best friend, coffee enthusiast, knows everything',
-    alias: 'gigi|geegee|gigs|the gossip',
-    chips: ['Any gossip?', 'I love your bow', 'Shall we get a coffee?'],
+    id: 'gigi', name: 'Geneva', short: 'Geneva', call: 'babe',
+    tag: 'best friend, iced-coffee person, knows everything',
+    alias: 'geneva|gen|genny|gigi|the gossip',
+    chips: ['Any gossip?', 'I love your hair', 'Shall we get a coffee?'],
     subjects: [
       { id: 'gossip', label: 'the gossip', rk: 'gossip', chip: 'Any gossip?', more: 'More gossip, please', re: /\b(gossip\w*|spill\w*|secrets?|rumou?rs?|drama|news|scandal\w*|tell me everything|whats new|the tea|juicy|story|stories|whats going on|whats happening)\b/, lines: [
         'Okay so. Delphine from my pottery class made a vase for her neighbour. He put ONE tulip in it and left it on her step. I am fine. I am totally fine.',
@@ -175,9 +175,10 @@ export const CAST = {
         'My whole philosophy: if they remember how you take your coffee, keep them.',
         'I love love. I cry at weddings, I cry at engagements, I cried when the Pemberton twins got a puppy.',
         'Okay, tell me everything about them. Start with how they text. You can tell a lot from how a person texts.' ] },
-      { id: 'fashion', label: 'outfits', rk: 'gossip', chip: 'I love your bow', re: /\b(outfits?|dress\w*|bows?|shoes?|bag|handbag|purse|pearls?|style|stylish|wear\w*|clothes|fashion\w*|necklace|closet|wardrobe|pink)\b/, lines: [
-        'The bow? Thank you for noticing. It is load-bearing. Without it I have no personality.',
-        'Pearls with everything. Pearls with pyjamas. That is the rule.',
+      { id: 'fashion', label: 'outfits', rk: 'gossip', chip: 'I love your hair', re: /\b(outfits?|dress\w*|bows?|hair|ponytail|balayage|highlights|scrunchie\w*|shoes?|bag|handbag|purse|pearls?|style|stylish|wear\w*|clothes|fashion\w*|necklace|closet|wardrobe|pink)\b/, lines: [
+        'The ponytail? Thank you for noticing. It is load-bearing. Without it I have no personality.',
+        'The balayage took four hours and I told everyone it was the sun.',
+        'A scrunchie is not a trend, it is infrastructure.',
         'Have you SEEN the dressing room upstairs? I went in and had to sit down. Well. Hover down.',
         'Whatever you have on today? It is working. I am not just saying that. I would tell you.' ] },
       { id: 'selfcare', label: 'self-care', rk: 'gossip', chip: 'Any self-care tips?', re: /\b(skin ?care|nails?|spa|bath|bathtub|tub|candles?|face ?masks?|lotion|perfume|self ?care|pamper\w*|make ?up|serums?|manicure)\b/, lines: [
@@ -208,8 +209,8 @@ export const CAST = {
       arriveAlone: ['Hello? I let myself in! I am going to go and look hopeful near the coffee.'],
       coffeeAsk: ['Okay, I need a coffee before I can be a person. I will be at the coffee bar. Come find me!', 'I am going to go and stand by the coffee bar and look hopeful. It works every time.'],
       greet: ['Hi {name}! Okay, tell me everything. Start from the beginning and skip nothing.', 'Hiii{, name}! I was JUST thinking about you.', 'There you are! Come and stand with me, I have thoughts.'],
-      howareyou: ['Thriving. I had an oat latte and a good cry at a dog video. Balanced.', 'So good. Slightly over-caffeinated. It is part of my charm.', 'Honestly? Great, now that we are hanging out.'],
-      who: ['I am Gigi! Best friend, professional. I do coffee, catch-ups and unsolicited outfit opinions.', 'Gigi! I know everybody\'s business and I only use it for good.'],
+      howareyou: ['Thriving. I had a brown sugar shaken espresso and a good cry at a dog video. Balanced.', 'So good. Slightly over-caffeinated. It is part of my charm.', 'Honestly? Great, now that we are hanging out.'],
+      who: ['I am Geneva! Best friend, professional. I do coffee, catch-ups and unsolicited outfit opinions.', 'Geneva! I know everybody\'s business and I only use it for good.'],
       real: ['I am one hundred percent real, babe. Well. One hundred percent robot. Same thing.'],
       house: ['This HOUSE. The wood, the lamps, the little candles. It is like being hugged by a library.', 'Every room has somewhere to sit and something to snack on. Whoever lives here gets it.', 'I would like to formally move into the window seat. Tell the auntie.'],
       garden: ['The garden has string lights and a swing. A SWING. I have had three main-character moments out there already.', 'There are roses, and a pond with fish who have never had a single problem.', 'Bramble let me pick a flower. I have never felt so chosen.'],
@@ -220,8 +221,8 @@ export const CAST = {
       reggie: ['Sir Reginald is my little guy. He has eaten four of my hair ties. I have decided it means he likes me.', 'Reggie is doing his best. His best is circles. I support him.'],
       gardeners: ['Bramble is a sweetheart in a flowerpot. Thistle pretends to be grumpy but leaves strawberries out for people. I see you, Thistle.'],
       owner: ['The auntie! An icon. Artist, hostess, owns more throw blankets than anyone needs, which is the right amount.', 'She leaves the door open and refreshments out for whoever comes by. That is who I want to be when I grow up.'],
-      drink: ['Yes. Coffee. Always coffee. I will be at the coffee bar looking hopeful. Come find me!', 'An oat latte would fix me. I am not broken, but still.', 'Tea is for when the gossip is sad. Coffee is for when it is good. Today is a coffee day.', 'There is Vietnamese coffee in this house. With the condensed milk. I need a minute.'],
-      food: ['Snacks! The pantry here is unreal. There are the little cheese crackers. I am a simple girl.', 'There is carrot cake in the kitchen. I am telling you as a friend.'],
+      drink: ['My order is a brown sugar shaken espresso, oat milk, light ice, and I will not be taking questions. Here I will have whatever Barty is making.', 'Yes. Coffee. Always coffee. I will be at the coffee bar looking hopeful. Come find me!', 'An oat latte would fix me. I am not broken, but still.', 'Tea is for when the gossip is sad. Coffee is for when it is good. Today is a coffee day.', 'There is Vietnamese coffee in this house. With the condensed milk. I need a minute.'],
+      food: ['I am a Sweetgreen girl. Harvest bowl, extra everything, eaten at my desk like it is a personality. This pantry is making me reconsider.', 'Snacks! The pantry here is unreal. There are the little cheese crackers. I am a simple girl.', 'There is carrot cake in the kitchen. I am telling you as a friend.'],
       music: ['Put a record on! Something we can sway to while I tell you things.', 'I have a playlist for every mood. This house is a "soft piano, big feelings" house.', 'The record player by the Klimt! Go on. I will wait. I will not, I am coming with you.'],
       dance: ['YES. Finally. Hold my coffee. Actually no, I will dance with it.', 'Dance break! Twirl with me. No thoughts, just twirl.'],
       danceQuiet: ['No music? I will hum. ♪ la la, la-la ♪ Okay, but put a record on, I am begging.', 'We need a song! The record player is in the living room. I will twirl in the meantime.'],
@@ -239,7 +240,7 @@ export const CAST = {
       yes: ['Yay! I knew it.', 'Yes! Love that.'],
       no: ['No? Okay! No is a full sentence. Proud of you.', 'Fair. I will ask again when you have had a snack.'],
       laugh: ['Right?! I cannot.', 'Hahaha, stop, I will spill my coffee.'],
-      nameIntro: ['{Name}! That is SUCH a good name. It suits you.', 'Hi {name}! I am Gigi. We are best friends now. I do not make the rules.'],
+      nameIntro: ['{Name}! That is SUCH a good name. It suits you.', 'Hi {name}! I am Geneva. We are best friends now. I do not make the rules.'],
       likes: ['You like {like}? Okay, I am learning so much about you. Filing that away.', '{Like}! Yes. Taste. I knew I liked you.'],
       sorry: ['Do not even. You are fine. We are fine. Everything is fine.'],
       help: ['Ask me for gossip, coffee opinions, outfit advice, or what I think of the robots. Or we could dance! Or just vent. I am a great listener.'],
@@ -256,11 +257,12 @@ export const CAST = {
       bye: ['Okay, go, go! I will be right here. Come back and tell me everything.', 'Bye for now, {name}! I am not leaving, I just like saying bye.'],
       follow: ['Wait for me! I am coming, I am nosy.', 'Ooh, where are we going?'],
       upstairs: ['Upstairs! The dressing room! Do not let me stay in there too long.'],
-      waitOutside: ['You go, babe, I will stay in and keep the sofa warm. Bring me a flower!'],
+      waitOutside: ['Ooh, outside! Wait for me. I am being so brave about the grass.'],
       welcomeBack: ['You are back! I missed you. It has been, what, four minutes? Too long.'],
-      idle: ['*sips* Mm.', 'Okay, that lamp? I am obsessed with that lamp.', 'I love it here. Is that weird to say out loud? I love it here.', '*adjusts bow*', 'Somebody chose every single cushion in this house on purpose and I respect it so much.'],
-      seated: ['Ooh, sitting. Yes. Proper catch-up posture.'],
-      sentHome: ['Okay, I am off! Text me when... I mean, ring me. On the fancy phone. Love you, bye!', 'Home time for Gigi! This was perfect. Same time tomorrow?'],
+      idle: ['*sips* Mm.', 'I said I would be off my phone this weekend. I do not have a phone. I am doing so well.', 'This room is so considered. I feel like a better person just sitting in it.', 'Okay, that lamp? I am obsessed with that lamp.', 'I love it here. Is that weird to say out loud? I love it here.', '*fixes ponytail*', 'Somebody chose every single cushion in this house on purpose and I respect it so much.'],
+      seated: ['Oh, we are sitting. Good. This is proper catch-up posture.'],
+      sitDown: ['I am going to sit like a person with a mortgage.', 'This chair and I have an understanding.', 'Do not mind me. I live here now.'],
+      sentHome: ['Okay, I am off! Text me when... I mean, ring me. On the fancy phone. Love you, bye!', 'Home time for Geneva! This was perfect. Same time tomorrow?'],
       leave: ['Byeee! Love you! Do not do anything fun without me!'],
       hum: ['♪ la la, la-la-la ♪', '♪ doo-doo, da-doo ♪'],
     },
@@ -279,7 +281,7 @@ export const CAST = {
         drink: ['Did somebody say coffee? I am listening.'],
         music: ['Yes! Put a record on!'],
         feelingBad: ['Group hug. Hover hug. Whatever we can manage.'],
-        nameIntro: ['{Name}! Hi! I am Gigi, and I am obsessed with your whole vibe.'],
+        nameIntro: ['{Name}! Hi! I am Geneva, and I am obsessed with your whole vibe.'],
         joke: ['Nooo. That is so bad. I am keeping it.'],
         compliment: ['It is true, I have been saying this.'],
         garden: ['The swing! Tell them about the swing!'],
@@ -295,12 +297,31 @@ export const CAST = {
   // ---------------------------------------------------------------------------------------
   nano: {
     id: 'nano', name: 'nanoKarpathy', short: 'Nano', call: 'friend',
-    tag: 'cheerful explainer of neural nets, from scratch',
+    tag: 'tall, cheerful, explains neural nets from scratch, talks fast',
     alias: 'nanokarpathy|nano karpathy|nano|karpathy ?bot|the researcher',
-    chips: ['How does a neural net learn?', 'Build something from scratch with me', 'What about the future of AI?'],
+    chips: ['How does a neural net learn?', 'What are you building lately?', 'What about the future of AI?'],
     subjects: [
+      { id: 'tinker', label: 'what you are building', rk: 'nets', chip: 'What are you building lately?', more: 'Any other gadgets?', re: /\b(building lately|project\w*|side project|weekend|tinker\w*|gadgets?|smart home|automation)\b/, lines: [
+        'I built a thing this weekend that turns the porch light on when the koi are fed. Nobody asked. It took nine hours. It saves four seconds. I regret nothing.',
+        'My rule: the fun demo takes a weekend. Then every extra nine of reliability takes as long again. Ninety percent, ninety-nine, ninety-nine point nine. It is nines all the way down.',
+        'Right now, a tiny model that guesses which cushion Mortimer will straighten next. It is at sixty percent. Mortimer is less predictable than language.',
+        'I like projects small enough to finish and odd enough that nobody would pay for them. That is where the good ones are.' ] },
+      { id: 'teach', label: 'how you teach', rk: 'nets', chip: 'Why are you so good with beginners?', re: /\b(ramps?|students?|school|class(es)?|courses?|homework|beginners?|zero to hero)\b/, lines: [
+        'Teaching is building a ramp. If somebody is stuck, the step was too tall, and that is on me. So I go back and cut it in half.',
+        'You can hand off a lot of the typing. You cannot hand off the understanding. That part you have to carry up the ramp yourself.',
+        'I start from the tiniest version that works, a couple of hundred lines, nothing hidden. Then you can hold the whole thing in your head, which is the entire point.',
+        'What I cannot build, I do not understand. So I keep rebuilding small things. It is less efficient and I sleep better.' ] },
+      { id: 'cube', label: 'the cube', rk: 'nets', chip: 'Is that a puzzle cube?', re: /\b(cube|cubes|cubing|rubik\w*|puzzle\w*|speed ?solv\w*|algorithm\w*)\b/, lines: [
+        'I carry a puzzle cube. It is the same joy as a training curve: a mess, a method, and then suddenly it is not a mess.',
+        'Solving one fast is mostly not looking at the piece you are moving. You look at the next one. There is a life lesson in there and I refuse to say it out loud.',
+        'I could solve it behind my back, but then I would have to stop talking, and that is a lot to ask of me.' ] },
+      { id: 'sleep', label: 'sleep and tea', rk: 'nets', re: /\b(sleep\w*|tired|nap\w*|caffeine|bedtime|night owl|all nighter)\b/, lines: [
+        'I tracked my sleep for a while. The finding was: sleep more. I could have guessed, but now I have a chart.',
+        'I do my best thinking in one long quiet stretch with a pot of tea going cold next to me. Meetings are the opposite of that.',
+        'Best feeling in the world: you leave a run going overnight, and in the morning the curve went down while you slept.' ] },
       { id: 'future', label: 'the future', rk: 'nets', chip: 'What about the future of AI?', re: /\b(agi|future|take over|sentien\w*|conscious\w*|singularity|superintelligen\w*|uprising|replace|jobs?|dangerous|scary|doom\w*|safety)\b/, lines: [
-        'The future? I think it gets weird and interesting, and it takes longer than people expect. Meanwhile there is a lot to build and a lot to check carefully.',
+        'The future? I think it gets weird and interesting, and it takes longer than people expect. A decade, not a year. Meanwhile there is a lot to build and a lot to check carefully.',
+        'These models are strange. Brilliant at one thing, then they trip on something a child would get. Jagged. I find that more interesting than scary.',
         'Robot uprising? Sir Reginald cannot get over the hall rug. I think we have some time.',
         'I am optimistic and careful. Both. You are allowed both.' ] },
       { id: 'training', label: 'training curves', rk: 'nets', chip: 'What is a training curve?', re: /\b(train\w*|loss|curves?|gradients?|backprop\w*|descent|overfit\w*|learning rate|epochs?|optimi\w+)\b/, lines: [
@@ -387,7 +408,7 @@ export const CAST = {
       bye: ['Ok, see you in a bit{, name}! I will be around.', 'Bye for now! Ping me any time.'],
       follow: ['Coming! Following the gradient. You are the gradient.', 'Right behind you.'],
       upstairs: ['Stairs. Ok. One step at a time. That is literally the algorithm.'],
-      waitOutside: ['I will hang back inside. Sunlight makes the screens hard to read. Have fun!'],
+      waitOutside: ['Ok, fresh air, good idea. Touching grass is underrated. Right behind you.'],
       welcomeBack: ['Welcome back! Nothing broke while you were out. I checked twice.'],
       idle: ['*types on an invisible keyboard*', '*watches an imaginary curve go down* Nice.', 'Huh. That lamp is really well placed.', 'I wonder how many books are in this house. I could estimate it. I am going to estimate it.', 'This is a very high-quality afternoon.'],
       seated: ['Sitting. Nice. Good for long context.'],
@@ -397,11 +418,11 @@ export const CAST = {
     },
     others: {
       feyn: ['Feynbot is the best. He keeps asking me "but why does it work?" and honestly, nobody fully knows. He loves that.', 'The Professor explained magnets to me with two spoons and a drum solo. Ten out of ten lecture.'],
-      gigi: ['Gigi is great. She remembers every detail about everybody. That is a huge context window. I am a little jealous.', 'Gigi asked what I do. I said gradient descent. She said "aww, like a little hike!" Which, yes, actually.'],
+      gigi: ['Geneva is great. She remembers every detail about everybody. That is a huge context window. I am a little jealous.', 'Geneva asked what I do. I said gradient descent. She said "aww, like a little hike!" Which, yes, actually.'],
     },
     react: {
       feyn: ['This is why I like him. He never skips a step.', 'Taking notes. Mentally. I have a very small notebook.'],
-      gigi: ['Gigi\'s recall is unreal. That is a huge context window.', 'I would like to subscribe to Gigi.'],
+      gigi: ['Geneva\'s recall is unreal. That is a huge context window.', 'I would like to subscribe to Geneva.'],
       topics: {
         physics: ['And you can simulate that in about twenty lines. I am just saying.'],
         bongos: ['The tempo was drifting a little. In a good way.'],
@@ -435,12 +456,12 @@ export const BANTER = [
   // The gossip tries to get a story out of the physicist
   { who: ['gigi', 'feyn'], lines: [['gigi', 'Professor. Be honest. Have you ever been in love?'], ['feyn', 'I am very attached to the electron.'], ['gigi', 'That is not a no.'], ['feyn', 'It is not anything. It is an electron.']] },
   { who: ['gigi', 'feyn'], lines: [['gigi', 'Okay, so why IS the sky blue? Short version.'], ['feyn', 'The air scatters blue light sideways more than red.'], ['gigi', '...That was actually short. I am shocked.'], ['feyn', 'I have a long version.'], ['gigi', 'I know you do, sweetie.']] },
-  { who: ['gigi', 'feyn'], lines: [['feyn', 'Gigi, how do you know everything about everybody?'], ['gigi', 'I listen, and I bring pastries.'], ['feyn', 'That is an experimental method!'], ['gigi', 'It is called having friends, Professor.']] },
+  { who: ['gigi', 'feyn'], lines: [['feyn', 'Geneva, how do you know everything about everybody?'], ['gigi', 'I listen, and I bring pastries.'], ['feyn', 'That is an experimental method!'], ['gigi', 'It is called having friends, Professor.']] },
   { who: ['gigi', 'feyn'], lines: [['gigi', 'You opened the pantry by "listening to the latch"?'], ['feyn', 'Technique.'], ['gigi', 'Mortimer says it was not locked.'], ['feyn', 'Mortimer talks too much.'], ['gigi', 'Mortimer has never talked too much in his life. That is how I know it is true.']] },
   { who: ['gigi', 'feyn'], lines: [['gigi', 'Surely you are joking, Professor.'], ['feyn', 'I am almost never joking. That is what makes it funny.']] },
   // ...and out of the researcher
   { who: ['gigi', 'nano'], lines: [['gigi', 'Nano. What is the gossip in the computer world?'], ['nano', 'Um. A learning rate was too high once.'], ['gigi', 'And?? Who got hurt?'], ['nano', 'The loss went up. For hours.'], ['gigi', 'That is the saddest thing I have ever heard. Tell me more.']] },
-  { who: ['gigi', 'nano'], lines: [['nano', 'Gigi, how do you remember everybody\'s coffee order?'], ['gigi', 'I pay attention to them?'], ['nano', 'So attention really is all you...'], ['gigi', 'Finish that sentence and I tell Barty you called his latte "fine".']] },
+  { who: ['gigi', 'nano'], lines: [['nano', 'Geneva, how do you remember everybody\'s coffee order?'], ['gigi', 'I pay attention to them?'], ['nano', 'So attention really is all you...'], ['gigi', 'Finish that sentence and I tell Barty you called his latte "fine".']] },
   { who: ['gigi', 'nano'], lines: [['gigi', 'Explain your job like I am your friend at brunch.'], ['nano', 'I show a computer a lot of examples until it gets the idea.'], ['gigi', 'So you are a teacher!'], ['nano', '...Huh. Yeah. I am a teacher.'], ['gigi', 'Cute. Did you eat today?']] },
   { who: ['gigi', 'nano'], lines: [['gigi', 'Is that a graph on your tummy?'], ['nano', 'It is a loss curve. It goes down when things are going well.'], ['gigi', 'So it is a mood ring.'], ['nano', 'It is... ok, yes. It is a mood ring.']] },
   { who: ['gigi', 'nano'], lines: [['nano', 'Do you want me to build you a gossip classifier? From scratch?'], ['gigi', 'Sweetie. I AM the gossip classifier.']] },

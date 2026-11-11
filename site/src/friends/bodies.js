@@ -2,11 +2,11 @@
 // (staff/models.js): a floating round body, a glowing face, a ring of light
 // underneath and two mitten hands. Each solid part is one merged, vertex-coloured
 // mesh sharing the staff's material, so a guest is five draw calls (six once
-// Gigi has her coffee): body, face, ring and two hands. No lights, no shadows.
+// Geneva has her coffee): body, face, ring and two hands. No lights, no shadows.
 // Units are feet; everyone faces +z in their own frame.
 //
 //   Professor Feynbot  shirt-sleeves and navy, springy wire curls, a pair of bongos
-//   Gigi               raspberry pink, a big butter-yellow bow, pearls, a handbag
+//   Geneva               raspberry pink, a big butter-yellow bow, pearls, a handbag
 //   nanoKarpathy       a graphite hoodie, orange headphones, a loss curve on his front
 
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -18,7 +18,7 @@ export function useThreeBodies(T) { THREE = T; useThree(T); }
 export const GUEST_SPECS = {
   feyn: { key: 'feyn', hover: 3.5, radius: 0.8, speed: 2.5, face: { eye: '#ffd9a0', gap: 44, eyeW: 32, eyeH: 40, bg: '#14100b' }, ring: 0xffb866, chirp: [57, 62, 66] },
   gigi: { key: 'gigi', hover: 3.62, radius: 0.72, speed: 2.7, face: { eye: '#ffd3ea', gap: 42, eyeW: 36, eyeH: 44, blush: 'rgba(255,110,160,.6)', bg: '#1a0b14' }, ring: 0xff8fc0, chirp: [76, 81, 84] },
-  nano: { key: 'nano', hover: 3.3, radius: 0.78, speed: 2.4, face: { eye: '#bfeaff', gap: 46, eyeW: 30, eyeH: 30, bg: '#0a1016' }, ring: 0x7fd4ff, chirp: [69, 72, 76] },
+  nano: { key: 'nano', hover: 4.35, tall: 1.34, radius: 0.78, speed: 2.4, face: { eye: '#bfeaff', gap: 46, eyeW: 30, eyeH: 30, bg: '#0a1016' }, ring: 0x7fd4ff, chirp: [69, 72, 76] },
 };
 
 const Tf = (geo, { p = [0, 0, 0], r = [0, 0, 0], s = [1, 1, 1] } = {}) =>
@@ -52,6 +52,7 @@ function face(spec, extra) {
 export function buildGuest(key) {
   const S = GUEST_SPECS[key];
   const root = new THREE.Group(), bob = new THREE.Group(); root.add(bob); bob.position.y = S.hover; root.userData.staff = true;
+  if (S.tall) bob.scale.set(0.95, S.tall, 0.95);      // a tall one: the same build, drawn up
   const parts = [], BRASS = '#c9a45c', CREAM = '#efe4cf';
   let R, bs, fc, ringY, handL, handR, handSize = 0.12, handCol = '#f4eee2', toolL = [], toolR = [], ringGeo = null, cup = null, top;
 
@@ -88,15 +89,21 @@ export function buildGuest(key) {
     const PINK = '#e2598a';
     parts.push(paint(Tf(sph(R, 26, 18), { s: bs }), p => (p.y < -0.26 ? '#c9436f' : PINK)));
     parts.push(paint(Tf(new THREE.TorusGeometry(R * 0.865, 0.028, 6, 36), { p: [0, -0.265, 0], r: [Math.PI / 2, 0, 0] }), '#fbeede'));      // a cream sash
-    // pearls
-    for (let i = 0; i < 11; i++) { const a = (i - 5) * 0.2, th = 1.72 + 0.2 * Math.cos(a * 1.45); parts.push(paint(Tf(sph(i === 5 ? 0.046 : 0.036, 7, 5), { p: onBody(R, bs, a, th, 0.02) }), '#fff7ea')); }
-    // the bow: two loops, a knot and two tails
-    const BOW = '#f6d772', by = R * 1.08 + 0.1;
-    for (const sx of [-1, 1]) {
-      parts.push(paint(Tf(new THREE.ConeGeometry(0.17, 0.3, 12), { p: [sx * 0.17, by, 0], r: [0, 0, sx * Math.PI / 2], s: [1, 1, 0.5] }), BOW));
-      parts.push(paint(Tf(box(0.07, 0.2, 0.03), { p: [sx * 0.07, by - 0.12, 0.05], r: [0.5, 0, sx * 0.45] }), '#eac95e'));
+    // a high ponytail with a balayage: dark honey at the root, caramel through the middle, blonde at the ends,
+    // gathered in a cream scrunchie (no pearls, no bow: she is a person, not a cut-out)
+    {
+      const top = R * 1.08, N = 11, mix = (a, b, k) => a.map((v, i) => v + (b[i] - v) * k), hex = c => '#' + c.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+      const ROOT = [86, 56, 36], MID = [168, 116, 62], TIP = [236, 204, 148];
+      for (let i = 0; i < N; i++) {
+        const t = i / (N - 1), up = Math.sin(Math.PI * Math.min(1, t * 1.9)), fall = Math.max(0, t - 0.22);
+        const y = top + 0.02 + 0.17 * up - 0.78 * Math.pow(fall, 1.25), z = -0.1 - 0.4 * Math.sin(Math.PI / 2 * Math.min(1, t * 1.7)) - 0.04 * t + 0.05 * Math.sin(t * 5), x = 0.03 * Math.sin(t * 7);
+        const r = 0.125 * (1 - 0.6 * t) + 0.03, base = t < 0.45 ? mix(ROOT, MID, t / 0.45) : mix(MID, TIP, (t - 0.45) / 0.55);
+        parts.push(paint(Tf(sph(r, 9, 7), { p: [x, y, z], s: [1.05, 1.25, 0.95] }), p => hex(mix(base, TIP, Math.max(0, Math.sin(Math.atan2(p.x - x, p.z - z) * 5 + i)) * (0.12 + 0.3 * t)))));
+      }
+      parts.push(paint(Tf(new THREE.TorusGeometry(0.115, 0.045, 6, 14), { p: [0, top + 0.1, -0.21], r: [1.05, 0, 0] }), '#f6ecd8'));      // the scrunchie
+      // a sweep of the same hair over the crown, so the tail grows out of something
+      parts.push(paint(Tf(new THREE.SphereGeometry(R * 1.015, 20, 6, 0, Math.PI * 2, 0, 0.62), { s: bs, p: [0, 0.004, -0.012] }), p => hex(mix(ROOT, MID, Math.max(0, Math.min(1, 0.35 + 0.5 * Math.sin(Math.atan2(p.x, p.z) * 7)))))));
     }
-    parts.push(paint(Tf(sph(0.07, 10, 8), { p: [0, by, 0.01] }), '#eac95e'));
     parts.push(paint(Tf(new THREE.SphereGeometry(0.24, 16, 6, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), { p: [0, -R * 1.0, 0], s: [1, 0.6, 1] }), BRASS));
     // lashes
     fc = face(S.face, (g, expr, lx, rx, y, blink) => {
@@ -106,7 +113,7 @@ export function buildGuest(key) {
     });
     fc.mesh = mesh(visor(R + 0.007, 0.86, 0.7, 1.52, bs), fc.mat);
     ringY = -0.68; handL = [-0.66, -0.14, 0.14]; handR = [0.66, -0.14, 0.14]; handSize = 0.1; top = S.hover + 0.95;
-    // a little lilac handbag over the left hand
+    // a little lilac bag over the left hand
     toolL = [paint(Tf(box(0.24, 0.17, 0.1), { p: [0, -0.3, 0.02] }), '#b9a0e0'), paint(Tf(box(0.25, 0.05, 0.11), { p: [0, -0.225, 0.02] }), '#a58bd2'),
       paint(Tf(new THREE.TorusGeometry(0.1, 0.014, 5, 14, Math.PI), { p: [0, -0.2, 0.02] }), '#a58bd2'), paint(Tf(sph(0.022, 6, 5), { p: [0, -0.25, 0.075] }), BRASS)];
     // a heart of light underneath, instead of a ring

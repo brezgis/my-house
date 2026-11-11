@@ -54,8 +54,8 @@ for (const id of ORDER) for (const s of CAST[id].subjects) {
   ok(back > 8, 'refers back to an earlier subject on a fallback: ' + back); ok(like > 3, 'refers back to a like: ' + like); }
 { const b = fresh(4); const texts = []; for (let i = 0; i < 3; i++) texts.push(b.reply('nano', 'what do you think of the house?', { present: ['nano'] }).lines.map(l => l.text).join(' | '));
   ok(/again|Back to/.test(texts[2]), 'third time on a topic is noticed: ' + texts[2]); }
-{ let shared = 0; for (let seed = 1; seed < 30; seed++) { const b = fresh(seed); b.reply('gigi', 'have you seen the garden', { present: ['gigi', 'nano'], quiet: true }); const r = b.reply('nano', 'have you seen the garden', { present: ['gigi', 'nano'] }); if (r.lines.some(l => l.kind === 'pre' && /Gigi/.test(l.text))) shared++; }
-  ok(shared > 8, '"Gigi told me you talked about the garden": ' + shared + '/29'); }
+{ let shared = 0; for (let seed = 1; seed < 30; seed++) { const b = fresh(seed); b.reply('gigi', 'have you seen the garden', { present: ['gigi', 'nano'], quiet: true }); const r = b.reply('nano', 'have you seen the garden', { present: ['gigi', 'nano'] }); if (r.lines.some(l => l.kind === 'pre' && /Geneva/.test(l.text))) shared++; }
+  ok(shared > 8, '"Geneva told me you talked about the garden": ' + shared + '/29'); }
 
 // 4. group dynamics
 { let reacts = 0, specific = 0, two = 0; for (let seed = 1; seed < 60; seed++) { const b = fresh(seed); const r = b.reply('gigi', 'any gossip?', { present: ['gigi', 'feyn', 'nano'] }); const rs = r.lines.filter(l => l.kind === 'react');
@@ -69,7 +69,7 @@ for (const id of ORDER) for (const s of CAST[id].subjects) {
 { const r = fresh().reply('feyn', 'hello everybody, my name is anna', { present: ['gigi', 'nano', 'feyn'] }); ok(r.lines.filter(l => /Anna/.test(l.text)).length >= 2, 'everyone greets a new name'); }
 { const r = fresh().reply('nano', 'shall we dance?', { present: ['gigi', 'nano', 'feyn'], music: false }); ok(r.act === 'dance' && r.lines.length === 3 && /record|count|hum|beat/i.test(main(r).text), 'dance: everyone joins, and asks for a record when it is quiet: ' + main(r).text);
   const r2 = fresh().reply('nano', 'shall we dance?', { present: ['nano'], music: true }); ok(!/record would help/.test(main(r2).text), 'dance with music on'); }
-{ const r = fresh().reply('gigi', 'fancy a coffee?', { present: ['gigi'] }); ok(r.act === 'coffee', 'Gigi heads for the coffee bar'); ok(fresh().reply('feyn', 'play the bongos', { present: ['feyn'] }).act === 'drum', 'Feynbot drums'); }
+{ const r = fresh().reply('gigi', 'fancy a coffee?', { present: ['gigi'] }); ok(r.act === 'coffee', 'Geneva heads for the coffee bar'); ok(fresh().reply('feyn', 'play the bongos', { present: ['feyn'] }).act === 'drum', 'Feynbot drums'); }
 { const r = fresh().reply('gigi', "I'm feeling sad", { present: ['gigi', 'feyn', 'nano'] }); ok(r.lines.filter(l => l.kind === 'react').length >= 1, 'the room rallies round'); }
 ok(fresh().reply('feyn', 'goodbye', { present: ['feyn'] }).act === 'close' && fresh().reply('feyn', 'you should go home now', { present: ['feyn'] }).act === 'leave', 'goodbye closes; go home sends home');
 
@@ -102,7 +102,7 @@ for (const id of ORDER) { const b = fresh(12); let world = { present: ORDER }; l
   ok(seen.size >= 9, `${id}: suggestions move on (${seen.size} different in 30 turns)`); }
 // a little conversation, for the eye
 { const b = fresh(21), W = { present: ['gigi', 'feyn', 'nano'], music: false, hour: 15 };
-  for (const [to, t] of [['gigi', 'hi! my name is Anna'], ['gigi', 'any gossip?'], ['gigi', 'I love tulips'], ['feyn', 'why is the sky blue?'], ['feyn', 'Nano, what is a training curve?'], ['nano', 'what do you make of Gigi?'], ['gigi', 'hmm, florp'], ['feyn', 'shall we dance?'], ['gigi', 'bye for now']]) {
+  for (const [to, t] of [['gigi', 'hi! my name is Anna'], ['gigi', 'any gossip?'], ['gigi', 'I love tulips'], ['feyn', 'why is the sky blue?'], ['feyn', 'Nano, what is a training curve?'], ['nano', 'what do you make of Geneva?'], ['gigi', 'hmm, florp'], ['feyn', 'shall we dance?'], ['gigi', 'bye for now']]) {
     const r = b.reply(to, t, W); console.log(`\n  you -> ${CAST[to].short}: ${t}   [${r.topic}${r.act ? ', ' + r.act : ''}]`); for (const l of r.lines) console.log(`     ${CAST[l.who].short}${l.kind === 'react' ? ' (joins in)' : ''}: ${l.text}`); console.log('     chips:', r.chips.join(' | ')); } }
 console.log(`\n${n} lines checked; longest ${longest.length} chars`);
 console.log(`${pass} passed, ${fail} failed`);

@@ -111,7 +111,7 @@ async function runTest() {
     [92, () => party.sayTo('feyn', 'shall we dance?')], [112, () => { snapshot('dancing in the living room'); }], [124, () => go(Pt(35, 5))], [160, () => { snapshot('dining room'); go(Pt(33.5, 20)); }], [200, () => { snapshot('coffee bar'); go(Pt(24.5, 31)); }],
     [240, () => { snapshot('office'); go(Pt(22, 4, 1)); }], [290, () => { snapshot('upstairs hall'); go(Pt(9, 24, 1)); }], [330, () => { snapshot('library, upstairs'); walker.seated = { label: 'sit' }; }], [350, () => { walker.seated = null; go(Pt(21.8, 4)); }],
     [395, () => { snapshot('back in the hall'); outside = true; walker.pos.set(2, 0.05, 30); }], [440, () => { snapshot('visitor in the garden'); outside = false; walker.pos.set(sp.x, 1.6, sp.z); }], [470, () => { snapshot('back indoors'); go(Pt(14, 8)); }],
-    [560, () => { snapshot('a long sit in the living room (wandering allowed)'); }], [562, () => log('sends Gigi home: "' + party.sendHome('gigi') + '"')], [600, () => { snapshot('Gigi gone'); party.sayTo('feyn', 'time to go home'); party.sendHome('nano'); }], [650, () => snapshot('everyone gone')],
+    [560, () => { snapshot('a long sit in the living room (wandering allowed)'); }], [562, () => log('sends Geneva home: "' + party.sendHome('gigi') + '"')], [600, () => { snapshot('Geneva gone'); party.sayTo('feyn', 'time to go home'); party.sendHome('nano'); }], [650, () => snapshot('everyone gone')],
   ];
   const T = 655, DT = 1 / 20, lines = [];
   const TR = Q.get('trace')?.split(',').map(Number) ?? null;
