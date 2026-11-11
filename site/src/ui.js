@@ -142,6 +142,7 @@ const help = makeCard('help', 'How to get about', `
       ${row(k('1 2 3'), 'choose what to say to a robot')}
       ${row(k('1') + '…' + k('0'), 'play notes, sitting at the piano; ' + k('P') + ' plays a phrase')}
       ${row(k('X'), 'wipe the chalkboard')}
+      ${row(k('Q'), 'sip your drink, or take a bite')}
       ${row(k('N'), 'a new game, at the chess table')}
       ${row(k('T'), 'turn the television off')}
     </dl></section>

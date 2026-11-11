@@ -104,11 +104,42 @@ export function hireStaff(ctx) {
   let held = null;
   H.hold = (d, g) => {
     if (held) group.remove(held.g);
-    g = g ?? H.makeDrink(d); g.removeFromParent(); group.add(g); H.fill(g, 1);
-    held = { d, g, since: H.now };
+    g = g ?? H.makeDrink(d); g.removeFromParent(); group.add(g); if (!d.food) H.fill(g, 1);
+    held = { d, g, since: H.now, s0: g.scale.x, bites: 0 };
     H.visitor.holding = d; H.mem.drinks.push(d.id); H.mem.lastDrink = d; H.mem.finished = false;
-    H.bubbles.toast(`You take the ${d.name}.`, H.now, 3);
+    H.bubbles.toast(`You take the ${d.name}.${H.mem.toldSip ? '' : d.food || d.gift ? ' Press Q to eat.' : ' Press Q to sip.'}`, H.now, 4); H.mem.toldSip = true;
   };
+  // Sipping and eating: Q, or E / a tap with nothing in front of you. A drink goes down a sixth at a
+  // sip (it also goes down slowly by itself); food goes in three bites; a strawberry in one.
+  let sipAt = -1e9;
+  const QS = new URLSearchParams(location.search), sipTest = QS.has('sip') ? Number(QS.get('sip')) : null;      // test hooks: ?hold=latte|croissant &sip=0.5
+  if (QS.has('hold')) setTimeout(() => { const id = QS.get('hold'), d = MENU.find(m => m.id === id); if (d) H.hold(d); else ctx.interact.find(i => i.label?.().includes(id))?.act(); }, 1500);
+  H.sip = () => {
+    if (!held || H.now - sipAt < 1.25) return false;
+    sipAt = H.now; const d = held.d;
+    if (d.food) { if (++held.bites >= (d.bites ?? 3)) held.gone = true; }
+    else if (d.gift) held.gone = d.vessel !== 'flower';
+    else held.since -= (d.last ?? 75) / 6;
+    return true;
+  };
+  ctx.sip = H.sip;
+  addEventListener('keydown', e => { if (e.code === 'KeyQ' && !e.repeat && !/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName ?? '')) H.sip(); });
+  // Things to eat that are lying about the house: take one (there are always more)
+  const FOOD = {
+    croissant: { id: 'croissant', name: 'croissant', model: 'croissant', done: 'You finish the croissant. Flaky, buttery, gone.' },
+    st_bread_1: { id: 'bread', name: 'piece of bread', model: 'st_bread_2', done: 'You finish the bread. Good crust.' },
+    st_cake_stand: { id: 'cake', name: 'little iced cake', done: 'You finish the little cake. Lemon, with a sugar violet.' },
+  };
+  for (const m of ctx.items.models ?? []) {
+    const f = FOOD[m.id]; if (!f) continue;
+    const d = { ...f, food: true, gift: true, vessel: 'food', last: 900, from: 'here', note: '' };
+    ctx.interact.push({ x: m.x, y: m.y + (m.id === 'st_cake_stand' ? 0.6 : 0.1), z: m.z, reach: 5.5, label: () => `have a ${d.name}`, act: async () => {
+      let g;
+      if (d.model) { try { g = await ctx.loadModel(d.model); g.traverse(n => { if (n.isMesh) n.castShadow = false; }); } catch { return; } }
+      else { g = new THREE.Group(); const cake = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.095, 0.11, 14), new THREE.MeshStandardMaterial({ color: 0xf3e3a8, roughness: 0.6 })); cake.position.y = 0.055; const top = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 6), new THREE.MeshStandardMaterial({ color: 0x7a5aa8, roughness: 0.5 })); top.position.y = 0.118; g.add(cake, top); }
+      g.userData.drink = d; H.hold(d, g);
+    } });
+  }
   // A surface near the guest to put an empty on: a table, a counter, a sideboard
   function surfaceNear(v) {
     const F = nav.FLOORS[v.f]; let best = null, bd = 7;
@@ -123,7 +154,9 @@ export function hireStaff(ctx) {
   function holdUpdate() {
     if (!held) return;
     const v = H.visitor, g = held.g, age = H.now - held.since, LAST = held.d.last ?? 75;
-    if (held.d.gift && (age > LAST || !v.present)) { if (v.present) H.bubbles.toast(held.d.done, H.now, 4); group.remove(g); held = null; v.holding = null; H.mem.lastSip = H.now; return; }
+    const sk = sipTest ?? (H.now - sipAt) / 1.1, bell = sk > 0 && sk < 1 ? Math.sin(Math.PI * sk) : 0;      // the hand comes up to the mouth and back
+    if (held.gone && sk >= 0.55) held.since = -1e9;
+    if (held.d.gift && (H.now - held.since > LAST || !v.present)) { if (v.present) H.bubbles.toast(held.d.done, H.now, 4); group.remove(g); held = null; v.holding = null; H.mem.lastSip = H.now; return; }
     if (!held.d.gift) H.fill(g, Math.max(0.06, 1 - age / LAST));
     if (age > LAST || !v.present) {
       // finished: set it down nearby, or keep holding the empty until someone takes it
@@ -136,8 +169,9 @@ export function hireStaff(ctx) {
     }
     if (headless) return;
     camera.getWorldDirection(tmpV); tmpR.set(-tmpV.z, 0, tmpV.x).normalize();
-    g.position.copy(camera.position).addScaledVector(tmpV, 0.95).addScaledVector(tmpR, 0.4); g.position.y -= 0.6 - Math.sin(H.now * 1.3) * 0.006;
-    g.rotation.set(0, Math.atan2(-tmpV.x, -tmpV.z) + 0.5, 0);
+    g.position.copy(camera.position).addScaledVector(tmpV, 0.95 - 0.42 * bell).addScaledVector(tmpR, 0.4 - 0.33 * bell); g.position.y -= 0.6 - 0.34 * bell - Math.sin(H.now * 1.3) * 0.006;
+    g.rotation.order = 'YXZ'; g.rotation.set(0.75 * bell, Math.atan2(-tmpV.x, -tmpV.z) + 0.5, 0);
+    if (held.d.food) g.scale.setScalar(held.s0 * (1 - 0.27 * Math.min(held.bites, 3) * (sk > 0.5 || held.bites === 0 ? 1 : (held.bites - 1) / held.bites)));
   }
   function emptiesUpdate() {
     const v = H.visitor;

@@ -66,16 +66,13 @@ export default function (kit) {
   seats.push({ x: wx(40.45), y: F2 + 1.55 + 2.45, z: wz(33.4), yaw: Math.atan2(-DIRS[3][0], DIRS[3][1]), label: 'sit at the dressing table' });
   candle(vt, -0.95, 0.42, vz, 0.75);                                    // a taper (a table lamp here put its shade through the glass's stand)
 
-  // ---- South-west corner: a cheval glass, hat boxes, a snake plant; Hiroshige's plum garden ----
-  const cv = fr(34.0, 34.25, F2, 2);
-  cv.box(OAKW, -0.85, 0.85, -0.5, 0.5, 0.0, 0.08); for (const x of [-0.82, 0.74]) cv.box(OAKW, x, x + 0.08, -0.05, 0.05, 0.0, 5.8, G);
-  P.mirror(cv.sub(0, 0.0, 0.0, 0), 0, 3.15, 1.45, 5.0, { frame: OAKW, border: 0.1, d: 0.06 });
-  cv.block(-0.85, 0.85, -0.5, 0.5, 0, 5.8);
+  // ---- South-west corner: hat boxes, a snake plant; Hiroshige's plum garden ----
+  // (the tall cheval glass that stood here was taken out: the room is narrow)
   P.hatBox(fr(32.2, 34.45, F2), 0, 0, 0, 0.5, 0.6, 'c#efe8d8/0.9', 'c#2a3549/0.6'); P.hatBox(fr(32.2, 34.45, F2 + 0.6), 0, 0, 0, 0.4, 0.45, 'c#b8504a/0.6', 'c#f2efe8/0.6');
   picture(fr(41.75, 35.0, F2, 2), 'hiroshige_kameido_plum', 0, 5.2, 1.0, 1.45, { frame: BLACK, border: 0.06, mat: 0.15 });
   
 
-  // ---- A pouf beside the cheval glass (out of the way between the wardrobe and the door), a cardigan thrown over it ----
+  // ---- A pouf (out of the way between the wardrobe and the door), a cardigan thrown over it ----
   const pf = fr(35.8, 34.3, F2);
   pf.cyl('wool#c9ad9a', 0, 0, 0, 1.2, 0.58, 0.58, 22); pf.cyl('wool#c9ad9a', 0, 0, 1.18, 1.25, 0.5, 0.5, 22); pf.block(-0.58, 0.58, -0.58, 0.58, 0, 1.5);
   pf.soft('wool#7a9a6a', -0.4, 0.62, -0.35, 0.2, 1.25, 1.33, 0.04); pf.soft('wool#7a9a6a', 0.58, 0.66, -0.3, 0.12, 0.62, 1.3, 0.035);   // its sleeve hanging down the side

@@ -227,7 +227,7 @@ export function makeSoft(K) {
   // o.maxLeft / o.maxRight: how far (feet) the rod and panel may reach past x0 / x1 before meeting a
   // wall (a window at a room corner: 0.1). Default: panels 0.55 past the opening, rod 0.78, finials.
   function drapes(f, x0, x1, z0, z1, mat = 'drape', o = {}) {
-    const r = R(f, x0, z1), gather = o.gather ?? Math.min(1.5, 0.5 + (x1 - x0) * 0.13), out = 0.22, rodZ = z1 + 0.06, rod = o.rod ?? 'c#2a211a/0.5/0.5';
+    const r = R(f, x0, z1), gather = o.gather ?? Math.min(1.5, 0.5 + (x1 - x0) * 0.13), out = o.out ?? 0.22, rodZ = z1 + 0.06, rod = o.rod ?? 'c#2a211a/0.5/0.5';
     const eL = o.maxLeft ?? Infinity, eR = o.maxRight ?? Infinity, pL = Math.min(0.55, eL - 0.04), pR = Math.min(0.55, eR - 0.04), rL = Math.min(0.78, eL - 0.03), rR = Math.min(0.78, eR - 0.03);
     put(f, rod, sweep([[x0 - rL, out, rodZ], [x1 + rR, out, rodZ]], 0.04, { seg: 8, caps: true }));
     for (const [x, ok] of [[x0 - 0.86, eL >= 0.9], [x1 + 0.86, eR >= 0.9]]) if (ok) put(f, rod, lathe([[0, -0.1], [0.05, -0.08], [0.075, -0.02], [0.06, 0.05], [0.025, 0.09], [0.035, 0.12], [0, 0.14]], { seg: 8 }), { ry: Math.PI / 2 * Math.sign(x - x0 - 0.1), at: [x + (x < x0 ? 0.1 : -0.1), out, rodZ] });

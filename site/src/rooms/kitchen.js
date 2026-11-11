@@ -656,7 +656,7 @@ export default function (kit) {
     // the cookbook open on its stand
     t.box(WALNUT, 0.7, 1.25, 0.05, 0.12, z, z + 0.04); { const ck = t.sub(0.97, -0.05, z, 0); ck.box(WALNUT, -0.32, 0.32, 0.0, 0.03, 0.02, 0.5, { rot: [0, 0, 0] }); sign(ck, 0, 0.04, 0.3, 0.6, 0.42, ART.recipe, { cw: 256, ch: 180 }); }
   }
-  model('st_stool_8_pine', fr(37.05, 31.25, F1, 0), 0, 0, 0, 0, { seat: 2.0, collide: true });
+  // (the pine stool that stood here is gone: it was in the way of walking round the kitchen)
   rug(38.5, 40.62, 25.9, 33.6, F1, 'runner');
 
   // ========================================================================================

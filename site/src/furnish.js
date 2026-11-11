@@ -35,6 +35,7 @@ export function furnish(B, house = {}) {
     const px = w.isX ? mid : w.c + w.sg * 0.6, py = w.isX ? w.c + w.sg * 0.6 : mid, X = px - 21.665, Z = -py;
     const room = (house.rooms ?? []).find(r => X >= r.x0 && X <= r.x1 && Z >= r.z0 && Z <= r.z1 && w.fl + 1 >= r.y0 && w.fl + 1 <= r.y1);
     const o = {};
+    if (w.sill > 1.2) o.out = 0.36;      // hang clear of the window stool, which stands 0.24 ft off the wall (the folds used to pass through it)
     if (room) {
       const lo = w.isX ? room.x0 + 21.665 : -room.z1, hi = w.isX ? room.x1 + 21.665 : -room.z0;
       const roomLo = Math.max(0, w.u0 - lo - 0.5), roomHi = Math.max(0, hi - w.u1 - 0.5);          // rooms' boxes reach the wall centres

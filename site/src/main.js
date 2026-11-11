@@ -128,6 +128,7 @@ mark('gardenSetup');
 if (Q.get('staff') !== '0') import('./staff.js').then(m => m.hireStaff?.(ctx)).catch(() => {});
 import('./tv.js').then(m => m.setupTV(ctx)).catch(e => console.warn('tv', e));
 import('./toys.js').then(m => m.setupToys(ctx)).catch(e => console.warn('toys', e));      // chess, telescope, globe
+if (Q.get('friends') !== '0') import('./friends.js').then(m => m.setupFriends?.(ctx)).catch(() => {});      // the telephone, and the friends it brings round
 
 // ---- Lamps ---------------------------------------------------------------------------
 // Only four lights are ever lit (three on the low tier), shared out among the lamps nearest
@@ -235,7 +236,7 @@ function use() {
   if (mode !== 'walk') return;
   if (ctx.capture?.()) return;                                   // a game in progress takes the click (toys.js)
   if (walker.seated) { walker.seated = null; return; }
-  if (!aimed) return;
+  if (!aimed) { ctx.sip?.(); return; }                           // nothing in front of you: take a sip of what you are holding (staff.js)
   if (aimed.seat) walker.sit(aimed.seat); else aimed.act();
 }
 const touch = 'ontouchstart' in window;

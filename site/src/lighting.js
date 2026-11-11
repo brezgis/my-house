@@ -184,7 +184,10 @@ export function makeLampPool({ scene, lamps, vis, size, day, camera }) {
     return l.power * (1 + day.night);                   // fire
   };
   const zoneOf = l => (l.zone ??= vis.roomAt(l.x, l.y, l.z)?.id ?? 'o:');
-  const seen = l => (zoneOf(l) === 'o:' ? vis.state.out : vis.state.seen.has(l.zone));
+  // "seen" is remembered for a few seconds, so that turning your head on a landing does not
+  // keep trading one lamp for another (which pulsed the whole view)
+  let nowT = 0;
+  const seen = l => { if (zoneOf(l) === 'o:' ? vis.state.out : vis.state.seen.has(l.zone)) l.seenAt = nowT; return nowT - (l.seenAt ?? -1e9) < 6; };
   const here = l => vis.state.here.includes(zoneOf(l));
   // Smaller is better: distance (height counts triple, floors apart), less for strong lamps,
   // much less for the room you are in, more for lamps behind walls, and a little stickiness.
@@ -193,7 +196,7 @@ export function makeLampPool({ scene, lamps, vis, size, day, camera }) {
     if (s <= 0.01) return Infinity;
     const d = Math.hypot(l.x - eye.x, l.z - eye.z) + Math.abs(l.y - eye.y) * 3;
     const outside = vis.state.here.includes('out'), indoorLamp = zoneOf(l) !== 'o:';
-    return d / (0.4 + s) * (here(l) ? 0.55 : seen(l) ? 1 : 2.2) * (held ? 0.8 : 1)
+    return d / (0.4 + s) * (here(l) ? 0.55 : seen(l) ? 1 : 2.2) * (held ? 0.62 : 1)
       * (l.kind === 'fire' ? 0.5 : 1)                    // a lit fire is always worth one of the four
       * (outside && indoorLamp ? 1.8 : 1);               // from the garden, rooms glow by themselves (lighting.js); light the garden
   }
@@ -205,13 +208,14 @@ export function makeLampPool({ scene, lamps, vis, size, day, camera }) {
       .sort((a, b) => a.d - b.d).slice(0, n).map(o => o.l);
   }
   function update(eye, dt, t) {
+    nowT = t;
     const n = size - (lantern ? 1 : 0);
     const near = choose(eye, n, new Set(pool.map(s => s.lamp).filter(Boolean)));
     const slots = lantern ? pool.slice(0, n) : pool;
     for (const s of slots) {
       if (s.lamp === 'lantern') { s.lamp = null; s.level = 0; }
       const wanted = s.lamp && near.includes(s.lamp);
-      s.level += ((wanted ? 1 : 0) - s.level) * Math.min(1, dt * 3.5);
+      s.level += ((wanted ? 1 : 0) - s.level) * Math.min(1, dt * (wanted ? 2.2 : 1.5));      // slow, so a change of lamp is a drift, not a blink
       if (!wanted && s.level < 0.02) {
         const free = near.find(l => !pool.some(o => o.lamp === l));
         s.lamp = free ?? null; s.level = free ? s.level : 0;

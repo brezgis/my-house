@@ -228,9 +228,11 @@ export function buildHouse(B) {
   }
   portal(ST.X0, ST.X1, HOLE_Y0, ST.Y1, C1 - 0.3, F2 + 0.1, 'y', 'stair');      // the stairwell, between the halls
   // Stairwell lining
-  B.pbox('fir', ST.X0 - 0.06, ST.X0, HOLE_Y0, ST.Y1, C1 - 0.02, F2, { grain: 'long' });
-  B.pbox('fir', ST.X0, ST.X1, HOLE_Y0 - 0.06, HOLE_Y0, C1 - 0.02, F2, { grain: 'long' });
-  B.pbox('fir', ST.X1, ST.X1 + 0.06, HOLE_Y0, ST.Y1, C1 - 0.02, F2, { grain: 'long' });
+  // (a fascia standing just inside the opening, a hair below the floor's surface: it used to sit
+  // inside the slab with its faces in the same planes as the floor's top and cut edge, which flickered)
+  B.pbox('fir', ST.X0, ST.X0 + 0.035, HOLE_Y0, ST.Y1, C1 - 0.02, F2 - 0.004, { grain: 'long' });
+  B.pbox('fir', ST.X0 + 0.035, ST.X1 - 0.035, HOLE_Y0, HOLE_Y0 + 0.035, C1 - 0.02, F2 - 0.004, { grain: 'long' });
+  B.pbox('fir', ST.X1 - 0.035, ST.X1, HOLE_Y0, ST.Y1, C1 - 0.02, F2 - 0.004, { grain: 'long' });
   // Upper ceiling
   B.pbox('ceil', 0.3, W - 0.3, 0.3, D - 0.3, C2, C2 + 0.14);
 
@@ -382,8 +384,11 @@ export function buildHouse(B) {
   ] });
   wall({ ...i2, ax: 'Y', c: P2, a: B4 + TP / 2, b: D - T, neg: 'int', pos: 'int' });
 
+  // The upstairs hall is L-shaped and its box covers the guest room's west end too, so the guest
+  // room is listed first: where the two overlap, the first room listed is the one you are in.
+  room('Guest room', P2, W, 0, B5, F2);
   room('Upstairs hall', P1, HALL_N, 0, B4, F2); room('Our bedroom', 0, P1, 0, B2, F2); room('Library', 0, P1, B3, D, F2);
-  room('Guest room', P2, W, 0, B5, F2); room('Little bedroom', P2, W, B4, D, F2); room('Bath', P1, P2, B4, D, F2);
+  room('Little bedroom', P2, W, B4, D, F2); room('Bath', P1, P2, B4, D, F2);
   lamp(9.5, 7, F2 + 6.2, 1); lamp(9.5, 24, F2 + 6.2, 1); lamp(35.5, 6, F2 + 6.2, 1); lamp(36, 25.5, F2 + 6.2, 0.9);
   lamp(23.3, 25.5, F2 + 6.2, 0.6); lamp(22, 3.5, F2 + 6.2, 0.6); lamp(26, 19, F2 + 6.2, 0.6);
 

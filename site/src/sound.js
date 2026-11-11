@@ -28,7 +28,9 @@ export function makeSound() {
       }
     }
     tracks.push({ youtube: 'Cw-IjuVAVk0', title: 'My House, piano cover', composer: 'Pianistmiri (YouTube)', seconds: 215 });
-    trackNo = tracks.findIndex(t => t.youtube === 'Cw-IjuVAVk0'); nextTrack();      // "My House" is always the first record on when a guest comes in
+    // "My House" is always the first record on when a guest comes in; after it the crate is shuffled,
+    // and reshuffled each time it has been played through (never the same record twice running)
+    order = [tracks.find(t => t.youtube === 'Cw-IjuVAVk0'), ...shuffled(tracks.filter(t => t.youtube !== 'Cw-IjuVAVk0'))]; trackNo = 0; nextTrack();
   }
   // "Come On In": the house's own welcome tune, written for it. A bright, bouncy
   // piano piece at 97 beats a minute in B-flat major (written in G, played up a minor third).
@@ -110,9 +112,12 @@ export function makeSound() {
     });
   }
   let onNote = () => {};
+  let order = [];
+  const shuffled = list => { const a = [...list]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   function nextTrack() {
     tube?.remove(); tube = null;
-    const t = tracks[trackNo++ % tracks.length];
+    if (trackNo >= order.length) { const last = order.at(-1); do order = shuffled(tracks); while (tracks.length > 1 && order[0] === last); trackNo = 0; }
+    const t = order[trackNo++];
     if (t.synth) { music = null; nowTitle = `${t.title} · ${t.composer}`; timer = setTimeout(nextTrack, (comeOnIn(t.synth === 'trunk') + 6) * 1000); return; }
     if (t.youtube) { music = null; nowTitle = `${t.title} · ${t.composer}`; playTube(t); return; }
     nowTitle = '';
