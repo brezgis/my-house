@@ -143,15 +143,15 @@ const help = makeCard('help', 'How to get about', `
       ${row(k('1') + '…' + k('0'), 'play notes, sitting at the piano; ' + k('P') + ' plays a phrase')}
       ${row(k('X'), 'wipe the chalkboard')}
       ${row(k('Q'), 'sip your drink, or take a bite')}
-      ${row(k('N'), 'a new game, at the chess table')}
-      ${row(k('T'), 'turn the television off')}
     </dl></section>
     <section><h3>The house</h3><dl>
       ${row(k('F'), 'carry a lantern')}
+      ${row(k('N'), 'a new game, at the chess table')}
+      ${row(k('T'), 'turn the television off')}
+      ${row('telephone', 'in the hall: ring a friend round')}
       ${row(k('[ ]'), 'turn the clock back or on, half an hour at a time')}
       ${row(k('M'), 'sound on or off')}
       ${row(k('I'), 'about this house and its sources')}
-      ${row(k('H'), 'this card')}
     </dl></section>
   </div>
   <div class="groups touch-only">

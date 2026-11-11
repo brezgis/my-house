@@ -1,0 +1,179 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>friends test</title>
+<script type="importmap">{ "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
+</script>
+<link rel="stylesheet" href="src/ui.css">
+<style>html, body { overflow: auto; } body.plain { font: 13px/1.4 ui-monospace, monospace; margin: 16px; background: #fff; color: #111; } pre { white-space: pre-wrap; } canvas { opacity: 1 !important; }</style></head>
+<body><pre id="out">running</pre>
+<script type="module">
+// Tests for the friends (src/friends.js). Three modes:
+//   friendtest.html            the house without rendering: the visitor rings all three, walks from room to
+//                              room, upstairs, out into the garden and back, talks, dances and sends them
+//                              home. Reports manners (distance, doorways, attention) and whether anybody
+//                              was ever inside a wall or a piece of furniture.   ?seed=7  ?staff=0
+//   friendtest.html?poses      the three bodies on a plain floor (poses=side | dance | staff for the family)
+//   friendtest.html?chat=gigi  the telephone card and chat box alone, with the real conversation engine,
+//                              for trying the typing quickly (chat=gigi,feyn puts two in the room; &phone opens the telephone)
+import * as THREE from 'three';
+const Q = new URLSearchParams(location.search), out = document.getElementById('out');
+const errors = [];
+addEventListener('error', e => errors.push(String(e.message)));
+addEventListener('unhandledrejection', e => errors.push(String(e.reason)));
+
+async function poses() {
+  const { buildGuest, useThreeBodies, costOf } = await import('./src/friends/bodies.js');
+  useThreeBodies(THREE);
+  out.remove(); document.body.style.margin = 0;
+  const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(innerWidth, innerHeight); r.toneMapping = THREE.ACESFilmicToneMapping; document.body.appendChild(r.domElement);
+  const sc = new THREE.Scene(); sc.background = new THREE.Color(0xd9d2c4);
+  sc.add(new THREE.HemisphereLight(0xfff4e6, 0x8a7a66, 1.6)); const sun = new THREE.DirectionalLight(0xfff0dc, 2.2); sun.position.set(5, 10, 8); sc.add(sun);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshStandardMaterial({ color: 0xb59a78, roughness: 0.9 })); floor.rotation.x = -Math.PI / 2; sc.add(floor);
+  const cam = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.05, 200), kind = Q.get('poses');
+  const costs = {};
+  ['feyn', 'gigi', 'nano'].forEach((k, i) => {
+    const b = buildGuest(k); b.root.position.set((i - 1) * 3.0, 0, -5); sc.add(b.root); b.face.draw(['wink', 'happy', 'neutral'][i]);
+    if (kind === 'side') b.root.rotation.y = 1.1; if (kind === 'back') b.root.rotation.y = Math.PI;
+    if (b.cup) b.cup.visible = true;
+    costs[k] = costOf(b.root);
+  });
+  if (kind === 'staff') {
+    const { buildRobot } = await import('./src/staff/models.js');
+    ['barty', 'mort', 'fig'].forEach((k, i) => { const b = buildRobot(k); b.root.position.set((i - 1) * 3.0, 0, -9.5); sc.add(b.root); b.face.draw('neutral'); });
+    cam.position.set(0, 7.5, 9); cam.lookAt(0, 3, -6.5);
+  } else if (kind === 'top') { cam.position.set(0, 13, -1); cam.lookAt(0, 3.4, -5); }
+  else { cam.position.set(0, 4.6, 5.2); cam.lookAt(0, 3.3, -5); }
+  r.render(sc, cam);
+  const tag = document.createElement('div'); tag.style.cssText = 'position:fixed;left:8px;bottom:6px;font:12px monospace;color:#333'; tag.textContent = JSON.stringify(costs); document.body.appendChild(tag);
+  document.title = 'done';
+}
+
+async function chatOnly() {
+  out.remove(); document.body.style.cssText = 'margin:0;min-height:100vh;background:radial-gradient(ellipse at 40% 40%, #6b5a45, #2a2018)';
+  const { makeUI } = await import('./src/friends/ui.js');
+  const { makeBrain, CAST, ORDER } = await import('./src/friends/brain.js');
+  const ui = makeUI({ canvas: null, touch: Q.has('touch') ? true : undefined }), brain = makeBrain();
+  if (Q.has('touch')) document.documentElement.classList.add('touch');
+  const present = (Q.get('chat') || 'gigi').split(',').filter(id => CAST[id]);
+  const state = Object.fromEntries(ORDER.map(id => [id, present.includes(id) ? 'here' : 'away']));
+  let dancing = false;
+  const who = id => ({ id, name: CAST[id].name, short: CAST[id].short, tag: CAST[id].tag });
+  const here = () => ORDER.filter(id => state[id] === 'here');
+  const chatApi = {
+    say(id, text) { const r = brain.reply(id, text, { present: here(), music: false, hour: 15 }); let t = 350; for (const l of r.lines) { setTimeout(() => ui.chat.add('them', CAST[l.who].short, l.text), t); t += 900; } ui.chat.setChips(r.chips); if (r.act === 'dance') dancing = true; if (r.act === 'close') setTimeout(() => ui.chat.hide(), t + 900); window.__last = r; ui.chat.sync(); },
+    dance() { dancing = !dancing; ui.chat.add('note', '', dancing ? 'Everybody dances.' : 'The dancing winds down.'); }, dancing: () => dancing, chips: id => brain.chips(id, { present: here() }), closed() {},
+  };
+  const phoneApi = { list: () => ORDER.map(id => ({ ...who(id), status: state[id], been: false })), ring: async id => { state[id] = 'coming'; setTimeout(() => { state[id] = 'here'; ui.phone.draw(); }, 2500); return brain.say(id, 'phone'); }, sendHome: async id => { state[id] = 'away'; return brain.say(id, 'sentHome'); } };
+  const bar = document.createElement('div'); bar.style.cssText = 'position:fixed;left:16px;top:16px;display:flex;gap:8px;flex-wrap:wrap;font-family:var(--serif)';
+  bar.innerHTML = ORDER.map(id => `<button class="fr-btn" style="background:#f0e5cf" data-id="${id}">Talk to ${CAST[id].short}</button>`).join('') + '<button class="fr-btn" style="background:#f0e5cf" data-id="phone">The telephone</button>';
+  bar.addEventListener('click', e => { const id = e.target.dataset?.id; if (id === 'phone') ui.phone.show(phoneApi); else if (id) { state[id] = 'here'; ui.chat.show(who(id), chatApi); } });
+  document.body.appendChild(bar);
+  // keys that reach the window would move the visitor in the real house: count them, to prove none leak from the cards
+  window.__leaked = []; addEventListener('keydown', e => window.__leaked.push(e.code));
+  window.__ui = ui; window.__brain = brain;
+  if (Q.has('phone')) ui.phone.show(phoneApi); else ui.chat.show(who(present[0]), chatApi);
+  for (const line of Q.getAll('say')) { ui.chat.send(line); await new Promise(r => setTimeout(r, 2600)); }
+  document.title = 'done';
+}
+
+async function runTest() {
+  document.body.classList.add('plain');
+  const [{ Builder }, { buildHouse }, { furnish }, { makeMaterials }, { bringToLife }, { plantGarden, TREES }, { makeTrees }] = await Promise.all(['builder', 'house', 'furnish', 'materials', 'life', 'garden', 'trees'].map(m => import(`./src/${m}.js`)));
+  console.warn = (...a) => errors.push('warn: ' + a.join(' '));
+  const B = new Builder(), house = buildHouse(B), items = furnish(B, house), garden = plantGarden(B, items);
+  const renderer = new THREE.WebGLRenderer({ canvas: document.createElement('canvas') });
+  const materials = makeMaterials(renderer), scene = new THREE.Scene();
+  makeTrees(scene, materials, B.colliders, TREES);
+  const camera = new THREE.PerspectiveCamera(56, 1.6, 0.25, 500);
+  const life = bringToLife({ scene, renderer, camera, items, garden, materials, doors: house.doors, colliders: B.colliders, onChange() {} });
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  let last = -1, stable = 0;
+  for (let i = 0; i < 160 && stable < 8; i++) { await sleep(250); const n = scene.children.length + B.colliders.length; stable = n === last ? stable + 1 : 0; last = n; }
+
+  const walker = { pos: new THREE.Vector3(), yaw: 0, pitch: 0, seated: null };
+  const day = { light: 1, night: 0, hour: 15 };
+  let seed = Number(Q.get('seed') ?? 7) >>> 0;
+  const friendsRnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  const ctx = { THREE, scene, camera, renderer, materials, house, items, garden, colliders: B.colliders, interact: life.interact, animated: life.animated, loadModel: life.loadModel, track: life.track, zoneAt: life.zoneAt, sound: null, day, walker, mode: 'walk', headless: true, seed: 7, friendsRnd, friendsDelay: 0 };
+  let staff = null;
+  if (Q.get('staff') !== '0') { const { hireStaff } = await import('./src/staff.js'); staff = hireStaff(ctx); ctx.staff = staff; window.__staff = staff; }
+  const { setupFriends } = await import('./src/friends.js');
+  const setup = setupFriends(ctx);
+  const { makeParty } = await import('./src/friends/party.js');
+  if (staff) for (let i = 0; i < 40; i++) staff.step(1 / 20);
+  const party = makeParty(ctx, null), P = party.P, nav = party.nav;
+  const rnd = (() => { let s = 99; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+
+  const Pt = (X, Y, f = 0) => ({ x: X - 21.665, z: -Y, f });
+  // the visitor's afternoon: [seconds, what]
+  const sp = house.spawn; walker.pos.set(sp.x, nav.floorY(0, sp.x, sp.z), sp.z); walker.yaw = sp.yaw ?? 0;
+  const plan = [
+    [2, () => { log('rings all three: ' + ['feyn', 'gigi', 'nano'].map(id => `${id} "${party.ring(id)}"`).join('  ')); }],
+    [34, () => { snapshot('everyone in, in the hall'); go(Pt(9.5, 9)); }], [70, () => { snapshot('living room'); party.sayTo('gigi', 'hi! my name is Anna'); }], [76, () => party.sayTo('gigi', 'any gossip?')], [84, () => party.sayTo('feyn', 'Nano, what is a training curve?')],
+    [92, () => party.sayTo('feyn', 'shall we dance?')], [112, () => { snapshot('dancing in the living room'); }], [124, () => go(Pt(35, 5))], [160, () => { snapshot('dining room'); go(Pt(33.5, 20)); }], [200, () => { snapshot('coffee bar'); go(Pt(24.5, 31)); }],
+    [240, () => { snapshot('office'); go(Pt(22, 4, 1)); }], [290, () => { snapshot('upstairs hall'); go(Pt(9, 24, 1)); }], [330, () => { snapshot('library, upstairs'); walker.seated = { label: 'sit' }; }], [350, () => { walker.seated = null; go(Pt(21.8, 4)); }],
+    [395, () => { snapshot('back in the hall'); outside = true; walker.pos.set(2, 0.05, 30); }], [440, () => { snapshot('visitor in the garden'); outside = false; walker.pos.set(sp.x, 1.6, sp.z); }], [470, () => { snapshot('back indoors'); go(Pt(14, 8)); }],
+    [560, () => { snapshot('a long sit in the living room (wandering allowed)'); }], [562, () => log('sends Gigi home: "' + party.sendHome('gigi') + '"')], [600, () => { snapshot('Gigi gone'); party.sayTo('feyn', 'time to go home'); party.sendHome('nano'); }], [650, () => snapshot('everyone gone')],
+  ];
+  const T = 655, DT = 1 / 20, lines = [];
+  const TR = Q.get('trace')?.split(',').map(Number) ?? null;
+  const log = s => lines.push(`  t=${Math.round(now)}  ${s}`);
+  let now = 0, path = null, pi = 0, outside = false, pk = 0;
+  function go(p) { const f0 = nav.floorOf(walker.pos.y + 0.5); path = nav.path(f0, walker.pos.x, walker.pos.z, p.f, p.x, p.z, 1, true); pi = 1; if (!path) log('visitor: no path'); }
+  function walk(dt, t) {
+    if (outside) { walker.yaw += dt * 0.2; return; }
+    if (!path) { walker.yaw += Math.sin(t * 0.37) * dt * 0.4; return; }
+    const p = path[pi]; if (!p) { path = null; return; }
+    const dx = p.x - walker.pos.x, dz = p.z - walker.pos.z, L = Math.hypot(dx, dz), stepL = 4.5 * dt;
+    for (const d of house.doors) if (!d.fixed && !d.isOpen && !d.exterior && Math.hypot(d.cx - walker.pos.x, d.cz - walker.pos.z) < 2.5) { d.isOpen = true; d.stop.off = true; }
+    walker.yaw = Math.atan2(-dx, -dz);
+    if (L < stepL) { walker.pos.x = p.x; walker.pos.z = p.z; pi++; } else { walker.pos.x += dx / L * stepL; walker.pos.z += dz / L * stepL; }
+    const stairs = p.f !== nav.floorOf(walker.pos.y + 0.5) || (path[pi - 1] && path[pi - 1].f !== p.f);
+    walker.pos.y = stairs ? (nav.stair && walker.pos.z < nav.stair.zHi ? nav.FLOORS[1] : nav.floorY(0, walker.pos.x, walker.pos.z)) : nav.FLOORS[p.f];
+  }
+  const M = { closeWho: new Map(), close: 0, closeStill: 0, frames: 0, dist: [], door: 0, doorWho: new Map(), engaged: 0, facing: 0, still: 0, engStart: new Map(), bad: 0, firstBad: [], inBody: 0, pairClose: 0, follow: [], doorOpenFrames: 0, staffClose: 0 };
+  function snapshot(label) {
+    const v = P.v, st = party.status();
+    lines.push(`  t=${Math.round(now)}  ${label}: visitor ${v.outside ? 'outside' : (v.room ?? '?')} f${v.f} | ` + st.map(s => `${s.who} ${s.state}/${s.mode}${s.away ? '@' + s.away : ''} in ${s.room} f${s.f} ${s.state === 'here' && s.f === v.f ? Math.hypot(s.x - v.x, s.z - v.z).toFixed(1) + 'ft' : ''}`).join(' | '));
+    for (const g of P.guests) if (g.state === 'here' && !g.away && !v.outside) M.follow.push(g.m.f === v.f && Math.hypot(g.m.x - v.x, g.m.z - v.z) < 16 ? 1 : 0);
+  }
+  for (now = 0; now < T; now += DT) {
+    while (pk < plan.length && now >= plan[pk][0]) plan[pk++][1]();
+    walk(DT, now); camera.position.set(walker.pos.x, walker.pos.y + 4.85, walker.pos.z); camera.rotation.set(-0.08, walker.yaw, 0, 'YXZ'); camera.updateMatrixWorld();
+    staff?.step(DT); party.step(DT, false);
+    const v = P.v, still = now - v.movedAt > 2;
+    for (const g of P.guests) {
+      if (g.state !== 'here') continue;
+      const d = g.m.f === v.f && !v.outside ? Math.hypot(g.m.x - v.x, g.m.z - v.z) : 99;
+      if (d < 40) { M.frames++; if (d < 3.6) { M.close++; if (still && g.m.v < 0.1 && !g.engaged) { M.closeStill++; M.closeWho.set(`${g.name}/${g.mode}${g.away ? '@' + g.away.spot.key : ''} ${d.toFixed(1)}ft`, Math.round(now)); } } if (still && !g.away && g.mode === 'idle') M.dist.push(d); }
+      if (g.mode === 'idle' && g.m.v < 0.05 && !g.engaged) if (party.nearDoor(g.m.f, g.m.x, g.m.z, 1.5)) { M.door++; M.doorWho.set(`${g.name}@${g.m.x.toFixed(1)},${g.m.z.toFixed(1)}`, Math.round(now)); }
+      if (g.engaged && d < 12 && P.now < g.engagedUntil && g.look === v) { if (!M.engStart.has(g)) M.engStart.set(g, now); if (now - M.engStart.get(g) > 1.5) { M.engaged++; let a = Math.atan2(v.x - g.m.x, v.z - g.m.z) - g.m.yaw; a = Math.abs(Math.atan2(Math.sin(a), Math.cos(a))); if (a < 0.45) M.facing++; if (g.m.v < 0.15) M.still++; } } else M.engStart.delete(g);
+      for (const o of P.guests) if (o !== g && o.state === 'here' && o.m.f === g.m.f && Math.hypot(o.m.x - g.m.x, o.m.z - g.m.z) < 1.2) M.pairClose++;
+      if (staff) for (const a of staff.H.robots) if (a.f === g.m.f && Math.hypot(a.x - g.m.x, a.z - g.m.z) < 1.1) M.staffClose++;
+      if (walker.pos.x > g.box.x0 && walker.pos.x < g.box.x1 && walker.pos.z > g.box.z0 && walker.pos.z < g.box.z1 && Math.abs(walker.pos.y - g.m.y) < 2) M.inBody++;
+    }
+    if (P.door?.isOpen) M.doorOpenFrames++;
+    if (P.door && P.door.isOpen !== M.doorWas) { M.doorWas = P.door.isOpen; lines.push(`    ${now.toFixed(1)}: front door ${M.doorWas ? 'opened' : 'closed'} (ours: ${P.doorOpenedByUs}); near it: ` + [...P.guests.map(g => [g.name, g.m.x, g.m.z, g.state]), ...(staff ? staff.H.robots.map(r => [r.name, r.x, r.z, r.taskName]) : []), ['you', v.x, v.z, '']].filter(a => Math.hypot(a[1] - P.door.cx, a[2] - P.door.cz) < 9).map(a => `${a[0]} ${a[3]} ${a[1].toFixed(1)},${a[2].toFixed(1)}`).join('; ')); }
+    if (TR && now >= TR[0] && now < TR[1] && Math.round(now / DT) % 100 === 0) lines.push(`    ${now.toFixed(0)}: you ${v.x.toFixed(1)},${v.z.toFixed(1)} f${v.f} | ` + P.guests.map(g => `${g.name} ${g.state}/${g.mode}/${g.lastStatus ?? ''} ${g.m.x.toFixed(1)},${g.m.z.toFixed(1)} f${g.m.f} v${g.m.v.toFixed(1)} goal ${g.m.goal ? g.m.goal.x.toFixed(1) + ',' + g.m.goal.z.toFixed(1) + ' f' + g.m.goal.f : '-'}${g.away ? ' away:' + g.away.spot.key : ''}${g.engaged ? ' eng' : ''}`).join(' | ') + (staff ? ' | staff ' + staff.H.robots.map(r => `${r.name} ${r.x.toFixed(1)},${r.z.toFixed(1)} f${r.f}`).join(' ') : ''));
+    if (Math.round(now / DT) % 5 === 0) for (const b of party.check()) { M.bad++; if (M.firstBad.length < 10) M.firstBad.push(`t=${now.toFixed(1)} ${b.who} (${b.mode}) at x=${b.x} z=${b.z} f=${b.f} inside box x ${b.box.x0.toFixed(2)}..${b.box.x1.toFixed(2)} z ${b.box.z0.toFixed(2)}..${b.box.z1.toFixed(2)} y ${b.box.y0.toFixed(1)}..${b.box.y1.toFixed(1)}`); }
+  }
+  const med = a => { const s = [...a].sort((p, q) => p - q); return s.length ? s[Math.floor(s.length / 2)] : NaN; };
+  const pct = (a, b) => (b ? (100 * a / b).toFixed(1) + '%' : 'n/a');
+  const R = [];
+  R.push(`simulated ${(T / 60).toFixed(1)} min at dt ${DT}; staff ${staff ? 'in' : 'out'}; colliders ${B.colliders.length}; walkable cells ground ${nav.floors[0].cells.length}, upstairs ${nav.floors[1].cells.length}`);
+  R.push(`telephone at world x ${setup.phone.x.toFixed(2)}, z ${setup.phone.z.toFixed(2)}; walkable 2 ft clear on its hall side: ${nav.freeAt(0, setup.phone.x - 1.6, setup.phone.z, 2, true)}; inside-door spot ${JSON.stringify(P.inside)}`);
+  R.push(`events ${JSON.stringify(P.events)}`);
+  R.push(`been round: ${[...P.been].join(', ')}; final states: ${party.status().map(s => s.who + ' ' + s.state).join(', ')}; front door ${P.door?.isOpen ? 'OPEN' : 'closed'} (open for ${(M.doorOpenFrames * DT).toFixed(0)} s in all)`);
+  R.push(`cost per guest: ${JSON.stringify(party.cost())}`);
+  R.push(`DISTANCE: while she stands still, settled guests are a median ${med(M.dist).toFixed(1)} ft away (10th percentile ${[...M.dist].sort((a, b) => a - b)[Math.floor(M.dist.length * 0.1)]?.toFixed(1)}); frames within 3.6 ft of her: ${pct(M.close, M.frames)} (and standing still there, not speaking, while she is still: ${M.closeStill} ${[...M.closeWho].slice(0, 8).join(' ')})`);
+  R.push(`FOLLOWING: at each checkpoint, guests on her floor and within 16 ft: ${pct(M.follow.reduce((a, b) => a + b, 0), M.follow.length)} of ${M.follow.length}`);
+  R.push(`ATTENTION while speaking to her (after the first 1.5 s): facing her ${pct(M.facing, M.engaged)}, holding still ${pct(M.still, M.engaged)} of ${M.engaged} frames`);
+  R.push(`DOORWAYS: frames a guest stood idle in a doorway, a cased opening or at the stair (within 1.5 ft): ${M.door} ${[...M.doorWho].slice(0, 6).join(' ')}`);
+  R.push(`BODIES: frames her centre was inside a guest: ${M.inBody}; guest-on-guest overlaps (under 1.2 ft): ${M.pairClose}; guest-on-staff (under 1.1 ft): ${M.staffClose}`);
+  R.push(`INSIDE-COLLIDER SAMPLES: ${M.bad}`); for (const b of M.firstBad) R.push('  ' + b);
+  R.push('', 'THE AFTERNOON:', ...lines, '', 'NOTES SHOWN TO THE VISITOR:', ...P.notes.map(n => '  ' + n), '', 'WHAT WAS SAID:');
+  const said = []; for (const g of P.guests) for (const [t, text] of g.bubble.log) said.push([t, g.name, text]);
+  said.sort((a, b) => a[0] - b[0]); for (const [t, w, text] of said) R.push(`  ${String(Math.round(t)).padStart(4)}  ${w}: ${text}`);
+  if (errors.length) R.push('', 'ERRORS:', ...errors.slice(0, 12));
+  out.textContent = R.join('\n'); document.title = 'done';
+}
+(Q.has('poses') ? poses() : Q.has('chat') ? chatOnly() : runTest()).catch(e => { out.textContent = 'FAILED: ' + (e.stack ?? e); document.title = 'done'; });
+</script></body></html>

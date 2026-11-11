@@ -35,3 +35,7 @@ All textures and the lighting environment are CC0 (public domain).
   https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/
 - The moon's face, the chess rules and Fig's chess play (src/chess_rules.js) were written for this house.
   The chess set itself is the Poly Haven model listed above (CC0).
+- The telephone in the hall and the friends it brings round (src/friends.js, src/friends/): the stand, the candlestick
+  telephone and the three robot bodies are built in code from primitives, and every line they say was written for
+  this house. Professor Feynbot and nanoKarpathy are affectionate homage robots, not likenesses or quotations;
+  Gigi and the people in her gossip are invented. No downloaded assets.
