@@ -25,7 +25,7 @@ import { U, basinSheet, basinMesh, waterMesh } from './pond_water.js';
 
 export { POND };
 let sheet = null;                         // the basin's geometry, gathered during layout and built in pondLife()
-const WOOD = ['c#b3a085/1', 'c#bcab90/1', 'c#a8957a/1', 'c#b0a089/1'], POST = 'c#9a8770/1', PEG = 'c#2b2521/0.8', GRANITE = 'c#99958b/1', BAMBOO = 'c#9aa062/0.8';
+const GRANITE = 'c#99958b/1', BAMBOO = 'c#9aa062/0.8';
 const deckH = z => BRIDGE.base + BRIDGE.rise * Math.sin(Math.PI * THREE.MathUtils.clamp((z - BRIDGE.z0) / (BRIDGE.z1 - BRIDGE.z0), 0, 1));
 const SPOUT = at(3.05, 0.74);              // where the bamboo spout's water lands
 const FROG = at(0.3, 0.7);
@@ -59,9 +59,17 @@ function boulder(x, z, r, h, seed) {
 }
 // A water-lily pad (a notched disc just clear of the water) and a flower (three rings of petals)
 function pad(x, z, rad, rot, bronze = 0) {
-  const y = POND.y + 0.045, n = 17, c0 = lerp3([0.075, 0.2, 0.06], [0.24, 0.15, 0.08], bronze), ctr = [x, y + 0.014, z], gap = 0.2;
-  const rimPt = i => { const a = rot + gap + (i / (n - 1)) * (Math.PI * 2 - 2 * gap), w = rad * (1 + 0.04 * Math.sin(i * 2.4 + x)); return [x + Math.cos(a) * w, y + (i % 4 === 0 ? 0.012 : 0), z + Math.sin(a) * w]; };
-  for (let i = 0; i < n - 1; i++) { const k0 = 0.78 + 0.12 * Math.sin(i * 1.9 + z), k1 = 0.78 + 0.12 * Math.sin((i + 1) * 1.9 + z); tri(ctr, rimPt(i + 1), rimPt(i), shade(c0, 1.3), shade(c0, k1), shade(c0, k0)); }
+  // twelve leaves of a fan with a pale vein between each, a notch, and a rim that lifts and waves; all of it clear of the water
+  const y = POND.y + 0.05, n = 12, gap = 0.22, tone = 0.85 + 0.3 * Math.abs(Math.sin(x * 3.1 + z * 1.7)), c0 = shade(lerp3([0.07, 0.19, 0.055], [0.25, 0.13, 0.075], bronze), tone), vein = lerp3(c0, [0.24, 0.36, 0.12], 0.4), edge = lerp3(c0, [0.2, 0.1, 0.06], 0.35 + 0.4 * bronze), ctr = [x, y, z];
+  const rimPt = a => { const w = rad * (1 + 0.035 * Math.sin(a * 5 + x)); return [x + Math.cos(a) * w, y + 0.022 + 0.016 * Math.sin(a * 4 + z * 2) + 0.012 * rad, z + Math.sin(a) * w]; };
+  const mid = a => { const w = rad * 0.62; return [x + Math.cos(a) * w, y + 0.004, z + Math.sin(a) * w]; };
+  for (let i = 0; i < n; i++) {
+    const a0 = rot + gap + (i / n) * (Math.PI * 2 - 2 * gap), a1 = rot + gap + ((i + 1) / n) * (Math.PI * 2 - 2 * gap), dv = 0.028, k = 0.9 + 0.18 * Math.sin(i * 2.1 + x);
+    if (i > 0) tri(ctr, rimPt(a0 + dv), rimPt(a0 - dv), shade(vein, 1.1), vein, vein);
+    const lo = a0 + (i > 0 ? dv : 0), hi = a1 - (i < n - 1 ? dv : 0), am = (lo + hi) / 2;
+    tri(ctr, mid(hi), mid(lo), shade(c0, 1.25), shade(c0, k), shade(c0, k)); tri(mid(lo), mid(hi), rimPt(am), shade(c0, k), shade(c0, k), edge);
+    tri(mid(lo), rimPt(am), rimPt(lo), shade(c0, k), edge, edge); tri(mid(hi), rimPt(hi), rimPt(am), shade(c0, k), edge, edge);
+  }
 }
 function lily(x, z, s, pink) {
   const y = POND.y + 0.06;
@@ -111,6 +119,31 @@ function rushClump(x, z, q, { n = 16, h = 4.6, tails = 3 } = {}) {
   }
 }
 
+// Timber, in the basin's mesh so that it can have grain (pond_water.js draws aux -1, -2, -3 as wood with the grain along
+// x, z, y). Each piece is its own shade; end grain is darker; a post's foot is damp and a little green.
+const TEAK = [[0.4, 0.29, 0.185], [0.44, 0.31, 0.19], [0.36, 0.29, 0.21], [0.42, 0.33, 0.22], [0.34, 0.25, 0.16]], DARK = [0.27, 0.185, 0.12], EBONY = [0.035, 0.028, 0.024], DAMP = [0.1, 0.12, 0.065];
+let woodN = 0;
+function hexa(c, grain, colour = () => null) {             // c: 8 corners, bit 0 = +x, bit 1 = +y, bit 2 = +z
+  const k = 0.93 + 0.14 * (((woodN++ * 7919) % 13) / 12);
+  for (const [f, axis] of [[[0, 2, 6, 4], 0], [[1, 5, 7, 3], 0], [[0, 4, 5, 1], 1], [[2, 3, 7, 6], 1], [[0, 1, 3, 2], 2], [[4, 6, 7, 5], 2]]) {
+    const end = axis === grain, top = axis === 1 && f[0] === 2, sh = k * (end ? 0.6 : top ? 1.08 : 0.92);
+    const col = i => shade(colour(c[i]) ?? arguments[3], sh);
+    tri(c[f[0]], c[f[1]], c[f[2]], col(f[0]), col(f[1]), col(f[2]), -1 - grain); tri(c[f[0]], c[f[2]], c[f[3]], col(f[0]), col(f[2]), col(f[3]), -1 - grain);
+  }
+}
+function wbox(col, x0, x1, y0, y1, z0, z1, grain, { tilt = 0, foot = 0 } = {}) {
+  const cy = (y0 + y1) / 2, cz = (z0 + z1) / 2, ct = Math.cos(tilt), st = Math.sin(tilt), c = [];
+  for (let i = 0; i < 8; i++) { const y = (i & 2 ? y1 : y0) - cy, z = (i & 4 ? z1 : z0) - cz; c.push([i & 1 ? x1 : x0, cy + y * ct - z * st, cz + y * st + z * ct]); }
+  if (!foot) return hexa(c, grain, undefined, col);
+  const ym = y0 + foot, lo = c.map((v, i) => (i & 2 ? [v[0], ym, v[2]] : v)), hi = c.map((v, i) => (i & 2 ? v : [v[0], ym, v[2]]));
+  hexa(lo, grain, v => (v[1] < ym - 0.01 ? DAMP : col), col); hexa(hi, grain, undefined, col);
+}
+function wbeam(col, a, b, w, h, grain = 1) {                // a timber from a to b in a plane of constant x: w across, h deep
+  const dy = b[1] - a[1], dz = b[2] - a[2], l = Math.hypot(dy, dz), ny = dz / l * h / 2, nz = -dy / l * h / 2, c = [];
+  for (let i = 0; i < 8; i++) { const e = i & 4 ? b : a, s = i & 2 ? 1 : -1; c.push([e[0] + (i & 1 ? w / 2 : -w / 2), e[1] + s * ny, e[2] + s * nz]); }
+  hexa(c, grain, undefined, col);
+}
+
 export function buildPond(K) {
   const { G, F, r } = K, P = POND, pts = outline(64), q = rng(2718);
   sheet = basinSheet();
@@ -148,34 +181,37 @@ export function buildPond(K) {
   }
   for (const [x, z, rad, h, seed] of BOULDERS) boulder(x, z, rad, h, seed);
 
-  // ---- The bridge: weathered teak, a low arch, posts with caps, three rails and ebony pegs ----
+  // ---- The bridge: silvered teak, a low arch, posts with caps, three rails and ebony pegs ----
   {
     const { z0, z1 } = BRIDGE, len = z1 - z0;
-    for (let z = z0, i = 0; z < z1 - 0.2; z += 0.54, i++) { const zc = Math.min(z + 0.25, z1 - 0.25), y = deckH(zc), sl = Math.atan2(deckH(zc + 0.25) - deckH(zc - 0.25), 0.5); K.box(WOOD[(i * 7 + (i >> 2)) % 4], bx - bw - 0.12, bx + bw + 0.12, y - 0.13, y, zc - 0.25, zc + 0.25, { rot: [-sl, 0, 0] }); }
+    for (let z = z0, i = 0; z < z1 - 0.2; z += 0.54, i++) {      // the deck: boards across, no two quite alike, the odd one a little proud
+      const zc = Math.min(z + 0.25, z1 - 0.25), y = deckH(zc) + (i % 7 === 3 ? 0.012 : 0), sl = Math.atan2(deckH(zc + 0.25) - deckH(zc - 0.25), 0.5), o = ((i * 5) % 3 - 1) * 0.03;
+      wbox(TEAK[(i * 7 + (i >> 2)) % 5], bx - bw - 0.12 + o, bx + bw + 0.12 + o, y - 0.13, y, zc - 0.25, zc + 0.25, 0, { tilt: -sl });
+    }
     const N = 6, zs = Array.from({ length: N + 1 }, (_, i) => z0 + 0.35 + ((len - 0.7) * i) / N);
     for (const s of [-1, 1]) {
       const x = bx + s * bw;
-      for (let i = 0; i < 14; i++) { const za = z0 + (len * i) / 14, zb = z0 + (len * (i + 1)) / 14; K.beam(POST, [bx + s * (bw - 0.25), deckH(za) - 0.42, za], [bx + s * (bw - 0.25), deckH(zb) - 0.42, zb], 0.3, 0.56); }      // the arched beams under the deck
+      for (let i = 0; i < 14; i++) { const za = z0 + (len * i) / 14, zb = z0 + (len * (i + 1)) / 14; wbeam(DARK, [bx + s * (bw - 0.25), deckH(za) - 0.42, za], [bx + s * (bw - 0.25), deckH(zb) - 0.42, zb], 0.3, 0.56); }      // the arched beams under the deck
       zs.forEach((z, i) => {
         const y = deckH(z), end = i === 0 || i === N, t = end ? 0.24 : 0.19, top = y + (end ? 3.5 : 3.15);
-        K.box(POST, x - t, x + t, y - 0.5, top, z - t, z + t);
-        K.box(WOOD[1], x - t - 0.09, x + t + 0.09, top, top + 0.09, z - t - 0.09, z + t + 0.09); K.box(POST, x - t + 0.05, x + t - 0.05, top + 0.09, top + 0.17, z - t + 0.05, z + t - 0.05);      // a stepped cap
-        for (const py of [y + 0.55, y + 1.75, y + 2.8]) K.box(PEG, x + s * t - 0.012, x + s * t + 0.012, py - 0.045, py + 0.045, z - 0.045, z + 0.045);      // pegs where the rails are housed
+        wbox(DARK, x - t, x + t, y - 0.5, top, z - t, z + t, 2, { foot: end ? 0.9 : 0.6 });
+        wbox(TEAK[1], x - t - 0.09, x + t + 0.09, top, top + 0.09, z - t - 0.09, z + t + 0.09, 0); wbox(DARK, x - t + 0.05, x + t - 0.05, top + 0.09, top + 0.17, z - t + 0.05, z + t - 0.05, 0);      // a stepped cap
+        for (const py of [y + 0.55, y + 1.75, y + 2.8]) wbox(EBONY, x + s * t - 0.012, x + s * t + 0.012, py - 0.045, py + 0.045, z - 0.045, z + 0.045, 0);      // pegs where the rails are housed
         if (i < N) {
           const zb = zs[i + 1], yb = deckH(zb), zm = (z + zb) / 2, ym = (y + yb) / 2;
-          K.beam(WOOD[0], [x, y + 2.8, z], [x, yb + 2.8, zb], 0.3, 0.2);                 // top rail, broad enough to lean on
-          K.beam(WOOD[2], [x, y + 1.75, z], [x, yb + 1.75, zb], 0.13, 0.17); K.beam(WOOD[2], [x, y + 0.55, z], [x, yb + 0.55, zb], 0.13, 0.17);
-          for (const dz of [-0.55, 0.55]) K.box(WOOD[3], x - 0.05, x + 0.05, ym + 1.8 + (deckH(zm + dz) - ym), ym + 2.72 + (deckH(zm + dz) - ym), zm + dz - 0.075, zm + dz + 0.075);      // paired spindles under the top rail
-          K.box(WOOD[3], x - 0.045, x + 0.045, ym + 0.6, ym + 1.7, zm - 0.3, zm + 0.3);                                                                   // a plain panel board below
+          wbeam(TEAK[i % 2 ? 0 : 3], [x, y + 2.8, z], [x, yb + 2.8, zb], 0.3, 0.2);                 // top rail, broad enough to lean on
+          wbeam(TEAK[2], [x, y + 1.75, z], [x, yb + 1.75, zb], 0.13, 0.17); wbeam(TEAK[4], [x, y + 0.55, z], [x, yb + 0.55, zb], 0.13, 0.17);
+          for (const dz of [-0.55, 0.55]) wbox(TEAK[3], x - 0.05, x + 0.05, ym + 1.8 + (deckH(zm + dz) - ym), ym + 2.72 + (deckH(zm + dz) - ym), zm + dz - 0.075, zm + dz + 0.075, 2);      // paired spindles under the top rail
+          wbox(TEAK[(i + (s > 0 ? 2 : 0)) % 5], x - 0.045, x + 0.045, ym + 0.6, ym + 1.7, zm - 0.3, zm + 0.3, 2);                                           // a plain panel board below
         }
       });
       K.collide(x - 0.2, x + 0.2, z0, z1, 6);
     }
-    for (const [px, pz] of BRIDGE.piles) {      // the piles stand in the water (in the basin's mesh: brown above, dark and green below)
-      const top = deckH(pz) - 0.4, R = BRIDGE.pileR, lv = [P.y - depthAt(px, pz) - 0.1, P.y - 0.25, P.y + 0.12, top], cs = [[0.07, 0.09, 0.06], [0.1, 0.1, 0.07], [0.3, 0.26, 0.21], [0.33, 0.29, 0.24]];
-      for (let k = 0; k < 3; k++) for (let i = 0; i < 8; i++) { const a0 = i * 0.7854, a1 = a0 + 0.7854, A = [px + Math.cos(a0) * R, lv[k], pz + Math.sin(a0) * R], B = [px + Math.cos(a1) * R, lv[k], pz + Math.sin(a1) * R], C = [px + Math.cos(a1) * R, lv[k + 1], pz + Math.sin(a1) * R], D = [px + Math.cos(a0) * R, lv[k + 1], pz + Math.sin(a0) * R], sh = 0.85 + 0.3 * (i % 2); tri(A, C, B, shade(cs[k], sh), shade(cs[k + 1], sh), shade(cs[k], sh)); tri(A, D, C, shade(cs[k], sh), shade(cs[k + 1], sh), shade(cs[k + 1], sh)); }
+    for (const [px, pz] of BRIDGE.piles) {      // the piles stand in the water: brown above, dark and green below
+      const top = deckH(pz) - 0.4, R = BRIDGE.pileR, lv = [P.y - depthAt(px, pz) - 0.1, P.y - 0.25, P.y + 0.12, top], cs = [[0.07, 0.09, 0.06], [0.1, 0.1, 0.07], [0.2, 0.17, 0.12], [0.3, 0.25, 0.2]];
+      for (let k = 0; k < 3; k++) for (let i = 0; i < 8; i++) { const a0 = i * 0.7854, a1 = a0 + 0.7854, A = [px + Math.cos(a0) * R, lv[k], pz + Math.sin(a0) * R], B = [px + Math.cos(a1) * R, lv[k], pz + Math.sin(a1) * R], C = [px + Math.cos(a1) * R, lv[k + 1], pz + Math.sin(a1) * R], D = [px + Math.cos(a0) * R, lv[k + 1], pz + Math.sin(a0) * R], sh = 0.85 + 0.3 * (i % 2), pe = k === 2 ? -3 : 0; tri(A, C, B, shade(cs[k], sh), shade(cs[k + 1], sh), shade(cs[k], sh), pe); tri(A, D, C, shade(cs[k], sh), shade(cs[k + 1], sh), shade(cs[k + 1], sh), pe); }
     }
-    for (const z of [BRIDGE.piles[0][1], BRIDGE.piles[2][1]]) K.box(POST, bx - bw + 0.1, bx + bw - 0.1, deckH(z) - 0.72, deckH(z) - 0.42, z - 0.17, z + 0.17);      // the cross-beam on each pair of piles
+    for (const z of [BRIDGE.piles[0][1], BRIDGE.piles[2][1]]) wbox(DARK, bx - bw + 0.1, bx + bw - 0.1, deckH(z) - 0.72, deckH(z) - 0.42, z - 0.17, z + 0.17, 0);      // the cross-beam on each pair of piles
     // a stone at each end to step up from, and the walk itself: short ramps that follow the arch
     for (const [z, d] of [[z0, -1], [z1, 1]]) { K.box(GRANITE, bx - bw - 0.35, bx + bw + 0.35, -0.1, 0.2, Math.min(z, z + d * 1.5), Math.max(z, z + d * 1.5)); K.surface(bx - bw - 0.35, bx + bw + 0.35, Math.min(z, z + d * 1.5), Math.max(z, z + d * 1.5), 0.2); }
     for (let i = 0; i < 12; i++) { const za = z0 + (len * i) / 12, zb = z0 + (len * (i + 1)) / 12; K.surface(bx - bw, bx + bw, za, zb, deckH(zb), deckH(za)); }
@@ -191,6 +227,8 @@ export function buildPond(K) {
       if (sAt(x, z) > 0.93 || nearBridge(x) || lilySpots.some(([px, pz, pr]) => Math.hypot(px - x, pz - z) < (pr + rad) * 0.9) || Math.hypot(x - FROG[0], z - FROG[1]) < 1.9) continue;
       pad(x, z, rad, q() * 6.28, q() < 0.2 ? 0.7 : q() * 0.15); lilySpots.push([x, z, rad]); i++;
       if (q() < 0.34) lily(x + Math.cos(t + 2) * rad * 0.8, z + Math.sin(t + 2) * rad * 0.8, 0.8 + q() * 0.35, q() < 0.45);
+      if (q() < 0.4) { const a = q() * 6.28, sr = 0.2 + q() * 0.16, sx = x + Math.cos(a) * (rad + sr + 0.05), sz = z + Math.sin(a) * (rad + sr + 0.05);      // a young pad beside it, still red
+        if (sAt(sx, sz) < 0.93 && !lilySpots.some(([px, pz, pr]) => (px !== x || pz !== z) && Math.hypot(px - sx, pz - sz) < pr + sr)) { pad(sx, sz, sr, q() * 6.28, 0.55 + q() * 0.4); lilySpots.push([sx, sz, sr]); } }
     }
   }
   K.frogPad = { x: FROG[0], z: FROG[1], y: P.y + 0.06 };
@@ -216,7 +254,7 @@ export function buildPond(K) {
     const prop = back.map((v, i) => v + (mouth[i] - v) * 0.3); for (const s of [-1, 1]) K.tube(BAMBOO, [prop[0] - uz * s * 0.55, 0.1, prop[2] + ux * s * 0.55], [prop[0] + uz * s * 0.12, prop[1] + 0.3, prop[2] - ux * s * 0.12], 0.05, 6);
     // the falling water: two crossed ribbons, in the basin's mesh
     const fall = t => [mouth[0] + ux * 0.9 * t, mouth[1] - 0.04 - (mouth[1] - P.y) * t * t, mouth[2] + uz * 0.9 * t], wc = [0.78, 0.86, 0.9];
-    for (let i = 0; i < 6; i++) { const a = fall(i / 6), b = fall((i + 1) / 6), w = 0.035 + 0.012 * i; for (const [wx, wy, wz] of [[-uz * w, 0, ux * w], [0, w, 0]]) { tri([a[0] - wx, a[1] - wy, a[2] - wz], [a[0] + wx, a[1] + wy, a[2] + wz], [b[0] + wx, b[1] + wy, b[2] + wz], wc); tri([a[0] - wx, a[1] - wy, a[2] - wz], [b[0] + wx, b[1] + wy, b[2] + wz], [b[0] - wx, b[1] - wy, b[2] - wz], wc); } }
+    for (let i = 0; i < 6; i++) { const a = fall(i / 6), b = fall((i + 1) / 6), w = 0.035 + 0.012 * i; for (const [wx, wy, wz] of [[-uz * w, 0, ux * w], [0, w, 0]]) { tri([a[0] - wx, a[1] - wy, a[2] - wz], [a[0] + wx, a[1] + wy, a[2] + wz], [b[0] + wx, b[1] + wy, b[2] + wz], wc, wc, wc, -5); tri([a[0] - wx, a[1] - wy, a[2] - wz], [b[0] + wx, b[1] + wy, b[2] + wz], [b[0] - wx, b[1] - wy, b[2] - wz], wc, wc, wc, -5); } }
     const land = fall(1); SPOUT[0] = land[0]; SPOUT[1] = land[2];
     K.collide(bxx - 1.8, bxx + 1.2, bzz - 2, bzz + 2, 3);
   }
@@ -255,7 +293,8 @@ export function pondLife(ctx, K) {
   const { scene, animated, interact, day } = ctx, P = POND, Q = new URLSearchParams(location.search);
   const basin = basinMesh(sheet); sheet = null; scene.add(basin);
   const water = waterMesh(); scene.add(water);
-  U.uSpout.value.set(SPOUT[0], SPOUT[1], 0.5);
+  U.uSpout.value.set(SPOUT[0], SPOUT[1], 0.7);
+  U.uBridge.value.set(BRIDGE.x, BRIDGE.w, BRIDGE.z0, BRIDGE.z1); U.uArch.value.set(BRIDGE.base, BRIDGE.rise);
   const S = school = makeSchool(CAST); U.uRings.value = S.rings;
   let koi = null; makeKoi(CAST).then(k => { koi = k; scene.add(k.mesh); k.update(S); }).catch(e => console.warn('koi', e));
 
@@ -279,7 +318,8 @@ export function pondLife(ctx, K) {
     U.uMurk.value.setRGB(0.028, 0.05, 0.03).multiplyScalar(0.05 + 0.95 * L);
     U.uBank.value.setRGB(0.03 * (0.06 + 1.1 * L) + 0.006 * (1 - L), 0.055 * (0.06 + 1.1 * L) + 0.01 * (1 - L), 0.028 * (0.06 + 1.1 * L) + 0.02 * (1 - L));      // by night a little of the sky's blue stays on the water
     const high = sd ? THREE.MathUtils.smoothstep(sd.y, 0.12, 0.5) : 1;
-    U.uCaus.value = 0.34 * L * high; U.uShade.value = 0.5 * L * (0.4 + 0.6 * high);
+    { const k = 0.04 + 1.0 * L; U.uWillowCol.value.setRGB(0.1 * k, 0.26 * k, 0.06 * k); U.uWoodCol.value.setRGB(0.95 * k, 0.74 * k, 0.52 * k); }
+    U.uCaus.value = 0.34 * L * high; U.uDim.value = 0.42 + 0.58 * L; U.uShade.value = 0.5 * L * (0.4 + 0.6 * high);
     if (sd && sd.y > 0.05) { const hl = Math.hypot(sd.x, sd.z), sinR = hl / 1.33, tanR = sinR / Math.sqrt(1 - sinR * sinR); U.uSunSlope.value.set(hl > 1e-4 ? sd.x / hl * tanR : 0, hl > 1e-4 ? sd.z / hl * tanR : 0); }
   };
 

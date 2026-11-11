@@ -78,6 +78,7 @@ export class Robot extends Agent {
   }
   // toGuest: turn to her and hold still while speaking (the default when she is near)
   say(text, { expr = null, secs = null, extra, toGuest = true } = {}) {
+    if (typeof window !== 'undefined') window.__said?.push(`${this.name}: ${text}`);      // tests may collect what is said
     const H = this.H, t = this.fill(text, extra);
     const dur = secs ?? Math.min(7.5, 2.4 + t.length * 0.055);
     this.bubble.say(t, dur, H.now);
@@ -91,6 +92,17 @@ export class Robot extends Agent {
   line(pool, opts = {}) { const list = VOICE[this.key][pool]; if (!list) return null; return this.say(this.H.bag(`${this.key}.${pool}`, list), opts); }
   get engaged() { return this.H.now < this.engagedUntil || this.H.talk.robot === this; }
 
+  // A first-ever visitor (welcome.js sets window.__newcomer) is welcomed properly by whoever has the
+  // lines for it (Bartholomew): who he is, the card on the hall table, and the offer of a drink.
+  welcomeNew() {
+    const H = this.H;
+    if (typeof window === 'undefined' || !window.__newcomer || !VOICE[this.key]?.welcomeNew) return false;
+    window.__newcomer = false; H.mem[this.memKey ?? 'greeted'] = true; H.mem.met.add(this.key); H.events.greets++;
+    this.line('welcomeNew', { expr: 'happy', secs: 10 }); this.engagedUntil = H.now + 4;
+    H.talk.open(this, [...this.drinkCard().slice(0, 3).map(o => ({ text: o.text, act: () => { const r = o.act(); return r; } })),
+      { text: 'Nothing just now, thank you.', act: () => { this.line('welcomeNo', { expr: 'happy', secs: 7 }); return null; } }]);
+    return true;
+  }
   // ---- talking with the guest -------------------------------------------------------------------
   label() {
     if (this.carrying && this.forGuest) return `take the ${this.carrying.name} from ${this.name}`;
@@ -99,6 +111,7 @@ export class Robot extends Agent {
   }
   act() {
     const H = this.H; H.events.asks++;
+    if (this.welcomeNew()) return;
     if (this.carrying && this.forGuest) return this.giveDrink();
     if (H.talk.robot !== this) { this.engagedUntil = H.now + 1; if (H.talk.robot) H.talk.close(); }
     H.talk.press(this);
@@ -271,11 +284,14 @@ export class Robot extends Agent {
     if (s && this.visitorDist() > 8) yield* this.go(s.f, s.x, s.z, { tries: 1, until: () => this.visitorDist() < 7 });
     yield* this.wait(0.6, () => { this.m.faceTo(v.x, v.z, H.dt); return false; });
     const mk = this.memKey ?? 'greeted', first = !H.mem[mk]; H.mem[mk] = true;
-    this.line(first ? 'greetFirst' : 'greet', { expr: 'happy' });
-    H.events.greets++;
-    yield* this.wait(0.2);
-    while (this.engaged) yield;
-    if (first) this.line('talkHint', { expr: 'wink' });
+    if (first && this.welcomeNew()) { yield* this.wait(0.2); while (this.engaged) yield; }
+    else {
+      this.line(first ? 'greetFirst' : 'greet', { expr: 'happy' });
+      H.events.greets++;
+      yield* this.wait(0.2);
+      while (this.engaged) yield;
+      if (first) this.line('talkHint', { expr: 'wink' });
+    }
     yield* this.host(true);
   }
   *host(already) {

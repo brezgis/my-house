@@ -18,6 +18,10 @@ export function partOfDay(hour) {
 // ---- Each robot's own voice -------------------------------------------------------------
 export const VOICE = {
   barty: {
+    // the very first time anyone comes to the house (welcome.js): a welcome, a drink, and leave to settle in
+    welcomeNew: ["Welcome, darling, welcome. I'm Bartholomew. I run this house. Madame is out, so it is yours, and she left you a card on the hall table. First things first: something to drink?"],
+    welcomeYes: ['Then sit anywhere, light the candles, touch everything. It will find you.'],
+    welcomeNo: ['Then I shall hover attractively. Sit anywhere, light the candles, touch everything. Press E on me if you change your mind.'],
     greetFirst: [
       "Welcome, welcome. I'm Bartholomew. I run this house. Madame thinks she does. Adorable.",
       "Oh, a visitor. Come in, come in. Don't mind me, I'm just the most important person here.",

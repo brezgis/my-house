@@ -60,9 +60,11 @@ export const U = {
   uPond: { value: new THREE.Vector4(POND.x, POND.z, POND.rx, POND.rz) },
   uSurf: { value: new THREE.Vector2(POND.y, (POND.y - SLAB) / (POND.deep + 0.6)) },      // surface height, and how hard the depths are squashed
   uMurk: { value: new THREE.Color(0.02, 0.04, 0.03) },          // the colour deep water goes
-  uCaus: { value: 0 },                                         // strength of the caustics (the sun)
+  uCaus: { value: 0 }, uDim: { value: 1 },                     // by night what is under water is dimmer still                                         // strength of the caustics (the sun)
   uSunSlope: { value: new THREE.Vector2() },                   // how far a shadow slides per foot of depth
   uBank: { value: new THREE.Color(0.03, 0.05, 0.03) },          // the far bank and trees, mirrored at a low angle
+  uWillow: { value: new THREE.Vector4(-91, 20, 17, 17) }, uWillowCol: { value: new THREE.Color() }, uWoodCol: { value: new THREE.Color() },      // what the surface mirrors, roughly: see waterMesh()
+  uBridge: { value: new THREE.Vector4() }, uArch: { value: new THREE.Vector2() },
   uRings: { value: new Float32Array(NRINGS * 4).fill(-1000) },
   uSpout: { value: new THREE.Vector3(0, 0, 0) },
   uFishA: { value: new Float32Array(NFISH * 4) }, uFishB: { value: new Float32Array(NFISH * 4) }, uShade: { value: 0 },
@@ -73,15 +75,15 @@ const HEAD_V = `
 varying vec3 vPW; varying vec2 vPJ; varying float vDeep; uniform vec2 uSurf;`;
 const HEAD_F = `
 varying vec3 vPW; varying vec2 vPJ; varying float vDeep;
-uniform float uT, uCaus; uniform sampler2D uPondTex; uniform vec4 uPond; uniform vec2 uSurf; uniform vec3 uMurk;
+uniform float uT, uCaus; uniform sampler2D uPondTex; uniform vec4 uPond; uniform vec2 uSurf; uniform vec3 uMurk; uniform float uDim;
 float pondCaustic(vec2 p) {
   float a = texture2D(uPondTex, p * 0.15 + uT * vec2(0.013, 0.007)).b, b = texture2D(uPondTex, p * 0.11 - uT * vec2(0.008, 0.014) + 0.31).b;
   return min(a, b) * 2.2 + a * b;
 }`;
 // Patch a MeshStandardMaterial's shader (inside its onBeforeCompile) so that it sits properly in the pond.
 // caustics: how strongly the dancing light shows on it.
-export function sink(sh, { caustics = 1 } = {}) {
-  for (const k of ['uT', 'uCaus', 'uPondTex', 'uPond', 'uSurf', 'uMurk']) sh.uniforms[k] = U[k];
+export function sink(sh, { caustics = 1, fade = null } = {}) {
+  for (const k of ['uT', 'uCaus', 'uPondTex', 'uPond', 'uSurf', 'uMurk', 'uDim']) sh.uniforms[k] = U[k];
   pondTex();
   sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>' + HEAD_V)
     .replace('#include <project_vertex>', `#include <project_vertex>
@@ -112,7 +114,9 @@ export function sink(sh, { caustics = 1 } = {}) {
     vec3 toEye = normalize(cameraPosition - vPW);
     float lit = 1.0 + uCaus * ${caustics.toFixed(2)} * (pondCaustic(vPW.xz) - 0.35) * smoothstep(0.0, 0.5, vDeep);
     vec3 tr = exp(-vDeep * (0.75 + 1.0 / max(toEye.y, 0.22)) * vec3(0.30, 0.17, 0.23));
-    outgoingLight = outgoingLight * max(lit, 0.4) * tr + uMurk * (1.0 - tr.g);
+    outgoingLight = outgoingLight * max(lit, 0.4) * tr * uDim + uMurk * (1.0 - tr.g);
+    ${fade ? `{ float gone = max(smoothstep(45.0, 110.0, ${fade}), smoothstep(0.2, 0.07, toEye.y)) * 0.88;      // far off and at a low angle a fish is only a hint of colour in dark water
+      outgoingLight = mix(outgoingLight, uMurk * 1.6, gone); }` : ''}
   }
   #include <opaque_fragment>`);
 }
@@ -153,7 +157,14 @@ export function basinMesh({ pos, col, aux }) {
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
 varying float vPeb; uniform vec4 uFishA[${NFISH}]; uniform vec4 uFishB[${NFISH}]; uniform float uShade; uniform vec2 uSunSlope;`)
       .replace('#include <color_fragment>', `#include <color_fragment>
-  { float pb = texture2D(uPondTex, vPW.xz * 0.37).a, pb2 = texture2D(uPondTex, vPW.zx * 0.071 + 0.5).a;
+  if (vPeb < -4.5) {                                        // the spout's falling thread: it glitters as it runs
+    diffuseColor.rgb *= 0.72 + 0.28 * sin(vPW.y * 34.0 + uT * 17.0) * sin(vPW.y * 13.0 + uT * 8.0 + 1.0);
+  } else if (vPeb < -0.5) {                                 // timber (-1, -2, -3: grain along x, z, y): long streaks, silvered where it has weathered
+    vec3 q = vPeb > -1.5 ? vPW.xzy : vPeb > -2.5 ? vPW.zxy : vPW.yxz;
+    float gr = texture2D(uPondTex, vec2(q.x * 0.03, (q.y + q.z) * 0.85)).a, gr2 = texture2D(uPondTex, vec2(q.x * 0.09 + 0.3, (q.y - q.z) * 2.1)).a;
+    diffuseColor.rgb *= 0.72 + 0.42 * gr * (0.55 + 0.7 * gr2);
+    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(dot(diffuseColor.rgb, vec3(0.36))) * vec3(1.05, 1.0, 0.92), 0.28 * smoothstep(0.35, 0.8, gr2));
+  } else { float pb = texture2D(uPondTex, vPW.xz * 0.37).a, pb2 = texture2D(uPondTex, vPW.zx * 0.071 + 0.5).a;
     diffuseColor.rgb *= mix(1.0, 0.62 + 0.62 * pb * (0.6 + 0.8 * pb2), vPeb); }`);
     sink(sh, { caustics: 1.5 });
     // the fish cast soft shadows on the bottom when the sun is up
@@ -172,7 +183,7 @@ varying float vPeb; uniform vec4 uFishA[${NFISH}]; uniform vec4 uFishB[${NFISH}]
   if (pdUnder > 0.0) {\n    vec3 toEye`);
   };
   mat.customProgramCacheKey = () => 'pond-basin';
-  const m = new THREE.Mesh(g, mat); m.name = 'pond basin'; m.receiveShadow = true; m.castShadow = false; m.renderOrder = 40;
+  const m = new THREE.Mesh(g, mat); m.name = 'pond basin'; m.receiveShadow = true; m.castShadow = true; m.renderOrder = 40;      // (the bridge, the stones and the leaves in it throw shadows)
   return m;
 }
 
@@ -186,12 +197,12 @@ export function waterMesh() {
   const nrm = new Float32Array(pos.length); for (let i = 1; i < nrm.length; i += 3) nrm[i] = 1; g.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 1, roughness: 0.16, transparent: true, depthWrite: false, envMapIntensity: 1.0 });
   mat.onBeforeCompile = sh => {
-    for (const k of ['uT', 'uPondTex', 'uRings', 'uSpout', 'uBank']) sh.uniforms[k] = U[k];
+    for (const k of ['uT', 'uPondTex', 'uRings', 'uSpout', 'uBank', 'uWillow', 'uWillowCol', 'uBridge', 'uArch', 'uWoodCol']) sh.uniforms[k] = U[k];
     pondTex();
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aEdge; varying float vEdge; varying vec3 vPW;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vEdge = aEdge; vPW = (modelMatrix * vec4(position, 1.0)).xyz;');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
-varying float vEdge; varying vec3 vPW; uniform float uT; uniform sampler2D uPondTex; uniform vec4 uRings[${NRINGS}]; uniform vec3 uSpout, uBank;
+varying float vEdge; varying vec3 vPW; uniform float uT; uniform sampler2D uPondTex; uniform vec4 uRings[${NRINGS}]; uniform vec3 uSpout, uBank, uWillowCol, uWoodCol; uniform vec4 uWillow, uBridge; uniform vec2 uArch;
 vec3 pondN; float pondH, pondSheen;`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
   {
@@ -205,7 +216,7 @@ vec3 pondN; float pondH, pondSheen;`)
       float env = e.w * exp(-age * 0.5) / (1.0 + r * 0.5) * smoothstep(0.0, 0.25, age), band = exp(-x * x * 5.0);
       g += dv / max(r, 0.001) * cos(x * 8.0) * band * env * 2.2; pondH += sin(x * 8.0) * band * env;
     }
-    { vec2 dv = wp - uSpout.xy; float r = length(dv), env = uSpout.z * exp(-r * 0.6); g += dv / max(r, 0.001) * cos(r * 7.0 - uT * 5.0) * env * 0.5; pondH += sin(r * 7.0 - uT * 5.0) * env * 0.4; }
+    { vec2 dv = wp - uSpout.xy; float r = length(dv), env = uSpout.z * exp(-r * 0.6); g += dv / max(r, 0.001) * cos(r * 7.0 - uT * 5.0) * env * 0.8; pondH += sin(r * 7.0 - uT * 5.0) * env * 0.7; }
     pondN = normalize(vec3(-g.x, 1.0, -g.y));
     normal = normalize((viewMatrix * vec4(pondN, 0.0)).xyz);
   }`)
@@ -214,9 +225,21 @@ vec3 pondN; float pondH, pondSheen;`)
     float c = clamp(dot(pondN, toEye), 0.0, 1.0), fres = 0.035 + 0.965 * pow(1.0 - c, 5.0);
     vec3 R = reflect(-toEye, pondN);
     vec3 refl = mix(outgoingLight, uBank, smoothstep(0.34, 0.1, R.y) * 0.8);
+    float hint = 0.0;
+    // a soft hint of what really stands over the water: the willow's crown, and the bridge (its two rail planes and its deck)
+    { vec3 oc = uWillow.xyz - vPW; float tc = dot(oc, R); if (tc > 0.0) { float m = 0.85 * smoothstep(uWillow.w, uWillow.w * 0.5, length(oc - R * tc)); refl = mix(refl, uWillowCol, m); hint = m * 0.5; } }
+    for (int k = 0; k < 2; k++) {
+      float tb = (uBridge.x + (k == 0 ? -uBridge.y : uBridge.y) - vPW.x) / (abs(R.x) > 1e-4 ? R.x : 1e-4); if (tb <= 0.0) continue;
+      vec3 hb = vPW + R * tb; float ub = (hb.z - uBridge.z) / (uBridge.w - uBridge.z); if (ub <= 0.0 || ub >= 1.0) continue;
+      float rel = hb.y - (uArch.x + uArch.y * sin(3.1416 * ub));
+      float beam = smoothstep(-0.8, -0.6, rel) * smoothstep(0.12, -0.02, rel), rails = smoothstep(0.0, 0.25, rel) * smoothstep(3.3, 2.95, rel) * (0.3 + 0.5 * smoothstep(2.45, 2.75, rel));
+      refl = mix(refl, uWoodCol, max(beam, rails)); hint = max(hint, max(beam, rails));
+    }
+    { float td = (uArch.x + uArch.y * 0.8 - 0.5 - vPW.y) / max(R.y, 1e-3); vec3 hd = vPW + R * td; float ud = (hd.z - uBridge.z) / (uBridge.w - uBridge.z);
+      refl = mix(refl, uWoodCol * 0.45, smoothstep(uBridge.y + 0.3, uBridge.y - 0.3, abs(hd.x - uBridge.x)) * smoothstep(0.0, 0.06, ud) * smoothstep(1.0, 0.94, ud)); }
     float glint = max(0.0, max(refl.r, max(refl.g, refl.b)) - 1.2);
     outgoingLight = refl;
-    diffuseColor.a = clamp(fres + 0.05 + pondSheen + pondH * 0.2 + glint * 0.25, 0.0, 1.0) * vEdge;
+    diffuseColor.a = clamp(fres + 0.05 + hint * 0.2 + pondSheen + pondH * 0.34 + glint * 0.25, 0.0, 1.0) * vEdge;
   }
   #include <opaque_fragment>`);
   };

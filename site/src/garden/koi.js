@@ -110,10 +110,13 @@ function koiGeometry(gltf) {
   const zN = gb.boundingBox.max.z, zT = gf.boundingBox.min.z, span = zN - zT, zMid = (zN + zT) / 2;
   const yC = 0.17 * (gb.boundingBox.max.y - gb.boundingBox.min.y) / 3.2;      // the spine's height in the model
   // to koi space: longer and lower than a rudd, a touch broader, a blunter head
+  const bump = (t, c, w) => Math.max(0, 1 - ((t - c) / w) ** 2);
   const conv = (p, i, out, fin) => {
-    const x = (p.getZ(i) - zMid) / span, y = (p.getY(i) - yC) / span, z = -p.getX(i) / span;
-    const t = 0.5 - x, broad = fin ? 1 : 1.24 + 0.2 * Math.max(0, 1 - Math.abs(t - 0.14) / 0.14);
-    out.push(x, y * (fin ? 0.84 : 0.76), z * broad);
+    let x = (p.getZ(i) - zMid) / span; const y = (p.getY(i) - yC) / span, z = -p.getX(i) / span;
+    let t = 0.5 - x; if (!fin && t < 0.09) { t = 0.014 + t * 0.845; x = 0.5 - t; }                 // a blunter snout
+    // a show koi's build: broad head, full shoulders, a deep belly; fins move out with the body they grow from
+    const broad = fin ? 1.26 : 1.3 + 0.2 * bump(t, 0.1, 0.12) + 0.24 * bump(t, 0.34, 0.3);
+    out.push(x, y * (fin ? 0.84 : y < 0 ? 0.86 + 0.1 * bump(t, 0.38, 0.3) : 0.78), z * broad);
   };
   const pos = [], base = [], fin = [], idx = [];
   const pb = gb.attributes.position; { const o = []; for (let i = 0; i < pb.count; i++) conv(pb, i, o, false); pos.push(...o); base.push(...o); for (let i = 0; i < pb.count; i++) fin.push(0, 0); idx.push(...gb.index.array); }
@@ -136,7 +139,7 @@ function koiGeometry(gltf) {
   pos.push(...fp); base.push(...fBase); fin.push(...fFin); for (const i of fi) idx.push(i + off);
   // two barbels at the corners of the mouth (not in the model: koi have them, rudd do not)
   for (const s of [1, -1]) {
-    const n = pos.length / 3, a = [0.462, -0.034, s * 0.034], tip = [0.425, -0.075, s * 0.085];
+    const n = pos.length / 3, a = [0.45, -0.036, s * 0.04], tip = [0.412, -0.078, s * 0.095];
     pos.push(a[0] + 0.008, a[1], a[2], a[0] - 0.008, a[1], a[2], ...tip); base.push(...a, ...a, ...a); fin.push(0, OTHER, 0, OTHER, 1, OTHER); idx.push(n, n + 1, n + 2);
   }
   const g = new THREE.BufferGeometry();
@@ -150,20 +153,20 @@ function koiGeometry(gltf) {
 const VERT_HEAD = `
 attribute vec3 aBase; attribute vec2 aFin; attribute vec4 aSwim;
 uniform vec4 uTrait[NK];
-varying vec3 vPat; varying vec3 vRest; varying vec2 vFinW; varying float vId;`;
+varying vec3 vPat; varying vec3 vRest; varying vec2 vFinW; varying float vId, vDist;`;
 const VERT_BODY = `
   vec4 trait = uTrait[gl_InstanceID];
   float fk = aFin.y, fw = aFin.x, isFin = step(0.5, fk);
-  vec3 p = position;
+  vec3 p = position, bs = aBase; p.z *= trait.w; bs.z *= trait.w;      // youngsters slimmer, the old ones stout
   // butterfly koi: the fins drawn out long
-  p = aBase + (p - aBase) * (1.0 + (trait.x - 1.0) * isFin * (fk < 1.5 ? 0.75 : 1.0));
+  p = bs + (p - bs) * (1.0 + (trait.x - 1.0) * isFin * (fk < 1.5 ? 0.75 : 1.0));
   // pectorals: fanned out wide when it idles, swept back at speed, sculling a little
   if (fk > 2.5 && fk < 4.5) {
     float side = fk < 3.5 ? 1.0 : -1.0, a = side * (-0.15 + 0.95 * aSwim.w + 0.14 * sin(aSwim.x * 0.5 + side)), ca = cos(a), sa = sin(a);
-    vec3 d = p - aBase; d = vec3(d.x * ca + d.z * sa, d.y * (1.0 - 0.5 * aSwim.w), d.z * ca - d.x * sa); p = aBase + d;
+    vec3 d = p - bs; d = vec3(d.x * ca + d.z * sa, d.y * (1.0 - 0.5 * aSwim.w), d.z * ca - d.x * sa); p = bs + d;
   }
   // the tail fin lies over and fans, as a koi's does seen from above; the dorsal leans a little
-  if (fk > 0.5 && fk < 2.5) { float a = fk < 1.5 ? 1.0 + 0.25 * sin(aSwim.x - 5.0) : 0.45, ca = cos(a), sa = sin(a); vec3 d = p - aBase; p = aBase + vec3(d.x, d.y * ca - d.z * sa, d.y * sa + d.z * ca); }
+  if (fk > 0.5 && fk < 2.5) { float a = fk < 1.5 ? 1.0 + 0.25 * sin(aSwim.x - 5.0) : 0.45, ca = cos(a), sa = sin(a); vec3 d = p - bs; p = bs + vec3(d.x, d.y * ca - d.z * sa, d.y * sa + d.z * ca); }
   float tt = 0.5 - p.x;                                  // 0 at the nose, 1 at the tail tip
   float A = aSwim.y * (0.010 + 0.085 * tt * tt), ph = aSwim.x - 6.2 * tt;
   p.z += A * sin(ph) + aSwim.z * 0.36 * (tt - 0.33) * (tt - 0.33);
@@ -171,9 +174,9 @@ const VERT_BODY = `
   if (fk > 0.5 && fk < 1.5) p.z += fw * (p.y * 2.6) * aSwim.y * 0.07 * cos(ph) + fw * fw * (trait.x - 1.0) * 0.05 * sin(ph - 1.2);
   if (fk > 1.5) p.z += fw * (trait.x - 1.0) * 0.035 * sin(ph - 0.9);
   transformed = p;
-  vPat = mix(position, aBase, isFin); vRest = position; vFinW = vec2(fw * isFin, fk); vId = float(gl_InstanceID);`;
+  vPat = mix(position, aBase, isFin); vDist = distance(cameraPosition.xz, vec2(instanceMatrix[3][0], instanceMatrix[3][2])); vRest = position; vFinW = vec2(fw * isFin, fk); vId = float(gl_InstanceID);`;
 const FRAG_HEAD = `
-varying vec3 vPat; varying vec3 vRest; varying vec2 vFinW; varying float vId;
+varying vec3 vPat; varying vec3 vRest; varying vec2 vFinW; varying float vId, vDist;
 uniform vec3 uBase[NK], uHi[NK], uSumi[NK], uAlt[NK]; uniform vec4 uTrait[NK]; uniform sampler2D uKoiTex; uniform float uRows;
 float koiMetal;`;
 const FRAG_COLOR = `
@@ -198,10 +201,10 @@ const FRAG_COLOR = `
     if (vFinW.y > 0.5) {
       float rays = 0.82 + 0.18 * sin((vRest.y + vRest.z * 1.7 + vRest.x * 0.6) * 240.0);
       vec3 finc = mix(col, mix(uBase[id], vec3(0.93, 0.92, 0.88), 0.55), smoothstep(0.1, 0.55, vFinW.x) * (1.0 - 0.6 * su));
-      col = finc * rays;
+      col = finc * rays * mix(0.92, 0.55, vFinW.x);          // thin toward the edge: the dark water shows through
     }
     // eyes
-    float eye = length(vec2(vRest.x - 0.421, vRest.y - 0.016));
+    float eye = length(vec2(vRest.x - 0.419, vRest.y - 0.016));
     col = mix(col, vec3(0.02), smoothstep(0.017, 0.011, eye) * step(0.045, abs(vRest.z)) * (1.0 - step(0.5, vFinW.y)));
     diffuseColor.rgb = col;
     koiMetal = trait.y * (1.0 - su) * (1.0 - step(0.5, vFinW.y) * 0.6);
@@ -213,7 +216,7 @@ export function makeKoi(cast) {
   const arr = k => new Float32Array(N * k), uBase = arr(3), uHi = arr(3), uSumi = arr(3), uAlt = arr(3), uTrait = arr(4);
   cast.forEach((f, i) => {
     const K = KINDS[f.kind]; uBase.set(K.base, i * 3); uHi.set(K.hi ?? K.base, i * 3); uSumi.set(K.sumi ?? INK, i * 3); uAlt.set(K.alt ?? K.base, i * 3);
-    uTrait.set([f.fins ?? 1, K.metal ?? 0, K.net ?? 0.07, 0], i * 4);
+    uTrait.set([f.fins ?? 1, K.metal ?? 0, K.net ?? 0.07, f.len < 1.3 ? 0.86 : f.len >= 2.5 ? 1.05 : 0.97], i * 4);
   });
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0, envMapIntensity: 0.45, side: THREE.DoubleSide });
   mat.onBeforeCompile = sh => {
@@ -223,10 +226,10 @@ export function makeKoi(cast) {
       .replace('#include <map_fragment>', FRAG_COLOR)
       .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\n  metalnessFactor = koiMetal * 0.75;')
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n  roughnessFactor = mix(0.5, 0.34, koiMetal);');
-    sink(sh, { caustics: 0.9 });
+    sink(sh, { caustics: 0.9, fade: 'vDist' });
   };
   mat.customProgramCacheKey = () => 'koi' + N;
-  return new GLTFLoader().loadAsync('assets/models/v_fish_rudd/v_fish_rudd.glb').then(gltf => {
+  return new GLTFLoader().loadAsync('assets/models/v_fish_rudd/v_koi_still.glb').then(gltf => {
     const geo = koiGeometry(gltf);
     const swim = new THREE.InstancedBufferAttribute(arr(4), 4); swim.setUsage(THREE.DynamicDrawUsage); geo.setAttribute('aSwim', swim);
     const mesh = new THREE.InstancedMesh(geo, mat, N); mesh.name = 'koi'; mesh.frustumCulled = false; mesh.castShadow = false; mesh.receiveShadow = false; mesh.renderOrder = 42;
