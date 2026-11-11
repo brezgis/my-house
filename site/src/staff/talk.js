@@ -1,5 +1,5 @@
-// Talking to the staff. Pressing E on a robot opens a small card of two or
-// three things to say. Keys 1-3 choose at once; pressing E again moves down the
+// Talking to the staff. Pressing E on a robot opens a small card of two to
+// four things to say (the gardeners use four). Keys 1-4 choose at once; pressing E again moves down the
 // list, and the highlighted line is said after a moment's pause. Replies may
 // lead to a second card. The card closes when you walk away.
 
@@ -27,7 +27,7 @@ export function makeTalk(H, headless) {
     el.addEventListener('click', e => { const o = e.target.closest('.opt'); if (o) choose(Number(o.dataset.i)); });
     addEventListener('keydown', e => {
       if (!S.robot) return;
-      const n = { Digit1: 0, Digit2: 1, Digit3: 2, Numpad1: 0, Numpad2: 1, Numpad3: 2 }[e.code];
+      const n = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Numpad1: 0, Numpad2: 1, Numpad3: 2, Numpad4: 3 }[e.code];
       if (n !== undefined && n < S.opts.length) { e.stopImmediatePropagation(); choose(n); }
       if (e.code === 'Escape') close();
     }, true);
@@ -47,7 +47,7 @@ export function makeTalk(H, headless) {
     const bar = el.querySelector('.opt.hi .bar');
     if (bar) bar.style.transform = `scaleX(${S.pending ? Math.min(1, (H.now - S.lastE) / PICK_AFTER).toFixed(3) : 0})`;
   }
-  function open(robot, opts) { S.robot = robot; S.opts = opts.slice(0, 3); S.idx = 0; S.pending = false; S.since = H.now; render(); }
+  function open(robot, opts) { S.robot = robot; S.opts = opts.slice(0, 4); S.idx = 0; S.pending = false; S.since = H.now; render(); }
   function close() { S.robot = null; S.opts = []; S.pending = false; render(); }
   // E on a robot: open its card, or move down it
   function press(robot) {

@@ -1,0 +1,189 @@
+<!doctype html><meta charset="utf-8"><base href="../../"><title>gardener test</title>
+<script type="importmap">{ "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
+</script>
+<style>body { font: 13px/1.4 ui-monospace, monospace; margin: 16px; } pre { white-space: pre-wrap; }</style>
+<pre id="out">running</pre>
+<script type="module">
+// Headless logic test for the gardeners (gardeners.js), a sibling of /stafftest.html.
+// Builds the grounds without rendering, hires the staff, and sends a visitor out of
+// the front door to walk the garden, stopping to talk. Reports how soon she is
+// greeted and from how far, how the gardeners spend their time, every card she was
+// shown and what was answered, and anything that went wrong.
+//   ?mins=8  ?seed=7  ?hour=14  ?route=front|terrace  ?talk=0  ?night=1  ?inside=200 (she goes in at 200 s for 90 s)
+//   ?chatty=1  she stands by Bramble, then by Thistle, and asks everything on every card (the whole conversation, to proof-read)
+//   ?order=lemonade  she asks for it at the first chance (with ?inside= she is indoors when it comes)
+//   ?stay=terrace  she steps out onto the terrace and stays there (ground the gardeners cannot reach)
+import * as THREE from 'three';
+import { Builder } from './src/builder.js';
+import { buildHouse } from './src/house.js';
+import { furnish } from './src/furnish.js';
+import { makeMaterials } from './src/materials.js';
+import { bringToLife } from './src/life.js';
+import { plantGarden, TREES } from './src/garden.js';
+import { makeTrees } from './src/trees.js';
+
+const Q = new URLSearchParams(location.search), out = document.getElementById('out');
+const errors = [];
+addEventListener('error', e => errors.push(String(e.message)));
+addEventListener('unhandledrejection', e => errors.push(String(e.reason?.stack ?? e.reason)));
+console.warn = (...a) => errors.push('warn: ' + a.map(x => x?.stack ?? x).join(' ').slice(0, 300));
+
+try {
+const B = new Builder(), house = buildHouse(B), items = furnish(B, house), garden = plantGarden(B, items);
+const renderer = new THREE.WebGLRenderer({ canvas: document.createElement('canvas') });
+const materials = makeMaterials(renderer), scene = new THREE.Scene();
+makeTrees(scene, materials, B.colliders, TREES);
+const camera = new THREE.PerspectiveCamera(56, 1.6, 0.25, 500);
+const life = bringToLife({ scene, renderer, camera, items, garden, materials, doors: house.doors, colliders: B.colliders, onChange() {} });
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+let last = -1, stable = 0;
+for (let i = 0; i < 160 && stable < 8; i++) { await sleep(250); const n = scene.children.length + B.colliders.length; stable = n === last ? stable + 1 : 0; last = n; }
+
+const { hireStaff } = await import('./src/staff.js');
+const walker = { pos: new THREE.Vector3(), yaw: 0, pitch: 0, seated: null };
+const day = { light: 1, night: 0, hour: Number(Q.get('hour') ?? 14) };
+if (Q.has('night')) { day.hour = 22.5; day.light = 0.1; day.night = 0.9; }
+const ctx = { THREE, scene, camera, renderer, materials, house, items, garden, colliders: B.colliders, interact: life.interact, animated: life.animated, loadModel: life.loadModel, sound: null, day, walker, mode: 'walk', headless: true, seed: Number(Q.get('seed') ?? 7) };
+const staff = hireStaff(ctx), H = staff.H, nav = staff.nav;
+const T = Number(Q.get('mins') ?? 8) * 60, DT = 1 / 20, TALK = Q.get('talk') !== '0';
+const rnd = (() => { let s = 99 + Number(Q.get('seed') ?? 7); return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+
+// The visitor: 20 s indoors, then out. Routes are world feet.
+const ROUTES = {
+  front: [{ x: 2, z: 40 }, { x: -48, z: 30 }, { x: -50, z: 8 }, { x: 46, z: -75 }, { x: 85, z: -92 }, { x: 8, z: -100 }, { x: -9, z: -142 }, { x: -60, z: -68 }, { x: 30, z: -56 }, { x: 60, z: 20 }],
+  terrace: [{ x: -30, z: 30 }, { x: -52, z: 8 }, { x: -60, z: -68 }, { x: -9, z: -142 }, { x: 46, z: -75 }],
+};
+const route = ROUTES[Q.get('route')] ?? ROUTES.front;
+const sp = house.spawn; walker.pos.set(sp.x, nav.floorY(0, sp.x, sp.z), sp.z); walker.yaw = sp.yaw ?? 0;
+let outside = false, gs = 0, path = null, pi = 0, dwellUntil = 0, holdStill = 0;
+const look = () => { camera.position.set(walker.pos.x, walker.pos.y + 4.85, walker.pos.z); camera.rotation.set(-0.08, walker.yaw, 0, 'YXZ'); camera.updateMatrixWorld(); };
+const GOINSIDE = Number(Q.get('inside') ?? 0);          // ?inside=200: go back indoors at 200 s (for the lemonade left waiting)
+const CHATTY = Q.has('chatty'), STAY = Q.get('stay'), chosen = new Set(); let chatWith = 0;
+function walk(dt, t) {
+  if (CHATTY) {                                          // stand 8 ft from one gardener, then the other
+    if (t < 20) return; outside = true;
+    const want = t < T * 0.5 ? 0 : 1, g = H.gardeners[want];
+    if (want !== chatWith || walker.pos.y > 1 || Math.hypot(g.x - walker.pos.x, g.z - walker.pos.z) > 11) { chatWith = want; const c = H.out.nearest(0, g.x + 7, g.z + 3, 1.2, 12, false, c => Math.hypot(H.out.cx(c) - g.x, H.out.cz(c) - g.z) > 6); if (c >= 0) walker.pos.set(H.out.cx(c), 0.05, H.out.cz(c)); }
+    walker.yaw = Math.atan2(-(g.x - walker.pos.x), -(g.z - walker.pos.z)); return;
+  }
+  if (STAY === 'terrace') { if (t > 20) { outside = true; const r = house.rooms.find(r => r.name === 'Terrace'); walker.pos.set((r.x0 + r.x1) / 2, r.y0 + 0.05, (r.z0 + r.z1) / 2 + 3); walker.yaw = Math.PI / 2; } return; }
+  if (GOINSIDE && t > GOINSIDE && t < GOINSIDE + 90) { walker.pos.set(sp.x, nav.floorY(0, sp.x, sp.z), sp.z); path = null; return; }
+  if (GOINSIDE && t >= GOINSIDE + 90 && walker.pos.z === sp.z && walker.pos.x === sp.x) { walker.pos.set(2.5, 0.05, 21); path = null; dwellUntil = t + 10; }
+  if (!outside && t > 20) { outside = true; walker.pos.set(2.5, 0.05, 21); dwellUntil = t + 8; }
+  if (!outside) return;
+  if (t < holdStill) return;                              // she stands still while she talks
+  if (!path) {
+    if (t < dwellUntil) { walker.yaw += Math.sin(t * 0.37) * dt * 0.4; return; }
+    const s = route[gs++ % route.length]; path = H.out.path(0, walker.pos.x, walker.pos.z, 0, s.x, s.z, 0.8); pi = 1;
+    if (!path) { dwellUntil = t + 5; return; }
+  }
+  const p = path[pi]; if (!p) { path = null; dwellUntil = t + 25 + rnd() * 20; return; }
+  const dx = p.x - walker.pos.x, dz = p.z - walker.pos.z, L = Math.hypot(dx, dz), stepL = 4.5 * dt;
+  walker.yaw = Math.atan2(-dx, -dz);
+  if (L < stepL) { walker.pos.x = p.x; walker.pos.z = p.z; pi++; } else { walker.pos.x += dx / L * stepL; walker.pos.z += dz / L * stepL; }
+  walker.pos.y = 0.05;
+}
+
+const G = H.gardeners, stats = new Map(G.map(a => [a, { dist: 0, px: a.x, pz: a.z, tasks: new Map(), bad: 0, still: 0, longestStill: 0, near34: 0, near60: 0 }]));
+// everything a gardener says, with how far she was at the time
+const said = [];
+for (const g of G) { const say0 = g.bubble.say; g.bubble.say = (text, secs, now) => { const v = H.visitor, d = v.present && v.outside ? Math.hypot(v.x - g.x, v.z - g.z) : Infinity; said.push({ t: now, who: g.name, text, d, task: g.taskName, engaged: g.engagedUntil > now || H.talk.robot === g }); return say0(text, secs, now); }; }
+const navCount = {}, ORDER = Q.get('order') ? new RegExp(Q.get('order')) : null; let ordered = false;   // ?order=lemonade: ask for it at the first chance
+
+const cards = [], M = { engagedFrames: 0, facingOk: 0, stillOk: 0, hostD: [], bothClose: 0, outFrames: 0, anyNear34: 0, firstGreet: null, greetD: [], inBody: 0, engageStart: new Map(), tooClose: 0, pathBlock: 0 };
+let violations = 0, nextTalk = 30, choosing = null, firstBad = [], convo = null, depth = 0;
+for (let t = 0; t < T; t += DT) {
+  walk(DT, t); look();
+  staff.step(DT);
+  const v = H.visitor;
+  if (Q.has('trace')) { const [w, a0, a1] = Q.get('trace').split(',').map(Number), g = G[w]; if (t >= a0 && t < a1 && Math.round(t / DT) % 10 === 0) errors.push(`tr ${t.toFixed(1)} ${g.name} ${g.taskName} at (${g.x.toFixed(1)},${g.z.toFixed(1)}) v=${g.m.v.toFixed(2)} d=${g.visitorDist().toFixed(1)} eng=${g.engaged} view=${g.inHerView()} room=${g.roomHere().toFixed(1)} she (${v.x.toFixed(1)},${v.z.toFixed(1)}) walking=${!!path} say=${g.bubble.talking(H.now) ? g.bubble.text.slice(0, 30) : ''}`); }
+  if (Q.has('dbg') && t < 45 && Math.round(t / DT) % 40 === 0) errors.push(`dbg t=${t.toFixed(0)} present=${v.present} outside=${v.outside} outSince=${v.outSince.toFixed(1)} room=${v.room} v=(${v.x.toFixed(0)},${v.z.toFixed(0)}) ` + G.map(g => `${g.name}: (${g.x.toFixed(0)},${g.z.toFixed(0)}) ${g.taskName} int=${g.interruptible} att=${g.attending()} cameFor=${g.cameFor}`).join(' | '));
+  for (const r of G) if (r.carrying && r.forGuest && r.visitorDist() < r.inter.reach - 0.3 && r.m.v < 0.05 && rnd() < DT / 2) { r.act(); cards.push(`${t.toFixed(0).padStart(4)}s   [takes the ${v.holding?.name} from ${r.name}]`); }
+  if (TALK && v.outside) {
+    if (choosing && t > choosing.at) {
+      const opts = H.talk.options;
+      if (H.talk.robot && opts.length) {
+        // mostly choose the middle of the card (conversation), sometimes the first or last
+        const k = rnd(), who = H.talk.robot.name; let i = depth > 5 ? opts.length - 1 : k < 0.2 ? 0 : k < 0.3 ? opts.length - 1 : Math.min(opts.length - 1, 1 + Math.floor(rnd() * Math.max(1, opts.length - 2)));
+        if (ORDER && !ordered) { const j = opts.findIndex(o => ORDER.test(o.text)); if (j >= 0) { i = j; ordered = true; } else { const k2 = opts.findIndex(o => /something from the garden/.test(o.text)); if (k2 >= 0) i = k2; } }
+        if (CHATTY) {                                     // the first thing on the card she has not said to this one yet; goodbyes last
+          const bye = o => /^(That's all|Thank you,|Not just now)/.test(o.text), nav2 = o => /^(Something else|About |Can I ask)/.test(o.text);
+          i = opts.findIndex(o => !bye(o) && !nav2(o) && !chosen.has(who + o.text)); if (i < 0) i = opts.findIndex(o => nav2(o) && !bye(o) && ((navCount[who + o.text] = (navCount[who + o.text] ?? 0) + 1) < 14)); if (i < 0) i = opts.length - 1;
+          chosen.add(who + opts[i].text);
+        }
+        const n0 = said.length;
+        cards.push(`${t.toFixed(0).padStart(4)}s ${who} card: ${opts.map((o, j) => (j === i ? '>>' : '  ') + o.text).join(' | ')}`);
+        H.talk.choose(i); depth++;
+        for (const s of said.slice(n0)) cards.push(`        ${s.who}: ${s.text}`);
+        choosing = H.talk.robot ? { at: t + (CHATTY ? 2 : 3.5) } : null; holdStill = t + 6;
+      } else choosing = null;
+    }
+    if (!choosing && t > nextTalk) {
+      const r = G.filter(r => r.visitorDist() < Math.max(9, r.inter.reach - 0.5) && !r.carrying).sort((a, b) => a.visitorDist() - b.visitorDist())[0];
+      if (r && CHATTY && r !== G[chatWith]) { /* wait for the one she came to see */ } else
+      if (r) { const n0 = said.length; r.act(); for (const s of said.slice(n0)) cards.push(`        ${s.who}: ${s.text}`); choosing = { at: t + 1.2 }; depth = 0; nextTalk = t + (CHATTY ? 4 : 22 + rnd() * 20); holdStill = t + 6; }
+    }
+  }
+  if (v.outside) {
+    M.outFrames++;
+    let n34 = 0;
+    for (const r of G) {
+      const d = r.visitorDist(), s = stats.get(r);
+      if (d < 34) { s.near34++; n34++; } if (d < 60) s.near60++;
+      if (r.engaged && d < 12 && r.taskName !== 'deliver') {
+        if (!M.engageStart.has(r)) M.engageStart.set(r, t);
+        if (t - M.engageStart.get(r) > 1.5) {
+          M.engagedFrames++;
+          const lk = r.lookTarget?.() ?? v;
+          let a = Math.atan2(lk.x - r.x, lk.z - r.z) - r.m.yaw; a = Math.abs(Math.atan2(Math.sin(a), Math.cos(a)));
+          if (a < 0.45) M.facingOk++; if (r.m.v < 0.15) M.stillOk++;
+        }
+      } else M.engageStart.delete(r);
+      if (r === H.host && ['host', 'greet'].includes(r.taskName) && !r.engaged && d < 40) M.hostD.push(d);
+      if (d < 3 && !r.carrying) { M.tooClose++; (M.closeWhy ??= new Map()).set(`${r.name}:${r.taskName}${path ? ' (she was walking)' : ''}`, Math.round(t)); }
+      // in her way: within 4 ft and ahead of her while she is walking
+      if (path && d < 4 && ((r.x - v.x) * v.fx + (r.z - v.z) * v.fz) / Math.max(d, 0.01) > 0.8 && r.m.v < 0.1) M.pathBlock++;
+    }
+    if (n34) M.anyNear34++; if (n34 > 1 && G.every(r => r.visitorDist() < 8)) M.bothClose++;
+  }
+  for (const b of H.ctx.colliders) if (b.staff && walker.pos.x > b.x0 && walker.pos.x < b.x1 && walker.pos.z > b.z0 && walker.pos.z < b.z1 && walker.pos.y + 1.5 < b.y1 && walker.pos.y + 5.5 > b.y0) M.inBody++;
+  for (const a of G) {
+    const s = stats.get(a), mv = Math.hypot(a.x - s.px, a.z - s.pz); s.dist += mv; s.px = a.x; s.pz = a.z; s.tasks.set(a.taskName, (s.tasks.get(a.taskName) ?? 0) + DT);
+    s.still = mv < 1e-4 ? s.still + DT : 0; if (s.still > s.longestStill) { s.longestStill = s.still; s.stillTask = a.taskName; s.stillAt = `${a.x.toFixed(0)},${a.z.toFixed(0)} t=${t.toFixed(0)}`; }
+  }
+  if (Math.round(t / DT) % 5 === 0) for (const b of staff.check()) {
+    if (!G.some(g => g.name === b.who)) continue;
+    stats.get(G.find(a => a.name === b.who)).bad++; violations++;
+    if (firstBad.length < 8) firstBad.push(`t=${t.toFixed(1)} ${b.who} (${b.task}) at x=${b.x.toFixed(2)} z=${b.z.toFixed(2)}`);
+  }
+}
+const med = a => { const s = [...a].sort((p, q) => p - q); return s.length ? s[Math.floor(s.length / 2)] : NaN; };
+const pct = (a, b) => b ? (100 * a / b).toFixed(1) + '%' : 'n/a';
+const L = [];
+L.push(`simulated ${(T / 60).toFixed(1)} min at dt ${DT}; hour ${day.hour}; seed ${ctx.seed}; route ${Q.get('route') ?? 'front'}; she steps out at 20 s`);
+L.push(`garden spots: ${Object.entries(H.gspots).map(([k, v]) => k + ' ' + (Array.isArray(v) ? v.length : v ? 'ok' : 'NONE')).join(', ')}`);
+L.push(`events ${JSON.stringify(H.events)}`);
+L.push(`memory: asked ${[...H.mem.asked].join(', ')}; met ${[...H.mem.met].join(', ')}; drinks ${H.mem.drinks.join(', ')}`);
+const toGuest = said.filter(s => s.d < 14 && (s.engaged || ['greet', 'host'].includes(s.task)));
+const first = toGuest[0];
+L.push(`FIRST WORDS to her: ${first ? `${(first.t - 20).toFixed(0)} s after stepping out, by ${first.who}, from ${first.d.toFixed(1)} ft: "${first.text}"` : 'NONE in the whole visit'}`);
+L.push(`SPOKEN TO HER from beyond 14 ft (wasted on the air): ${said.filter(s => ['greet', 'host'].includes(s.task) && s.d > 14).length}; lines said while she was outside ${said.filter(s => s.d < 1e9).length}, of which within 34 ft (a bubble she can see) ${said.filter(s => s.d < 34).length}`);
+L.push(`COMPANY: a gardener within 34 ft of her ${pct(M.anyNear34, M.outFrames)} of her time outside`);
+L.push(`ATTENTION while speaking with her: facing ${pct(M.facingOk, M.engagedFrames)}, still ${pct(M.stillOk, M.engagedFrames)} of ${M.engagedFrames} frames`);
+L.push(`DISTANCE: host median ${med(M.hostD).toFixed(1)} ft, under 4 ft ${pct(M.hostD.filter(d => d < 4).length, M.hostD.length)}; frames a gardener was within 3 ft ${M.tooClose} ${[...(M.closeWhy ?? [])].map(e => e.join('@')).join(' ')}; frames one stood in her path ${M.pathBlock}; both within 8 ft ${M.bothClose}; her centre inside a body ${M.inBody}`);
+L.push(`INSIDE-COLLIDER SAMPLES: ${violations}`); for (const b of firstBad) L.push('  ' + b);
+L.push('');
+for (const a of G) {
+  const s = stats.get(a), tasks = [...s.tasks].sort((p, q) => q[1] - p[1]).map(([k, v]) => `${k} ${Math.round(v)}s`).join(', ');
+  L.push(`${a.name.padEnd(8)} at (${a.x.toFixed(0)}, ${a.z.toFixed(0)}) now: ${a.taskName}; moved ${Math.round(s.dist)} ft; within 34 ft of her ${pct(s.near34, M.outFrames)}, 60 ft ${pct(s.near60, M.outFrames)}; longest stand-still ${s.longestStill.toFixed(0)} s (${s.stillTask} at ${s.stillAt})\n         time by task: ${tasks}\n         recent: ${a.history.slice(-16).map(h => h.join(':')).join(' ')}`);
+}
+if (G[1].barrow) L.push(`barrow at (${G[1].barrow.position.x.toFixed(1)}, ${G[1].barrow.position.z.toFixed(1)}) free there: ${H.out.freeAt(0, G[1].barrow.position.x, G[1].barrow.position.z, 0.5)}`);
+L.push(''); L.push('CONVERSATIONS (the card she saw, >> what she chose, then the reply):'); L.push(...cards);
+L.push(''); L.push('EVERYTHING SAID (time, distance to her, task):');
+for (const s of said) L.push(`  ${s.t.toFixed(0).padStart(4)}s ${s.who.padEnd(8)} ${(s.d < 1e9 ? s.d.toFixed(0) + 'ft' : '-').padStart(6)} ${s.task.padEnd(9)} ${s.text}`);
+L.push(`  (${said.length} lines; distinct ${new Set(said.map(s => s.text)).size})`);
+L.push(''); L.push(errors.length ? 'ERRORS:\n' + [...new Set(errors)].slice(0, Q.has('trace') ? 400 : 20).join('\n') : 'no errors');
+out.textContent = L.join('\n');
+document.title = 'gardener test done';
+} catch (err) { out.textContent = 'FAILED: ' + (err?.stack ?? err) + '\n' + errors.join('\n'); }
+</script>

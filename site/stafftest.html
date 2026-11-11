@@ -53,13 +53,13 @@ const B = new Builder(), house = buildHouse(B), items = furnish(B, house), garde
 const renderer = new THREE.WebGLRenderer({ canvas: document.createElement('canvas') });
 const materials = makeMaterials(renderer), scene = new THREE.Scene();
 makeTrees(scene, materials, B.colliders, TREES);
-const life = bringToLife({ scene, renderer, items, garden, materials, doors: house.doors, colliders: B.colliders, onChange() {} });
+const camera = new THREE.PerspectiveCamera(56, 1.6, 0.25, 500);
+const life = bringToLife({ scene, renderer, camera, items, garden, materials, doors: house.doors, colliders: B.colliders, onChange() {} });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let last = -1, stable = 0;
 for (let i = 0; i < 160 && stable < 8; i++) { await sleep(250); const n = scene.children.length + B.colliders.length; stable = n === last ? stable + 1 : 0; last = n; }
 
 const { hireStaff } = await import('./src/staff.js');
-const camera = new THREE.PerspectiveCamera(56, 1.6, 0.25, 500);
 const walker = { pos: new THREE.Vector3(), yaw: 0, pitch: 0, seated: null };
 const day = { light: 1, night: 0, hour: Number(Q.get('hour') ?? 10) };
 const ctx = { THREE, scene, camera, renderer, materials, house, items, garden, colliders: B.colliders, interact: life.interact, animated: life.animated, loadModel: life.loadModel, sound: null, day, walker, mode: 'walk', headless: true, seed: Number(Q.get('seed') ?? 7) };

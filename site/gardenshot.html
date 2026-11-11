@@ -1,0 +1,52 @@
+<!doctype html><meta charset="utf-8"><title>gardener pictures</title>
+<script>
+// Pictures of the gardeners in the real house, for tools/shot.sh:
+//   tools/shot.sh out.png "page=src/staff/gardenshot&g=intro&view=2,0.05,52,0,-0.05&time=14"
+// Loads the site's own index.html (so everything is as the visitor sees it), waits for the staff, then
+//   g=intro | hello2    both staged in front of the camera; Bramble (or Thistle) introducing themselves
+//   g=card              Bramble's card as it first opens      g=answer   after choosing the first topic
+//   g=cats | topics     the "something else" cards            g=serve    the picking card
+//   g=tcard | tanswer   the same with Thistle
+//   g=live&at=x,z&ff=90 no staging: she stands at x,z (looking where view= looks) for up to ff seconds of garden time;
+//                       until=n freezes the garden at the n-th thing a gardener says to her; look=1 turns her to the speaker
+fetch('../../index.html').then(r => r.text()).then(t => {
+  document.open();
+  document.write(t.replace('<head>', '<head><base href="../../">') + '<script type="module">(' + String(stage) + ')()<\/script>');
+  document.close();
+});
+async function stage() {
+  const Q = new URLSearchParams(location.search), kind = Q.get('g') ?? 'intro';
+  await new Promise(r => { const i = setInterval(() => { if (window.__staff && window.__ready) { clearInterval(i); r(); } }, 200); });
+  await new Promise(r => setTimeout(r, 1200));
+  const S = window.__staff, H = S.H, [b, t] = H.gardeners, v = H.visitor;
+  const hold = g => { if (g.bubble.text) g.bubble.say(g.bubble.text, 1e6, H.now); };
+  if (kind === 'live') {
+    const [x, z] = (Q.get('at') ?? '2,36').split(',').map(Number), w = H.ctx.walker, ff = Number(Q.get('ff') ?? 90);
+    H.ctx.forcePresent = true; let heard = 0, lastText = '';
+    const face = g => { w.yaw = Math.atan2(-(g.x - w.pos.x), -(g.z - w.pos.z)); };
+    for (let i = 0; i < ff * 15; i++) {
+      w.pos.set(x, 0.05, z);
+      const g = [...H.gardeners].sort((p, q) => Math.hypot(p.x - x, p.z - z) - Math.hypot(q.x - x, q.z - z))[0];
+      S.step(1 / 15);
+      // stop the clock at the first thing said to her (until=1), or the n-th
+      if (Q.has('until') && g.bubble.talking(H.now) && Math.hypot(g.x - x, g.z - z) < 14 && g.engaged && g.bubble.text !== lastText) { lastText = g.bubble.text; if (++heard >= Number(Q.get('until'))) { if (Q.has('look')) face(g); hold(g); for (const k of H.gardeners) k.update = () => {}; break; } }
+    }
+    console.log('gardenshot live: ' + H.gardeners.map(g => `${g.name} ${g.taskName} at ${g.x.toFixed(0)},${g.z.toFixed(0)} d=${Math.hypot(g.x - x, g.z - z).toFixed(0)} "${g.bubble.text}"`).join(' | '));
+    return;
+  }
+  S.stage('garden');
+  b.dropDrink(); t.pushing = false; t.anim = null; b.bubble.quiet(); t.bubble.quiet(); b.bubble.text = t.bubble.text = '';
+  v.present = true; v.outside = true; v.x = H.ctx.walker?.pos.x ?? 0; v.z = H.ctx.walker?.pos.z ?? 0;
+  const g = /^t|hello2/.test(kind) ? t : b, o = g === b ? t : b;
+  const VOICE = (await import('./src/staff/lines.js')).VOICE;
+  if (kind === 'intro' || kind === 'hello2') { if (kind === 'hello2') H.mem.met.add(o.key); g.say(VOICE[g.key][kind === 'hello2' ? 'introAfter' : 'intro'][0][0], { secs: 1e6, expr: 'happy', toGuest: false }); g.expr = 'happy'; g.exprUntil = 1e9; return; }
+  H.mem.met.add(g.key);
+  H.talk.open(g, g.dialogue());
+  const pick = re => { const i = H.talk.options.findIndex(op => re.test(op.text)); H.talk.choose(Math.max(0, i)); hold(g); };
+  if (/answer/.test(kind)) { H.talk.choose(0); hold(g); }
+  if (kind === 'cats' || kind === 'topics') pick(/^Can I ask/);
+  if (kind === 'topics') pick(/^About you/);
+  if (kind === 'serve') pick(/something from the garden/);
+  g.expr = 'happy'; g.exprUntil = 1e9;
+}
+</script>

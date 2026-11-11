@@ -66,7 +66,7 @@ export function hireStaff(ctx) {
   };
   const camFloor = () => nav.floorOf(camera.position.y - 4);
   H.see = (a, b) => (a.f ?? 0) === (b.f ?? 0) && nav.see(a.f ?? 0, a.x, a.z, b.x, b.z);
-  H.near = (a, d) => { const v = H.visitor; return v.present && v.f === a.f && Math.hypot(v.x - a.x, v.z - a.z) < d && nav.see(v.f, v.x, v.z, a.x, a.z); };
+  H.near = (a, d) => { const v = H.visitor; return v.present && v.f === a.f && Math.hypot(v.x - a.x, v.z - a.z) < d && (a.outdoor ? out.see(0, v.x, v.z, a.x, a.z) : nav.see(v.f, v.x, v.z, a.x, a.z)); };      // the indoor plan ends at the walls: the garden has its own
   H.busyTalking = () => { const v = H.visitor; return [...H.robots, ...H.gardeners].some(r => r.bubble.talking(H.now) && Math.hypot(r.x - v.x, r.z - v.z) < 20); };
   H.nearDoor = (f, x, z, r) => nav.doors.some(d => d.staffFloor === f && Math.hypot(d.cx - x, d.cz - z) < r);
   H.anyoneNear = (x, z, r) => {
@@ -211,7 +211,7 @@ export function hireStaff(ctx) {
   H.roomba = new Roomba(H);
   H.gspots = gardenSpots(out, ctx);
   H.gardeners = [new Gardener(H, 'bramble', 3, out), new Gardener(H, 'thistle', 4, out)];
-  for (const [g, x, z] of [[H.gardeners[0], 46, -70], [H.gardeners[1], 86, -100]]) { const c = out.nearest(0, x, z, 1.2, 12); if (c >= 0) g.m.place(out.cx(c), out.cz(c), 0); }
+  for (const [g, x, z] of [[H.gardeners[0], -13, 41], [H.gardeners[1], 86, -100]]) { const c = out.nearest(0, x, z, 1.2, 12); if (c >= 0) g.m.place(out.cx(c), out.cz(c), 0); }
   H.roomba.dock = H.spots.dock ? { ...H.spots.dock, yaw: 0 } : null;
   const place = (a, f, X, Y, need) => { const c = nav.nearest(f, wx(X), wz(Y), need, 8); if (c >= 0) a.m.place(nav.cx(c), nav.cz(c), f); else { const s = nav.randomSpot(f, need, H.rnd); if (s) a.m.place(s.x, s.z, f); } };
   place(H.robots[0], 0, 33.0, 19.6, 2);          // Barty at the coffee bar
@@ -312,7 +312,7 @@ export function hireStaff(ctx) {
     const cf = camFloor(), cx = camera.position.x, cz = camera.position.z, show = ctx.mode === 'walk' || demo;
     for (const a of [...H.robots, ...H.gardeners, H.roomba]) {
       const pos = a.headPos(head);
-      const vis = show && a.f === cf && Math.hypot(pos.x - cx, pos.z - cz) < 34 && (demo || nav.see(cf, cx, cz, pos.x, pos.z));
+      const vis = show && a.f === cf && Math.hypot(pos.x - cx, pos.z - cz) < 34 && (demo || (a.outdoor ? out.see(0, cx, cz, pos.x, pos.z) : nav.see(cf, cx, cz, pos.x, pos.z)));
       H.bubbles.place(a.bubble, pos, H.now, vis);
     }
     H.bubbles.update(H.now);

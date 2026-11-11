@@ -258,7 +258,7 @@ export function buildGardener(key) {
       paint(T(cyl(0.06, 0.03, 0.06, 10), { p: [0, 0.02, 0.62], r: [1.0, 0, 0] }), '#8a9498'), paint(T(new THREE.TorusGeometry(0.13, 0.02, 6, 14, Math.PI), { p: [0, -0.03, 0.08], r: [0, Math.PI / 2, 0] }), '#8a9498')];
   } else {
     R = 0.62; const bs = [1.15, 0.85, 1.05];
-    parts.push(paint(T(sph(R, 24, 16), { s: bs }), p => { const m = Math.sin(p.x * 19) * Math.sin(p.z * 21 + p.y * 7); return p.y < -0.28 + 0.1 * m ? '#5f4630' : m > 0.55 ? '#4f6b3a' : '#6e8656'; }));
+    parts.push(paint(T(sph(R, 24, 16), { s: bs }), p => { const m = Math.sin(p.x * 19) * Math.sin(p.z * 21 + p.y * 7); return p.y < -0.28 + 0.1 * m ? '#6a4f36' : m > 0.55 ? '#5d7d42' : '#84a062'; }));        // weathered green, mossy patches, mud below
     parts.push(paint(T(new THREE.TorusGeometry(R * 1.15 * 0.985, 0.035, 8, 40), { p: [0, -0.12, 0], r: [Math.PI / 2, 0, 0], s: [1, 1.05 / 1.15, 1] }), BRASS));
     parts.push(paint(T(new THREE.SphereGeometry(0.32, 16, 6, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), { p: [0, -0.46, 0], s: [1, 0.55, 1] }), '#3f4a32'));
     // waxed bucket hat, a little battered
@@ -274,7 +274,7 @@ export function buildGardener(key) {
   const body = mesh(merge(parts)); bob.add(body, face.mesh);
   const ring = new THREE.Mesh(T(new THREE.TorusGeometry(R * 0.55, 0.032, 8, 30), { r: [Math.PI / 2, 0, 0] }), new THREE.MeshBasicMaterial({ color: S.ring, toneMapped: false, transparent: true, opacity: 0.85 }));
   ring.position.y = ringY; bob.add(ring);
-  const glove = paint(T(sph(0.12, 10, 7), { s: [1, 0.85, 1.15] }), key === 'bramble' ? '#c9a46a' : '#3f5a36');
+  const glove = paint(T(sph(0.12, 10, 7), { s: [1, 0.85, 1.15] }), key === 'bramble' ? '#c9a46a' : '#b08a4e');       // leather gardening gloves, both
   const hands = [handL, handR].map((p, i) => {
     const h = new THREE.Group(); h.position.set(...p); h.userData.rest = p;
     h.add(mesh(i === (key === 'bramble' ? 1 : 0) ? merge([glove, ...tool]) : glove)); bob.add(h); return h;
