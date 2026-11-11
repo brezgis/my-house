@@ -18,7 +18,9 @@ export function sharedTexture(file) {
     e.base = new THREE.TextureLoader().load(url, () => { e.loaded = true; for (const c of e.clones) c.needsUpdate = true; });
     shared.set(url, e);
   }
-  const t = e.base.clone(); if (e.loaded) t.needsUpdate = true; e.clones.push(t);
+  // (a clone is born "needing an update"; until the photo has arrived that only made the renderer
+  // warn, every frame, that there was nothing to upload)
+  const t = e.base.clone(); if (e.loaded) t.needsUpdate = true; else t.version = 0; e.clones.push(t);
   return t;
 }
 

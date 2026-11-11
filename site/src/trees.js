@@ -54,13 +54,15 @@ export function makeTrees(scene, materials, colliders, places) {
   const cell = name => cellUV(W, H, atlas.rects[name], 3);
   const shapes = { star: starGeo(), hang: (() => { const g = crossGeo(2); g.translate(0, -1, 0); return g; })() };
   const cards = new CardSet({ region: 160 }), ring = new CardSet({ region: 400 });
-  const wood = { bark: [], birch: [] };
+  // trunks and limbs, kept by 160 ft region (as the crowns are), so that those out of view are not drawn
+  const wood = { bark: new Map(), birch: new Map() };
+  const limbsOf = (kind, p) => { const k = Math.floor(p.x / 160) + ',' + Math.floor(p.z / 160); if (!wood[kind].has(k)) wood[kind].set(k, []); return wood[kind].get(k); };
   const m = new THREE.Matrix4(), col = new THREE.Color();
 
   for (const p of places) {
     const sp = SPECIES[p.kind ?? 'oak'] ?? SPECIES.oak, r = rng(p.seed ?? Math.round(p.x * 13 + p.z * 7));
     const Ht = p.height ?? sp.H, trunkR = p.trunk ?? sp.trunk * Ht / sp.H, y0 = p.y ?? 0, uvc = cell(sp.cell);
-    const limbs = wood[sp.bark ?? 'bark'];
+    const limbs = limbsOf(sp.bark ?? 'bark', p);
     const tuft = (pos, size, shade) => {
       const k = THREE.MathUtils.clamp((pos.y - y0 - Ht * 0.3) / (Ht * 0.65), 0, 1);
       col.setScalar((0.74 + 0.5 * k + r() * 0.15) * (shade ?? 1));
@@ -130,7 +132,7 @@ export function makeTrees(scene, materials, colliders, places) {
 
   const leaves = [...cards.build(scene, shapes, mats, { shadow: true }), ...ring.build(scene, shapes, mats, { shadow: false })];
   for (const l of leaves) l.name = 'tree leaves';
-  const add = (list, mat) => { if (!list.length) return; const w = new THREE.Mesh(mergeGeometries(list), mat); w.castShadow = w.receiveShadow = true; w.name = 'tree wood'; scene.add(w); };
+  const add = (lists, mat) => { for (const list of lists.values()) { if (!list.length) continue; const w = new THREE.Mesh(mergeGeometries(list), mat); w.castShadow = w.receiveShadow = true; w.name = 'tree wood'; scene.add(w); } };
   add(wood.bark, materials.bark);
   add(wood.birch, new THREE.MeshStandardMaterial({ map: birchTexture(), roughness: 0.8, envMapIntensity: 0.6 }));
 }

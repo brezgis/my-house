@@ -414,9 +414,14 @@ export function plantGarden(B, items) {
       geo.translate(-(bb.min.x + bb.max.x) / 2, -bb.min.y, -(bb.min.z + bb.max.z) / 2);
       const k3 = 3 / Math.max(bb.max.x - bb.min.x, bb.max.z - bb.min.z); geo.scale(k3, k3, k3);
       mat = mat.clone(); mat.alphaTest = 0.5; mat.transparent = false; mat.side = T3.DoubleSide; mat.envMapIntensity = 0.7;
-      const inst = new T3.InstancedMesh(geo, mat, K.ferns.length), m = new T3.Matrix4(), q = new T3.Quaternion(), rr = rng(5);
-      K.ferns.forEach(([x, y, z, s], i) => inst.setMatrixAt(i, m.compose(new T3.Vector3(x, y, z), q.setFromAxisAngle(new T3.Vector3(0, 1, 0), rr() * 6.28), new T3.Vector3(s, s * (0.9 + rr() * 0.2), s))));
-      inst.castShadow = inst.receiveShadow = true; inst.name = 'ferns'; scene.add(inst);
+      // one instanced mesh per 80 ft patch of garden, so the ferns out of view are not drawn
+      const m = new T3.Matrix4(), q = new T3.Quaternion(), rr = rng(5), patches = new Map();
+      for (const f of K.ferns) { const k = Math.floor(f[0] / 80) + ',' + Math.floor(f[2] / 80); if (!patches.has(k)) patches.set(k, []); patches.get(k).push(m.compose(new T3.Vector3(f[0], f[1], f[2]), q.setFromAxisAngle(new T3.Vector3(0, 1, 0), rr() * 6.28), new T3.Vector3(f[3], f[3] * (0.9 + rr() * 0.2), f[3])).clone()); }
+      for (const list of patches.values()) {
+        const inst = new T3.InstancedMesh(geo, mat, list.length);
+        list.forEach((mm, i) => inst.setMatrixAt(i, mm));
+        inst.computeBoundingSphere(); inst.castShadow = inst.receiveShadow = true; inst.name = 'ferns'; scene.add(inst);
+      }
     }).catch(() => {});
     const flora = K.F.build(scene);
     // the glow of bulbs and lanterns: soft by day, bright after dark

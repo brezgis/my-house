@@ -190,7 +190,7 @@ export function buildPotager(K) {
     K.box(frame, cx - 0.15, cx + 0.15, ridge - 0.1, ridge + 0.2, gz0, gz1);
     for (const s of [-1, 1]) {
       const ex = s < 0 ? gx0 : gx1, len = Math.hypot(cx - ex, ridge - eave), ang = Math.atan2(ridge - eave, Math.abs(cx - ex));
-      const roof = new THREE.BoxGeometry(len, 0.05, gz1 - gz0 + 0.6); roof.rotateZ(s < 0 ? ang : -ang); roof.translate((cx + ex) / 2, (ridge + eave) / 2 + 0.05, (gz0 + gz1) / 2); K.put('glass', roof);
+      const roof = new THREE.BoxGeometry(len, 0.05, gz1 - gz0 + 0.6); roof.rotateZ(s < 0 ? ang : -ang); roof.translate((cx + ex) / 2, (ridge + eave) / 2 + 0.03, (gz0 + gz1) / 2);      // the glazing bars stand a clear quarter inch proud of the glass K.put('glass', roof);
       for (let z = gz0; z <= gz1 + 0.01; z += 2) K.beam(frame, [ex, eave, z], [cx, ridge, z], 0.12, 0.16);
       for (let k = 0; k < 9; k++) K.sphere(frame, cx, ridge + 0.35, gz0 + 0.5 + k * 1.6, 0.12, 1, 1);
     }
@@ -220,7 +220,7 @@ export function buildPotager(K) {
     const z0 = -114, z1 = -108;
     for (let i = 0; i < 3; i++) {
       const x0 = 57 + i * 3.2, x1 = x0 + 3;
-      for (let y = 0.1; y < 3; y += 0.55) { K.box('timber', x0, x1, y, y + 0.42, z0, z0 + 0.15, G0); K.box('timber', x0, x0 + 0.15, y, y + 0.42, z0, z1, G0); K.box('timber', x1 - 0.15, x1, y, y + 0.42, z0, z1, G0); }
+      for (let y = 0.1; y < 3; y += 0.55) { K.box('timber', x0 + 0.15, x1 - 0.15, y, y + 0.42, z0, z0 + 0.15, G0); K.box('timber', x0, x0 + 0.15, y, y + 0.42, z0, z1, G0); K.box('timber', x1 - 0.15, x1, y, y + 0.42, z0, z1, G0); }
       K.sphere('soil', (x0 + x1) / 2, 0.2, (z0 + z1) / 2 - 0.4, 1.4, 0.5 + i * 0.25, 1);
     }
     K.collide(57, 66.6, z0, z1, 4);

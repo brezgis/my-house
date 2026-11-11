@@ -127,23 +127,32 @@ export function makeVisibility({ rooms, portals, quality = {} }) {
     state.ms += performance.now() - t0; state.frames++;
   }
 
+  // A zone's name taken apart once ('r:Hall:small@0,-2' -> room 'r:Hall', big or not), not every frame
+  const parts = new Map();
+  const part = zone => {
+    let p = parts.get(zone);
+    if (!p) { const at = zone.indexOf('@'), z = at > 0 ? zone.slice(0, at) : zone, c = z.indexOf(':', 2); parts.set(zone, p = { room: c > 0 ? z.slice(0, c) : z, big: z.endsWith(':big'), small: z.endsWith(':small'), inRoom: zone.startsWith('r:'), out: zone.startsWith('o:') }); }
+    return p;
+  };
   // Is a zone to be drawn? level 2: everything; 1: big furniture only.
   function shows(zone) {
     if (!zone || zone === 'shell') return true;
-    if (zone.startsWith('o:')) return state.out;
-    const at = zone.indexOf('@'); if (at > 0) zone = zone.slice(0, at);
-    const c = zone.indexOf(':', 2), room = c > 0 ? zone.slice(0, c) : zone, s = state.seen.get(room);
-    if (!s) return false;
-    return s.level >= 2 || zone.endsWith(':big');
+    const p = part(zone);
+    if (p.out) return state.out;
+    const s = state.seen.get(p.room);
+    return !!s && (s.level >= 2 || p.big);
   }
   // Can a box in this zone be seen through the openings that lead to its room?
   function inView(zone, box) {
-    if (!zone?.startsWith('r:')) return true;
-    const at = zone.indexOf('@'), z = at > 0 ? zone.slice(0, at) : zone, c = z.indexOf(':', 2), s = state.seen.get(c > 0 ? z.slice(0, c) : z);
+    if (!zone) return true;
+    const p = part(zone);
+    if (!p.inRoom) return true;
+    const s = state.seen.get(p.room);
     if (!s) return false;
     if (s.rect === FULL) return true;
     return !!cut(s.rect, screenRect(box));
   }
-  return { zoner, zoneOfBox, inView, roomAt, cellOf, update, shows, state, portals: P, ids, inHouse,
+  const isSmall = zone => !!zone && part(zone).small;
+  return { zoner, zoneOfBox, inView, isSmall, roomAt, cellOf, update, shows, state, portals: P, ids, inHouse,
     visMs: () => (state.frames ? +(state.ms / state.frames).toFixed(3) : null), resetMs: () => { state.ms = 0; state.frames = 0; } };
 }

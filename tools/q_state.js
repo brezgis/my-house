@@ -1,0 +1,2 @@
+// A quick look at the renderer's state, and any requests that failed.
+(() => { const H = window.__house, i = H.renderer.info; return { frames: H.frames, calls: i.render.calls, tris: i.render.triangles, programs: i.programs.length, textures: i.memory.textures, quality: H.quality, firstFrameMs: H.firstFrameMs, missing: performance.getEntriesByType('resource').filter(r => r.responseStatus >= 400).map(r => r.name.replace(/^.*8791\//, '')) }; })()

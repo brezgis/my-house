@@ -8,6 +8,9 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { shuffle } from './shuffle.js';
 
 const FT = 3.28084;
+// Labels and pictures lie a hair in front of what they are printed on or framed in; drawn a touch
+// nearer in depth, they do not flicker against it when seen from across the garden.
+const DECAL = { polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 };
 
 // ---- Drawn surfaces -------------------------------------------------------------------
 function canvas(w, h, draw) {
@@ -112,7 +115,11 @@ function rugTexture(style, w, d) {
 function prepareModel(src, outdoor) {
   src.updateMatrixWorld(true);
   const tuned = new Map(), tune = mat => {
-    if (!tuned.has(mat)) { const m = mat.clone(); m.envMapIntensity = outdoor ? 0.8 : 0.3; if (m.transparent || m.alphaTest > 0) { m.transparent = false; m.alphaTest = 0.5; } tuned.set(mat, m); }
+    if (!tuned.has(mat)) { const m = mat.clone(); m.envMapIntensity = outdoor ? 0.8 : 0.3; if (m.transparent || m.alphaTest > 0) { m.transparent = false; m.alphaTest = 0.5; }
+      // Refracting glass (a vase, a lens, a bottle) makes the renderer draw the whole scene a second time, into
+      // a full-size texture, in every frame in which one such piece is in view. Plain clear glass instead.
+      if (m.transmission > 0) { m.transmission = 0; m.thickness = 0; m.transparent = true; m.opacity = 0.32; m.depthWrite = false; }
+      tuned.set(mat, m); }
     return tuned.get(mat);
   };
   let plain = true;
@@ -302,7 +309,7 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
   for (const [key, list] of sheets) {
     const [zone, kind, rough] = key.split('|');
     const { geo, tex } = packSheet(list);
-    const mat = kind === 'rug' ? new THREE.MeshStandardMaterial({ map: tex, color: 0xb0aaa0, roughness: 1, envMapIntensity: 0.08 }) : new THREE.MeshStandardMaterial({ map: tex, roughness: Number(rough), envMapIntensity: 0.15 });
+    const mat = kind === 'rug' ? new THREE.MeshStandardMaterial({ map: tex, color: 0xb0aaa0, roughness: 1, envMapIntensity: 0.08 }) : new THREE.MeshStandardMaterial({ map: tex, roughness: Number(rough), envMapIntensity: 0.15, ...DECAL });
     const mesh = new THREE.Mesh(geo, mat); mesh.receiveShadow = kind === 'rug';
     mesh.userData.cat = kind === 'rug' ? 'rugs' : 'extras'; scene.add(mesh); track(mesh, zone);
     for (const it of list) if (it.rug) it.c.width = it.c.height = 0;      // the rugs' own canvases are no longer needed
@@ -320,7 +327,7 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
       for (const g of groups) {
         if (!g.length) continue;
         const { geo, tex } = packSheet(g);
-        const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: tex, color: 0xd6d1c8, roughness: 0.95, envMapIntensity: 0.15 }));      // matt, and a little under white, so pale drawings do not glare in afternoon light
+        const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: tex, color: 0xd6d1c8, roughness: 0.95, envMapIntensity: 0.15, ...DECAL }));      // matt, and a little under white, so pale drawings do not glare in afternoon light
         mesh.userData.cat = 'extras'; scene.add(mesh); track(mesh, zone);
       }
     });
@@ -395,7 +402,9 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
     // Only furniture-sized pieces (and things outdoors) throw sunlight shadows; trinkets do not
     const shadow = !!m.outdoor || r > 1.6;
     o.traverse(n => { if (n.isMesh) { n.castShadow = shadow; n.receiveShadow = true; } });
-    o.userData.cat = 'model:' + m.id; scene.add(o);
+    o.userData.cat = 'model:' + m.id;
+    await renderer.compileAsync(o, camera, scene);      // its shaders are compiled before it is shown, so its arrival does not stall a frame
+    scene.add(o);
     const lifted = box.clone().translate(new THREE.Vector3(0, o.position.y, 0));
     cull.push({ o, box: lifted, x: c.x, y: m.y, z: c.z, r, outdoor: !!m.outdoor, near: true, zone: vis ? vis.zoneOfBox(lifted, true, true) : '' });
     if (m.collide) colliders.push({ x0: box.min.x, x1: box.max.x, z0: box.min.z, z1: box.max.z, y0: m.y, y1: m.y + Math.min(4, box.max.y - box.min.y) });
@@ -521,23 +530,6 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
       }
       geo.instanceCount = n; puffs.visible = n > 0; aPos.needsUpdate = aScale.needsUpdate = aAlpha.needsUpdate = true;
     });
-  }
-
-  // ---- Koi ---------------------------------------------------------------------------------------
-  if (garden?.pond) {
-    const p = garden.pond, body = new THREE.SphereGeometry(0.5, 10, 8); body.scale(1.5, 0.32, 0.42);
-    const tail = new THREE.ConeGeometry(0.3, 0.7, 6); tail.rotateZ(Math.PI / 2); tail.scale(1, 0.3, 1); tail.translate(-0.95, 0, 0);
-    [0xe8622a, 0xf2efe6, 0xe8a23a, 0xd9482a, 0xf2efe6, 0x2b2b2b, 0xe8622a, 0xf0c9a0].forEach((c, i) => {
-      const fish = new THREE.Group(), mat = new THREE.MeshStandardMaterial({ color: c, roughness: 0.4 });
-      const tl = new THREE.Mesh(tail, mat); fish.add(new THREE.Mesh(body, mat), tl); fish.scale.setScalar(0.8 + (i % 3) * 0.22); outdoors.add(fish);
-      const r = 0.32 + (i * 0.37) % 0.5, sp = (0.16 + (i % 4) * 0.035) * (i % 2 ? 1 : -1), ph = i * 1.7;
-      animated.push(t => {
-        const a = t * sp + ph, wob = 0.1 * Math.sin(t * 0.7 + i);
-        fish.position.set(p.x + Math.cos(a) * p.rx * (r + wob) * 0.9, p.y - 0.22, p.z + Math.sin(a) * p.rz * (r + wob) * 0.9);
-        fish.rotation.y = -a - Math.sign(sp) * Math.PI / 2; tl.rotation.y = 0.5 * Math.sin(t * 6 + i);
-      });
-    });
-    interact.push({ x: p.x, y: 1, z: p.z + p.rz, reach: 9, label: () => 'watch the koi', act: () => {} });
   }
 
   // ---- Bees ----------------------------------------------------------------------------------------

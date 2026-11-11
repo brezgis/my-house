@@ -18,6 +18,7 @@ import { makeVisibility } from './visibility.js';
 import { chooseQuality, rememberSlow, QUALITY_OPTIONS, storedChoice, chooseTier } from './quality.js';
 import { setTextureTier } from './materials.js';
 import { installHouseLight, setHourLight, makeLampPool, makeExposure, makeWindowGlow, makeVignette, makeHalos } from './lighting.js';
+import { makeWarmer } from './warm.js';
 
 const Q = new URLSearchParams(location.search);
 const $ = id => document.getElementById(id);
@@ -143,9 +144,13 @@ const winGlow = makeWindowGlow({ scene: outdoors, materials, windows: house.wind
 const vignette = makeVignette();
 const halos = makeHalos({ scene, lamps, day });
 const exposure = makeExposure(Q);
+const warmer = makeWarmer({ renderer, scene, camera, range: 60 });      // textures and shaders made ready a little ahead of the visitor (warm.js)
 
 // ---- Two ways of looking: circling outside, and walking -----------------------------
 const WALK_FOV = Number(Q.get('fov') ?? 56);
+// Circling outside, nothing is nearer than the trees: a near plane of 2 ft rather than 0.25 gives the
+// depth buffer eight times the precision at a distance, where the garden's layers lie close together.
+const ORBIT_NEAR = 2; camera.near = ORBIT_NEAR; camera.updateProjectionMatrix();
 const walker = new Walker(camera, renderer.domElement, { colliders: builder.colliders, surfaces });
 walker.rim = { x: ISLAND.x, z: ISLAND.z, r: ISLAND.r * 0.965, at: ISLAND.outline ? a => outlineAt(a) * 0.965 : null };
 
@@ -173,12 +178,12 @@ camera.position.set(-34, 12, 58);
 if (Q.has('cam')) { camera.position.set(...Q.get('cam').split(',').map(Number)); orbit.autoRotate = false; }      // a fixed outside viewpoint, for test shots
 let mode = 'orbit';
 function walk(place = true) {
-  mode = 'walk'; orbit.enabled = false; walker.enabled = true; camera.fov = WALK_FOV; camera.updateProjectionMatrix();
+  mode = 'walk'; orbit.enabled = false; walker.enabled = true; camera.fov = WALK_FOV; camera.near = 0.25; camera.updateProjectionMatrix();
   if (place) walker.place(spawn.x, spawn.y ?? 0, spawn.z, spawn.yaw);
   document.body.classList.add('walking');
 }
 function overview() {
-  mode = 'orbit'; walker.enabled = false; walker.seated = null; orbit.enabled = true; camera.fov = 42; camera.updateProjectionMatrix();
+  mode = 'orbit'; walker.enabled = false; walker.seated = null; orbit.enabled = true; camera.fov = 42; camera.near = ORBIT_NEAR; camera.updateProjectionMatrix();
   camera.position.set(-34, 12, 58); document.exitPointerLock?.(); document.body.classList.remove('walking');
 }
 
@@ -282,15 +287,13 @@ addEventListener('resize', () => {
 });
 
 // ---- What to draw this frame (visibility.js) -------------------------------------------
-// When the sun's shadows are to be redrawn, everything is shown for that one frame so that
-// rooms and garden out of sight still cast their shadows.
 const SMALL_NEAR = 34 * QUALITY.reach;                                 // clutter further off than this is not drawn
-for (const m of zoned) { m.geometry.computeBoundingBox(); m.userData.box = m.geometry.boundingBox; }
-function cullScene() {
-  const all = sun.shadow.needsUpdate || Q.get('cull') === '0';
+for (const m of zoned) { m.geometry.computeBoundingBox(); m.userData.box = m.geometry.boundingBox; m.userData.small = vis.isSmall(m.userData.zone); }
+const cullOff = Q.get('cull') === '0';
+function cullScene(all = cullOff) {
   vis.update(camera);
   const eye = camera.position;
-  for (const m of zoned) { const z = m.userData.zone, b = m.userData.box; m.visible = all || (vis.shows(z) && (!/:small(@|$)/.test(z) || b.distanceToPoint(eye) < SMALL_NEAR) && vis.inView(z, b)); }
+  for (const m of zoned) { const z = m.userData.zone, b = m.userData.box; m.visible = all || (vis.shows(z) && (!m.userData.small || b.distanceToPoint(eye) < SMALL_NEAR) && vis.inView(z, b)); }
   outdoors.visible = all || vis.state.out;
   sky.setOutdoors?.(all || vis.state.out);
   life.cull(all);
@@ -298,18 +301,39 @@ function cullScene() {
   staffGroup ??= scene.children.find(o => o.name === 'staff') ?? null;
   if (staffGroup) for (const o of staffGroup.children) { const p = o.position; o.visible = all || vis.shows(life.zoneAt(p.x, p.y + 1.5, p.z, 0.4)); }
 }
+// When the sun's shadows are redrawn, rooms and garden out of sight must still cast theirs. The
+// renderer makes its list of what to draw before it draws the shadow map, and reads `visible`
+// again for the shadow map: so everything is shown at that moment, which puts it all in the
+// shadows without drawing it all in the picture (drawing it all, as this used to, sent every
+// texture in the house to the graphics card in one frame: a stall of up to a second). The next
+// frame's cullScene puts things back. (This leans on the order of work in three r170's
+// WebGLRenderer.render: projectObject, then shadowMap.render. If that changes, shadows of
+// things out of view go missing; nothing worse.)
+{
+  const update = sun.shadow.updateMatrices.bind(sun.shadow);
+  sun.shadow.updateMatrices = (light, vp) => {
+    for (const m of zoned) m.visible = true;
+    outdoors.visible = true; life.cull(true);
+    if (staffGroup) for (const o of staffGroup.children) o.visible = true;
+    update(light, vp);
+  };
+}
 let staffGroup;
 
 // ---- Loop -----------------------------------------------------------------------------
 const FIRE_AT = new THREE.Vector3(-4.5, 3, -17.8), CLOCK_AT = new THREE.Vector3(3.9, 5, -21.7);
 const clock = new THREE.Clock();
 let caption = '', frames = 0, since = 0, settled = 0, shown = '', fast = 0, slow = 0;
+let nextRatio = null, slowFrames = 0, slowSecs = 0, raisedAt = -1e9, ceiling = MAX_RATIO, holdUntil = 0, hold = 30;      // the drawing resolution's own bookkeeping
 const OUTDOORS = new Set(['Terrace', 'Front porch']), HALF = new Set(['Sleeping porch', 'Screened porch']);
 const fpsBox = Q.has('fps') ? $('room') : null;
 setHour(hour);
 
 renderer.setAnimationLoop(() => {
   const raw = clock.getDelta(), dt = Math.min(raw, 0.05), t = clock.elapsedTime;
+  // A change of drawing resolution is made here, before the frame is drawn. (Made after drawing, it
+  // emptied the canvas, and the page's dark background showed for a frame: a full-screen blink.)
+  if (nextRatio !== null) { ratio = nextRatio; nextRatio = null; renderer.setPixelRatio(ratio); }
   let where = 'out';
   if (mode === 'walk') {
     walker.update(dt);
@@ -335,20 +359,33 @@ renderer.setAnimationLoop(() => {
   if (sound.nowPlaying()) for (const d of platters) d.rotation.y -= dt * 3.49;      // 33 1/3 rpm
   sound.update(dt, { where, light: day.light, near: { fire: camera.position.distanceTo(FIRE_AT), clock: camera.position.distanceTo(CLOCK_AT) } });
   sky.update(dt, t, camera);
+  // The first frame: every shader the house needs is compiled now, behind the welcome, rather than
+  // one by one as rooms are first seen
+  if (!perf.frames && !cullOff) { cullScene(true); renderer.compile(scene, camera); warmer.settle(); }
   cullScene();
   renderer.render(scene, camera);
+  warmer.update(dt);
   perf.frames++; perf.lastCalls = renderer.info.render.calls; perf.lastTris = renderer.info.render.triangles;
   if (perf.firstFrameMs === undefined) perf.firstFrameMs = Math.round(performance.now());
 
-  // Keep it quick: if a second of frames runs slow, draw at a lower resolution.
-  frames++; since += raw;
+  // Keep it quick: if most frames run slow for two seconds together, draw at a lower resolution.
+  // (One slow second is not enough: a single hitch, as when a room's pictures first load, used
+  // to drop the resolution, which then crept back up in steps, each one a visible change.)
+  frames++; since += raw; if (raw > 1 / 46) slowFrames++;
   if (since >= 1) {
-    const fps = frames / since; frames = 0; since = 0; settled++;
+    const fps = frames / since, mostlySlow = slowFrames > frames * 0.6; frames = 0; since = 0; slowFrames = 0; settled++;
     if (fpsBox) fpsBox.textContent = `${fps.toFixed(0)} fps · ×${ratio.toFixed(2)} · ${QUALITY.name} · ${renderer.info.render.calls} calls · ${(renderer.info.render.triangles / 1000).toFixed(0)}k tris · ${(renderer.info.memory.textures)} tex`;
-    if (settled > 3 && fps < 48 && ratio > 0.7 && !Q.has('ratio')) { ratio = Math.max(0.7, ratio - 0.2); renderer.setPixelRatio(ratio); fast = 0; }
+    slowSecs = settled > 3 && mostlySlow && !life.pending() ? slowSecs + 1 : 0;      // not while the furniture is still arriving: that is the processor, not the picture
+    if (slowSecs >= 2 && ratio > 0.7 && !Q.has('ratio')) {
+      nextRatio = Math.max(0.7, ratio - 0.2); fast = 0; slowSecs = 0;
+      // If this undoes a recent sharpening, that level is too much for this machine here: hold
+      // below it for a while (longer each time), so the resolution does not pump up and down.
+      if (t - raisedAt < 20) { ceiling = nextRatio; holdUntil = t + hold; hold = Math.min(hold * 2, 600); }
+    }
     // ...and sharpens again, slowly, when there is time to spare
     fast = fps > 58 ? fast + 1 : 0;
-    if (fast >= 4 && ratio < MAX_RATIO && !Q.has('ratio')) { ratio = Math.min(MAX_RATIO, ratio + 0.1); renderer.setPixelRatio(ratio); fast = 0; }
+    const top = t < holdUntil ? Math.min(MAX_RATIO, ceiling) : MAX_RATIO;
+    if (fast >= 4 && ratio < top - 0.001 && nextRatio === null && !Q.has('ratio')) { nextRatio = Math.min(top, ratio + 0.1); fast = 0; raisedAt = t; }
     // Still slow at the lowest resolution: the next visit starts at a lower quality tier
     slow = ratio <= 0.7 && fps < 30 ? slow + 1 : 0;
     if (slow === 8 && !QUALITY.forced) rememberSlow(QUALITY.name);

@@ -36,17 +36,27 @@ export class Builder {
     if (plain) {
       const rough = Number(plain[2] ?? 0.85), metal = Number(plain[3] ?? 0) > 0.5 ? 1 : 0, q = rough < 0.33 ? 0.25 : rough < 0.55 ? 0.45 : rough < 0.78 ? 0.65 : 0.9;
       mat = 'vc';
-      const c = new THREE.Color(parseInt(plain[1], 16)).multiplyScalar(0.78), n = g.attributes.position.count, col = new Float32Array(n * 3), rm = new Float32Array(n * 2);
-      for (let i = 0; i < n; i++) { col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b; rm[i * 2] = q; rm[i * 2 + 1] = metal; }
-      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-      g.setAttribute('rm', new THREE.BufferAttribute(rm, 2));
-      if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(n * 2), 2));
+      // (Held compactly: 16-bit colour and 8-bit finish instead of floats, and no texture coordinates,
+      // which a plain colour never reads. These batches are half the house's geometry.)
+      const c = new THREE.Color(parseInt(plain[1], 16)).multiplyScalar(0.78), n = g.attributes.position.count, col = new Uint16Array(n * 3), rm = new Uint8Array(n * 2);
+      const cr = Math.round(c.r * 65535), cg = Math.round(c.g * 65535), cb = Math.round(c.b * 65535), q8 = Math.round(q * 255), m8 = metal * 255;
+      for (let i = 0; i < n; i++) { col[i * 3] = cr; col[i * 3 + 1] = cg; col[i * 3 + 2] = cb; rm[i * 2] = q8; rm[i * 2 + 1] = m8; }
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3, true));
+      g.setAttribute('rm', new THREE.BufferAttribute(rm, 2, true));
+      if (g.attributes.uv) g.deleteAttribute('uv');
     } else {
       // Tinted photographic materials ('linen#8a9a7b') likewise: the tint goes on the vertices
       // (filled in by finalize, which knows the materials) and every tint of one cloth or wood
       // shares one material, '<name>/vc'.
       const tint = /^([a-z_]+)#([0-9a-f]{6})$/i.exec(mat);
       if (tint && tint[1] !== 'c' && tint[1] !== 'e') { mat = tint[1] + '/vc'; g.userData.tint = parseInt(tint[2], 16); }
+    }
+    // Normals as 16-bit integers (half the bytes of floats, and far finer than the eye can tell)
+    const nf = g.attributes.normal;
+    if (nf && nf.array instanceof Float32Array) {
+      const a = nf.array, b = new Int16Array(a.length);
+      for (let i = 0; i < a.length; i++) b[i] = Math.max(-32767, Math.min(32767, Math.round(a[i] * 32767)));
+      g.setAttribute('normal', new THREE.BufferAttribute(b, 3, true));
     }
     const zone = this.zone ?? this.zoner?.(g, mat) ?? '', key = zone + '|' + mat;
     if (!this.batches.has(key)) this.batches.set(key, { zone, mat, list: [] });

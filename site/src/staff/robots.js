@@ -80,7 +80,7 @@ export class Robot extends Agent {
   say(text, { expr = null, secs = null, extra, toGuest = true } = {}) {
     if (typeof window !== 'undefined') window.__said?.push(`${this.name}: ${text}`);      // tests may collect what is said
     const H = this.H, t = this.fill(text, extra);
-    const dur = secs ?? Math.min(7.5, 2.4 + t.length * 0.055);
+    const dur = Math.max(secs ?? 0, Math.min(15, 2.6 + t.length * 0.075));      // as bubbles.js: long enough to read
     this.bubble.say(t, dur, H.now);
     this.expr = expr ?? (/!/.test(t) ? 'happy' : /\?$/.test(t) ? 'surprised' : ['sass', 'neutral', 'happy', 'wink'][Math.floor(H.rnd() * 4)]);
     this.exprUntil = H.now + Math.min(6, 1.5 + t.length * 0.05);

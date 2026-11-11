@@ -188,7 +188,7 @@ export function makeParty(ctx, ui) {
   }
   function say(g, text, { expr = null, secs = null, toGuest = true, look = null, log = true } = {}) {
     if (!text) return 0;
-    const dur = secs ?? Math.min(7.5, 2.4 + text.length * 0.055);
+    const dur = Math.max(secs ?? 0, Math.min(15, 2.6 + text.length * 0.075));      // as bubbles.js: long enough to read
     g.bubble.say(text, dur, P.now);
     g.expr = expr ?? (/!/.test(text) ? 'happy' : /\?$/.test(text) ? 'surprised' : 'neutral'); g.exprUntil = P.now + Math.min(6, 1.5 + text.length * 0.05);
     P.events.lines++;

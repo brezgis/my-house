@@ -249,13 +249,13 @@ export class Gardener extends Robot {
     return v ?? null;
   }
   asked(n) { return this.H.mem.asked.has(`g.${this.key}.${n.id}`); }
-  // The card: something new to talk about, the rest of the conversation, something from the garden, goodbye
+  // The card, kept to three lines: one thing to talk about (what she is standing by, or the next thing
+  // on this gardener's own list), something from the garden, and goodbye
   dialogue() {
     const H = this.H, v = H.visitor, mem = H.mem, out = [];
     const reply = (pool, opts) => () => { this.line(pool, opts); return null; };
     if (H.day.light < 0.35 && !mem.asked.has('gdark')) out.push({ text: "It's dark out here.", act: () => { mem.asked.add('gdark'); this.line(H.ctx.flashlight ? 'lantern' : 'dark', { expr: 'wink' }); return this.followUps(null, null); } });
     else { const lead = this.leadTopic(); if (lead) out.push(this.topicOpt(lead, null)); }
-    out.push({ text: out.length ? 'Can I ask you something else?' : 'Can I ask you something?', act: () => { this.line('chat', { expr: 'happy' }); return this.catCard(); } });
     const coming = this.fetching ?? this.promised;
     if (coming) out.push({ text: `How's my ${coming.name} coming?`, act: reply('busy') });
     else if (v.holding) out.push({ text: `This ${v.holding.name} is lovely.`, act: reply(v.holding.food ? 'enjoyingFood' : v.holding.gift ? 'enjoying' : 'enjoyingDrink', { extra: { drink: v.holding.name }, expr: 'love' }) });
@@ -286,10 +286,13 @@ export class Gardener extends Robot {
     }
     return this.followUps(n.then ?? sibs, more);
   }
-  // After an answer: up to two things that follow from it, a way on, and a way out
+  // After an answer: one way on and a way out. The conversation is a path, not a menu: the way on
+  // is what follows from what was just said, or else the next thing this gardener has not told her yet.
   followUps(group, more) {
-    const next = (group ?? []).filter(f => !this.asked(f)).slice(0, more ? 1 : 2).map(f => this.topicOpt(f, group));
-    return [...(more ? [more] : []), ...next, { text: 'Something else.', act: () => this.catCard() }, { text: `Thank you, ${this.name}.`, act: () => { this.line('bye'); return null; } }];
+    let on = more ?? null;
+    if (!on) { const f = (group ?? []).find(f => !this.asked(f)); if (f) on = this.topicOpt(f, group); }
+    if (!on) { const lead = this.leadTopic(); if (lead && !lead.serve) on = this.topicOpt(lead, null); }
+    return [...(on ? [on] : []), { text: `Thank you, ${this.name}.`, act: () => { this.line('bye'); return null; } }];
   }
   catCard() { return [...GARDEN_CATS.map(([cat, text]) => ({ text, act: () => this.topicCard(cat) })), { text: "That's all, thank you.", act: () => { this.line('bye'); return null; } }]; }
   // Three topics at a time, what has not come up yet first; "Something else." turns the page, then goes back to the subjects

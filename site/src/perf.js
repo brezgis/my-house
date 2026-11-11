@@ -40,13 +40,13 @@ export const VIEWS = {
   guest_room: { walk: [8, F2, -2, -PI / 4, -0.1] },
   little_bedroom: { walk: [8, F2, -22.5, -PI / 4, -0.1] },
   bath: { walk: [0, F2, -22, -0.3, -0.1] },
-  dressing_room: { walk: [11, F2, -31, -1.2, -0.1] },
+  dressing_room: { walk: [20.5, F2, -34.8, 2.3, -0.1] },
   sleeping_porch: { walk: [0, F2, -31.5, -0.6, -0.05] },
   // ---- outdoors
   porch_out: { walk: [2, 1.45, 9, PI, 0] },
   porch_in: { walk: [2, 1.45, 10, 0, -0.03] },
-  terrace: { walk: [-30, 1.2, 8, PI / 2 + 0.3, -0.03] },
-  terrace_house: { walk: [-31, 1.2, -8, -PI / 2 + 0.3, -0.03] },
+  terrace: { walk: [-34.5, 1.2, 2, 1.5, -0.1] },
+  terrace_house: { walk: [-32.5, 1.2, -4, -1.2, -0.03] },
   street: { walk: [2, 0, 75, 0, 0.02] },
   pond: { walk: [-55, 0, 22, 0.62, -0.08] },
   potager: { walk: [46, 0, -52, 0, -0.08] },
@@ -79,7 +79,7 @@ export async function statsDump(H, which, hours) {
   out.startup.requests = res.length;
   out.startup.bytes = Math.round(res.reduce((a, r) => a + (r.transferSize || r.encodedBodySize || 0), 0) / 1024) + ' KB';
   const names = which ? which.split(',') : Object.keys(VIEWS);
-  const tally = {}; let tallyOn = false;
+  const tally = {}; let tallyOn = false, tallyFrame = -1;
   // Count what is drawn, by kind, through onBeforeRender
   H.scene.traverse(o => { if (o.isMesh || o.isPoints || o.isLine || o.isSprite) tag(o); });
   function tag(o) {
@@ -87,7 +87,7 @@ export async function statsDump(H, which, hours) {
     const prev = o.onBeforeRender;
     o.onBeforeRender = function (r, s, cam, geo, mat, group) {
       prev.apply(this, arguments);
-      if (!tallyOn || r.getRenderTarget()) return;
+      if (!tallyOn || H.frames !== tallyFrame || r.getRenderTarget()) return;      // one frame exactly (two were sometimes caught, doubling the count)
       let k = o.userData.cat, p = o; while (!k && p.parent) { p = p.parent; k = p.userData.cat ?? (p.parent && !p.parent.parent && p.name ? p.name : undefined); }
       k = k ?? (o.name || 'other');
       if (k === 'outdoors') k = 'outdoors:' + (o.name || o.parent?.name || 'anon');
@@ -107,7 +107,7 @@ export async function statsDump(H, which, hours) {
       H.scene.traverse(o => { if ((o.isMesh || o.isPoints || o.isSprite) && !o.userData.__tagged) tag(o); });
       for (const k in tally) delete tally[k];
       H.resetVisTime?.();
-      tallyOn = true; await waitFrames(1); tallyOn = false;
+      tallyFrame = H.frames; tallyOn = true; await waitFrames(1); tallyOn = false;
       const info = H.renderer.info, mem = memory(H);
       await waitFrames(1);
       const top = Object.entries(tally).sort((a, b) => b[1][1] - a[1][1]).slice(0, 12).map(([k, [c, t]]) => `${k}:${c}/${(t / 1000).toFixed(0)}k`);
