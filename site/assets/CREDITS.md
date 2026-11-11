@@ -39,3 +39,18 @@ All textures and the lighting environment are CC0 (public domain).
   telephone and the three robot bodies are built in code from primitives, and every line they say was written for
   this house. Professor Feynbot and nanoKarpathy are affectionate homage robots, not likenesses or quotations;
   Gigi and the people in her gossip are invented. No downloaded assets.
+- The koi pond (src/garden/pond.js, koi.js, koi_school.js, pond_water.js, pond_shape.js). The koi's body is the model
+  "Fish (Animated) - Scardinius" (a rudd, a carp-family fish) by XaosXV (Cestmir Dammer, kelgar.org), CC0 1.0:
+  https://opengameart.org/content/fish-animated (assets/models/v_fish_rudd; the copy prepared for the village project,
+  used here as a still mesh, reshaped to a koi's build, with barbels added). The koi's colour patterns, their swimming,
+  the water, the bridge, lantern, lilies, iris and rushes were drawn and written for this house.
+  The frog on the lily pad is "Green Frog" by AssetQuest, CC0 1.0: https://poly.pizza/m/yK6MyLkuob (assets/models/v_frog).
+  The two ducks are "Mallard duck" by Poly by Google, licensed CC-BY 3.0 (https://creativecommons.org/licenses/by/3.0/):
+  https://poly.pizza/m/frSLi6b6Vid (assets/models/v_duck_mallard). Modified: normals removed, textures downscaled,
+  rescaled and re-oriented.
+- Garden creatures licensed CC-BY 3.0 (https://creativecommons.org/licenses/by/3.0/), each modified for
+  this house (normals removed, textures downscaled, rescaled and re-oriented):
+  "Jackrabbit" by Poly by Google, https://poly.pizza/m/biNOm96olTH (assets/models/v_hare);
+  "Squirrel" by Poly by Google, https://poly.pizza/m/caxos24uWC9 (assets/models/v_squirrel);
+  "Dragonfly" by Poly by Google, https://poly.pizza/m/0myA_BOcZrD (assets/models/v_dragonfly);
+  "Bluejay" by jeremy, https://poly.pizza/m/dWfeVtr7M49 (assets/models/v_kingfisher_bluejay).

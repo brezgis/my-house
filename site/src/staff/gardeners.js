@@ -28,7 +28,7 @@ import { shuffle } from '../shuffle.js';
 import { buildGardener, buildBarrow, GARDENER_SPECS } from './models.js';
 import { GARDEN_GIFTS } from './drinks.js';
 import { VOICE, GARDEN_FACTS, PLACES, GARDEN_TALK, GARDEN_CATS, GARDEN_LEADS, GARDEN_NEAR, GARDEN_HOURS, GARDEN_BANTER, partOfDay } from './lines.js';
-import { POND } from '../garden/pond.js';
+import { POND, feedKoi } from '../garden/pond.js';
 import { ISLAND, islandEdge } from '../garden.js';
 
 const TRAITS = {
@@ -448,7 +448,7 @@ export class Gardener extends Robot {
   *water(s) { yield* this.at(s, 'water', 'water', 7 + this.H.rnd() * 5); this.H.events.tidies++; }
   *deadhead(s) { yield* this.at(s, 'snip', 'deadhead', 6 + this.H.rnd() * 5); }
   *hives(s) { yield* this.at(s, null, 'hives', 8 + this.H.rnd() * 6); }
-  *koi(s) { yield* this.at(s, 'sprinkle', 'koi', 7); }
+  *koi(s) { feedKoi(s.x + (s.fx - s.x) * 0.45, s.z + (s.fz - s.z) * 0.45); yield* this.at(s, 'sprinkle', 'koi', 7); }      // the fish really come (pond.js keeps the food in open water)
   *rim(s) { yield* this.at(s, null, 'rim', 12 + this.H.rnd() * 8, 0.5); }
   *bench(s) {
     this.drop = 0.7;
