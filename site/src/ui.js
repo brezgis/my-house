@@ -143,6 +143,7 @@ const help = makeCard('help', 'How to get about', `
       ${row(k('1') + '…' + k('0'), 'play notes, sitting at the piano; ' + k('P') + ' plays a phrase')}
       ${row(k('X'), 'wipe the chalkboard')}
       ${row(k('Q'), 'sip your drink, or take a bite')}
+      ${row(k('E'), 'pick a thing up, set it down, take a book off the shelf; ' + k('R') + ' turns it over, ' + k('B') + ' takes a bite')}
     </dl></section>
     <section><h3>The house</h3><dl>
       ${row(k('F'), 'carry a lantern')}
