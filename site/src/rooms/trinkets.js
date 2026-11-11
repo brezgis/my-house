@@ -5,6 +5,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { LINEN, OAT, SAGE, RUST, NAVY, MUSTARD, CREAM, ROSE, ENAMEL, BRASS, STEEL, BLACK, GREEN, MARBLE, DARK, WHITE, G, DIRS } from '../kit.js';
 import { wx, wz } from '../builder.js';
 import { F1, F2 } from '../house.js';
+import { photoDraw, nextPhoto } from '../photos.js';
 
 // A private random source, so these props never disturb the kit's shared sequence.
 const rand = seed => { let s = seed >>> 0 || 1; return () => (s = (s * 16807) % 2147483647) / 2147483647; };
@@ -323,7 +324,7 @@ export function props(kit) {
   // A standing photo frame with a drawn photo; faces the frame's front.
   const photoFrame = (f, x, y, z, w, h, seed, mat = 'c#2a2520/0.4', kind) => {
     f.box(mat, x - w / 2, x + w / 2, y - 0.03, y + 0.02, z, z + h); f.box(mat, x - 0.04, x + 0.04, y - 0.18, y - 0.03, z, z + h * 0.6);
-    sign(f, x, y + 0.025, z + h / 2, w - 0.08, h - 0.08, DRAWN.photo(seed, kind), { cw: 192, ch: 192 });
+    sign(f, x, y + 0.025, z + h / 2, w - 0.08, h - 0.08, photoDraw(nextPhoto(), DRAWN.photo(seed, kind)), { cw: 256, ch: Math.round(256 * (h - 0.08) / (w - 0.08)) });      // one of the family's own photographs
   };
   // An open book lying face up, spine along y.
   const openBook = (f, x, y, z, w = 0.95, d = 0.65, cover = 'c#6b2a25/0.7', yaw = 0) => {

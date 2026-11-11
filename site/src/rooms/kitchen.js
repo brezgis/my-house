@@ -11,6 +11,7 @@ import { BRASS, STEEL, BLACK, DARK, G } from '../kit.js';
 import { wx, wz } from '../builder.js';
 import { F1 } from '../house.js';
 import { lathe, sweep, rng, loft } from '../kit/geom.js';
+import { photoDraw } from '../photos.js';
 
 const TAU = Math.PI * 2;
 export const SAGEP = 'painted_wood#87937a', HONEY = 'oak_light#c4a477', OAKW = 'oak_light#a3825c', WALNUT = 'fir#7d5b45';
@@ -491,7 +492,7 @@ export default function (kit) {
   }
   // Magnets and the list on the fridge's open side
   { const fs = fr(32.15, 25.32, F1, 2);                  // x → -X, y → -Y (out from the fridge side)
-    sign(fs, -0.25, 0.006, 4.4, 0.5, 0.75, ART.list, { cw: 200, ch: 300 }); sign(fs, 0.45, 0.006, 4.65, 0.36, 0.42, ART.polaroid, { cw: 120, ch: 140 });
+    sign(fs, -0.25, 0.006, 4.4, 0.5, 0.75, ART.list, { cw: 200, ch: 300 }); sign(fs, 0.45, 0.006, 4.65, 0.36, 0.42, photoDraw(7, ART.polaroid), { cw: 180, ch: 210 });
     sign(fs, 0.35, 0.006, 3.55, 0.55, 0.36, ART.postcard, { cw: 176, ch: 112 }); sign(fs, -0.3, 0.006, 3.3, 0.5, 0.62, ART.menu, { cw: 160, ch: 200 });
     for (const [x, z, c] of [[-0.25, 4.75, 'c#c8202a/0.4'], [0.45, 4.85, 'c#f3c43a/0.4'], [0.15, 3.7, 'c#2a63b8/0.4'], [-0.3, 3.6, 'c#3a8a5a/0.4'], [0.75, 3.95, 'c#e88aa8/0.4'], [-0.75, 4.1, 'c#f08a2a/0.4']])
       fs.soft(c, x - 0.05, x + 0.05, 0.0, 0.035, z - 0.05, z + 0.05, 0.02); }

@@ -313,6 +313,16 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
     const mesh = new THREE.Mesh(geo, mat); mesh.receiveShadow = kind === 'rug';
     mesh.userData.cat = kind === 'rug' ? 'rugs' : 'extras'; scene.add(mesh); track(mesh, zone);
     for (const it of list) if (it.rug) it.c.width = it.c.height = 0;      // the rugs' own canvases are no longer needed
+    // A label whose picture arrives later (the family photographs, photos.js) is drawn again when it has
+    const late = list.filter(it => !it.rug && it.e?.draw?.late);
+    if (late.length) Promise.all(late.map(it => it.e.draw.late)).then(() => {
+      const sg = tex.image.getContext('2d');
+      for (const it of late) {
+        const g = it.c.getContext('2d'); g.clearRect(0, 0, it.c.width, it.c.height); it.e.draw(g, it.c.width, it.c.height);
+        for (const [dx, dy] of [[-2, 0], [2, 0], [0, -2], [0, 2], [0, 0]]) sg.drawImage(it.c, it.px + dx, it.py + dy);
+      }
+      tex.needsUpdate = true; onChange?.();
+    }).catch(() => {});
   }
   // Paintings: one sheet per room (no taller than the GPU allows), made when its pictures have loaded
   // On the lighter tiers the pictures are held a little smaller (they are a quarter of all texture memory at full size)
