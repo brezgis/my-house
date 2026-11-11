@@ -21,6 +21,8 @@ All textures and the lighting environment are CC0 (public domain).
 - `garden_bg` / `garden_1k.hdr`: Poly Haven `pretoria_gardens`, CC0. `bark`: Poly Haven
   `bark_brown_02`, CC0. `grass`: ambientCG `Grass004`, CC0.
 - Rugs, chalkboard, screens, trees and all other furniture are drawn or built in code.
+- The Anna's House album sleeve (assets/art/house_album.jpg) uses artwork supplied by Anna,
+  resized from house.png for display beside the living-room record player.
 
 ## Type and interface
 
