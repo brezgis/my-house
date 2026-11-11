@@ -1,0 +1,159 @@
+{
+ "asset": {
+  "generator": "Khronos glTF Blender I/O v5.3.43",
+  "version": "2.0"
+ },
+ "scene": 0,
+ "scenes": [
+  {
+   "name": "Scene",
+   "nodes": [
+    0
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "mesh": 0,
+   "name": "mesh_0",
+   "rotation": [
+    0.70710688829422,
+    0,
+    0,
+    0.7071066498756409
+   ],
+   "translation": [
+    -0.011662863194942474,
+    0.06585864722728729,
+    0.6591222286224365
+   ]
+  }
+ ],
+ "materials": [
+  {
+   "name": "glTFMaterial",
+   "occlusionTexture": {
+    "index": 0
+   },
+   "pbrMetallicRoughness": {
+    "baseColorTexture": {
+     "index": 1
+    },
+    "metallicFactor": 0,
+    "roughnessFactor": 0.6000000238418579
+   }
+  }
+ ],
+ "meshes": [
+  {
+   "name": "mesh_0",
+   "primitives": [
+    {
+     "material": 0,
+     "attributes": {
+      "POSITION": 0,
+      "NORMAL": 1,
+      "TEXCOORD_0": 2
+     },
+     "indices": 3
+    }
+   ]
+  }
+ ],
+ "textures": [
+  {
+   "sampler": 0,
+   "source": 0
+  },
+  {
+   "sampler": 0,
+   "source": 1
+  }
+ ],
+ "images": [
+  {
+   "name": "Exiteloceras_jenneyi_-Whitfield-20k-occlusion-webthumb",
+   "uri": "textures/Exiteloceras_jenneyi_-Whitfield-20k-occlusion-webthumb.jpg",
+   "mimeType": "image/jpeg"
+  },
+  {
+   "name": "Exiteloceras_jenneyi_-Whitfield-20k-diffuse-webthumb",
+   "uri": "textures/Exiteloceras_jenneyi_-Whitfield-20k-diffuse-webthumb.jpg",
+   "mimeType": "image/jpeg"
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 0,
+   "componentType": 5126,
+   "count": 5710,
+   "type": "VEC3",
+   "min": [
+    -0.059120118618011475,
+    -0.7056857943534851,
+    -0.07415562123060226
+   ],
+   "max": [
+    0.08244584500789642,
+    -0.6127484440803528,
+    0.06585872918367386
+   ]
+  },
+  {
+   "bufferView": 1,
+   "componentType": 5126,
+   "count": 5710,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 2,
+   "componentType": 5126,
+   "count": 5710,
+   "type": "VEC2"
+  },
+  {
+   "bufferView": 3,
+   "componentType": 5123,
+   "count": 18000,
+   "type": "SCALAR"
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteOffset": 0,
+   "byteLength": 68520,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 68520,
+   "byteLength": 68520,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 137040,
+   "byteLength": 45680,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 182720,
+   "byteLength": 36000,
+   "target": 34963
+  }
+ ],
+ "samplers": [
+  {
+   "magFilter": 9729,
+   "minFilter": 9987
+  }
+ ],
+ "buffers": [
+  {
+   "uri": "si_ammonite_exiteloceras.bin",
+   "byteLength": 218720
+  }
+ ]
+}

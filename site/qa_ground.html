@@ -1,0 +1,292 @@
+<!doctype html><meta charset="utf-8"><title>ground-floor QA checker</title>
+<!-- Throwaway static checker for the ground floor (and the library). Builds the house and the
+     furniture headlessly and lists: interpenetrating pieces, things in door swings / in front of
+     doorways, things through walls or trim, floating things, picture overlaps, coplanar faces,
+     walk-through solids and route clearance. Run:
+       google-chrome --headless=new --dump-dom --virtual-time-budget=60000 http://.../qa_ground.html
+     ?only=living,hall  restricts the report to those areas. -->
+<script type="importmap">{ "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }</script>
+<pre id="out">running</pre>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { Builder, wx, wz } from './src/builder.js';
+import { buildHouse, F1, F2 } from './src/house.js';
+import { furnish } from './src/furnish.js';
+const OUT = []; const log = s => OUT.push(s);
+const done = () => { document.getElementById('out').textContent = OUT.join('\n'); };
+try {
+Error.stackTraceLimit = 60;
+const Q = new URLSearchParams(location.search);
+const B = new Builder();
+let phase = 'house';
+const geoms = [];                 // { x0..z1 world, mat, src, box, room }
+const tagOf = () => {
+  if (phase === 'house') return 'house';
+  const st = new Error().stack.split('\n'); let t = null;
+  for (const l of st) { const m = /\/src\/rooms\/(\w+)\.js(?:\?[^:]*)?:(\d+)/.exec(l); if (m) t = `${m[1]}:${m[2]}`; }
+  if (t) return t;
+  if (st.some(l => l.includes('furnish.js'))) return 'drapes';
+  return 'other';
+};
+let boxFlag = null; const NANS = [];
+// axis-aligned flat faces of a geometry: { ax 0|1|2, sg, c, a0, a1, b0, b1 } merged per plane
+function planesOf(g) {
+  const pos = g.attributes.position, idx = g.index, n = idx ? idx.count : pos.count, map = new Map();
+  const v = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()], e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nn = new THREE.Vector3();
+  for (let t = 0; t + 2 < n; t += 3) {
+    for (let k = 0; k < 3; k++) v[k].fromBufferAttribute(pos, idx ? idx.getX(t + k) : t + k);
+    nn.crossVectors(e1.subVectors(v[1], v[0]), e2.subVectors(v[2], v[0])); const L = nn.length(); if (L < 1e-9) continue; nn.divideScalar(L);
+    const ax = Math.abs(nn.x) > 0.9995 ? 0 : Math.abs(nn.y) > 0.9995 ? 1 : Math.abs(nn.z) > 0.9995 ? 2 : -1; if (ax < 0) continue;
+    const sg = Math.sign(nn.getComponent(ax)), c = v[0].getComponent(ax), A = (ax + 1) % 3, Bx = (ax + 2) % 3, key = ax + ',' + sg + ',' + c.toFixed(4);
+    let p = map.get(key); if (!p) { p = { ax, sg, c, a0: 1e9, a1: -1e9, b0: 1e9, b1: -1e9, area: 0 }; map.set(key, p); }
+    for (const w of v) { const a = w.getComponent(A), b = w.getComponent(Bx); p.a0 = Math.min(p.a0, a); p.a1 = Math.max(p.a1, a); p.b0 = Math.min(p.b0, b); p.b1 = Math.max(p.b1, b); }
+    p.area += L / 2;
+  }
+  return [...map.values()].filter(p => p.area > 0.0009).sort((a, b) => b.area - a.area).slice(0, 40);
+}
+const wbox0 = B.wbox.bind(B);
+B.wbox = function (mat, x0, x1, y0, y1, z0, z1, o = {}) { boxFlag = o.rot ? null : 'box'; const r = wbox0(mat, x0, x1, y0, y1, z0, z1, o); boxFlag = null; return r; };
+const prbox0 = B.prbox.bind(B);
+B.prbox = function (...a) { boxFlag = 'soft'; const r = prbox0(...a); boxFlag = null; return r; };
+const add0 = B.add.bind(B);
+B.add = function (mat, g) {
+  g.computeBoundingBox(); const bb = g.boundingBox;
+  { const pa = g.attributes.position.array; for (let i = 0; i < pa.length; i++) if (!Number.isFinite(pa[i])) { NANS.push(tagOf() + ' ' + mat); break; } }
+  geoms.push({ x0: bb.min.x, x1: bb.max.x, y0: bb.min.y, y1: bb.max.y, z0: bb.min.z, z1: bb.max.z, mat, src: tagOf(), box: boxFlag, tri: (g.index ? g.index.count : g.attributes.position.count) / 3, planes: planesOf(g) });
+  return add0(mat, g);
+};
+const colliders = B.colliders;
+const cpush = colliders.push.bind(colliders);
+colliders.push = (...a) => { for (const c of a) c.src = tagOf(); return cpush(...a); };
+
+const house = buildHouse(B);
+phase = 'rooms';
+const nHouse = geoms.length;
+const items = furnish(B, house);
+// tag models with their source line: furnish has run, so re-run is impossible; use order instead.
+// (models get a src from a wrapped push below on a second pass is not possible) -> capture via stack at push time:
+if (NANS.length) log('NaN GEOMETRY: ' + NANS.join('; '));
+log(`geometries: house ${nHouse}, furniture ${geoms.length - nHouse}; colliders ${colliders.length}; models ${items.models.length}`);
+
+// ---- areas -----------------------------------------------------------------------------------
+const P = (x, z) => [x + 21.665, -z];                 // world -> plan
+const AREAS = {
+  living: [0.5, 18.8, 0.5, 29.5, F1], hall: [19.2, 27.4, 0.5, 17.4, F1], back_hall: [19.2, 27.4, 17.4, 22.4, F1],
+  dining: [27.8, 42.83, 0.5, 16.3, F1], coffee_bar: [27.8, 42.83, 16.7, 22.4, F1], kitchen: [31.0, 42.83, 22.8, 35.0, F1],
+  office: [19.5, 30.6, 22.8, 39.2, F1], back_porch: [30.8, 43.33, 35.5, 46.33, F1 - 0.1], library: [0.5, 18.8, 17.6, 29.5, F2],
+};
+const only = Q.get('only')?.split(',');
+const areaOf = (x, y, z) => { const [X, Y] = P(x, z); for (const [k, [a, b, c, d, f]] of Object.entries(AREAS)) if (X >= a - 0.3 && X <= b + 0.3 && Y >= c - 0.3 && Y <= d + 0.3 && y >= f - 0.6 && y <= f + 8.4) return k; return null; };
+const want = k => k && (!only || only.includes(k));
+for (const g of geoms) g.area = areaOf((g.x0 + g.x1) / 2, (g.y0 + g.y1) / 2, (g.z0 + g.z1) / 2);
+for (const c of colliders) c.area = areaOf((c.x0 + c.x1) / 2, (c.y0 + c.y1) / 2, (c.z0 + c.z1) / 2);
+const fmt = n => n.toFixed(2);
+const where = g => { const [X0, Y1] = P(g.x0, g.z0), [X1, Y0] = P(g.x1, g.z1); return `X ${fmt(X0)}..${fmt(X1)} Y ${fmt(Y0)}..${fmt(Y1)} h ${fmt(g.y0)}..${fmt(g.y1)}`; };
+const ov = (a, b) => [Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0), Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0), Math.min(a.z1, b.z1) - Math.max(a.z0, b.z0)];
+
+// ---- models: real bounds, as life.js computes them ---------------------------------------------
+const FT = 3.28084, loader = new GLTFLoader(), cache = new Map();
+const load = id => { if (!cache.has(id)) cache.set(id, new Promise((ok, bad) => loader.load(`assets/models/${id}/${id}.gltf`, g => ok(g.scene), undefined, bad))); return cache.get(id); };
+const modelBoxes = [];
+await Promise.all(items.models.map(async (m, i) => {
+  let src; try { src = await load(m.id); } catch (e) { log(`MODEL LOAD FAIL ${m.id}`); return; }
+  const o = src.clone(true); o.scale.setScalar(FT * (m.scale ?? 1)); o.rotation.y = m.rotY; o.position.set(m.x, 0, m.z); o.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(o); const dy = (m.hang ? m.y : m.y - box.min.y);
+  let tri = 0; o.traverse(n => { if (n.isMesh) tri += (n.geometry.index ? n.geometry.index.count : n.geometry.attributes.position.count) / 3; });
+  const g = { x0: box.min.x, x1: box.max.x, y0: box.min.y + dy, y1: box.max.y + dy, z0: box.min.z, z1: box.max.z, mat: 'model', src: 'model:' + m.id + '#' + i, model: m, tri };
+  g.area = areaOf(m.x, g.y0 + 0.1, m.z); modelBoxes.push(g);
+  if (m.collide) { const c = { x0: box.min.x, x1: box.max.x, z0: box.min.z, z1: box.max.z, y0: m.y, y1: m.y + Math.min(4, box.max.y - box.min.y), src: g.src, area: g.area }; colliders.push(c); }
+}));
+const all = [...geoms, ...modelBoxes];
+if (Q.has('dump')) { const re = new RegExp(Q.get('dump')); for (const g of all) if (re.test(g.src)) log(`DUMP ${g.src} ${g.mat} ${where(g)} tri ${g.tri}`); for (const e of items.extras) if (e.draw && re.test('extra')) log(`EXTRA ${fmt(e.x + 21.665)} ${fmt(-e.z)} h ${fmt(e.y)} w ${e.w} rotY ${e.rotY}`); }
+const roomG = all.filter(g => g.src !== 'house' && want(g.area));
+const houseG = geoms.filter(g => g.src === 'house');
+
+// spatial hash on x/z, 2 ft cells
+const grid = new Map(), CS = 2;
+const cells = g => { const r = []; for (let i = Math.floor(g.x0 / CS); i <= Math.floor(g.x1 / CS); i++) for (let k = Math.floor(g.z0 / CS); k <= Math.floor(g.z1 / CS); k++) r.push(i + ',' + k); return r; };
+all.forEach((g, i) => { g.id = i; if (g.x1 - g.x0 > 60 || g.z1 - g.z0 > 60) { g.huge = true; return; } for (const c of cells(g)) { if (!grid.has(c)) grid.set(c, []); grid.get(c).push(g); } });
+const near = g => { const s = new Set(); for (const c of cells(g)) for (const h of grid.get(c) ?? []) s.add(h); return s; };
+
+// ---- 1. room pieces through house walls, trim, windows --------------------------------------
+log('\n== 1. FURNITURE INTO WALLS / TRIM / FLOORS (overlap > 0.03 ft on all axes) ==');
+{
+  const hits = new Map();
+  for (const g of roomG) for (const h of near(g)) {
+    if (h.src !== 'house' || h.mat === 'ceil' || h.y1 - h.y0 > 11) continue;
+    const [a, b, c] = ov(g, h); if (a > 0.03 && b > 0.03 && c > 0.03) {
+      const key = g.src + ' | ' + h.mat; const d = Math.min(a, b, c);
+      if (!hits.has(key) || hits.get(key).d < d) hits.set(key, { d, g, h });
+    }
+  }
+  [...hits.values()].sort((p, q) => q.d - p.d).forEach(({ d, g, h }) => log(`[${g.area}] ${g.src} (${g.mat}) into house ${h.mat} by ${fmt(d)}  piece ${where(g)}  house ${where(h)}`));
+}
+
+// ---- 2. interpenetrating pieces (geometry AABB, different source lines) ---------------------
+log('\n== 2. PIECES INTERPENETRATING (AABB overlap > 0.05 on all axes, different source lines) ==');
+{
+  const hits = new Map();
+  for (const g of roomG) for (const h of near(g)) {
+    if (h.src === 'house' || h.id <= g.id && want(h.area) || h.src === g.src) continue;
+    const [a, b, c] = ov(g, h); if (a > 0.05 && b > 0.05 && c > 0.05) {
+      const [s1, s2] = [g.src, h.src].sort(), key = s1 + ' <> ' + s2, v = a * b * c;
+      if (!hits.has(key) || hits.get(key).v < v) hits.set(key, { v, g, h, d: Math.min(a, b, c) });
+    }
+  }
+  [...hits.values()].sort((p, q) => q.v - p.v).forEach(({ v, d, g, h }) => log(`[${g.area}] ${g.src}(${g.mat}) <> ${h.src}(${h.mat}) depth ${fmt(d)} vol ${v.toFixed(3)}  A ${where(g)}  B ${where(h)}`));
+}
+
+// ---- 3. doors: swing sector, open leaf, 3 ft in front -----------------------------------------
+log('\n== 3. DOORS: pieces in the swing / against the open leaf / within 3 ft in front ==');
+const CASED = [['living|hall', 'Y', 19.0, 1.6, 12.2, F1], ['hall|dining', 'Y', 27.6, 0.9, 4.9, F1], ['backhall|coffee', 'Y', 27.6, 18.3, 21.1, F1], ['coffee|kitchen', 'X', 22.6, 33.2, 36.0, F1], ['porch|garden', 'X', 46.08, 35.2, 38.2, F1 - 0.1]];
+{
+  const openings = [];
+  for (const d of house.doors) { const s = d.stop; if (d.fixed) continue; openings.push({ name: `door@${fmt(P(d.cx, d.cz)[0])},${fmt(P(d.cx, d.cz)[1])}`, isX: (s.x1 - s.x0) > (s.z1 - s.z0), s, d, y0: s.y0 }); }
+  for (const [name, ax, c, a, b, fl] of CASED) { const s = ax === 'X' ? { x0: wx(a), x1: wx(b), z0: wz(c + 0.2), z1: wz(c - 0.2), y0: fl } : { x0: wx(c - 0.2), x1: wx(c + 0.2), z0: wz(b), z1: wz(a), y0: fl }; openings.push({ name: 'cased ' + name, isX: ax === 'X', s, y0: fl }); }
+  for (const o of openings) {
+    const { s } = o, area = areaOf((s.x0 + s.x1) / 2, o.y0 + 1, (s.z0 + s.z1) / 2) ?? areaOf((s.x0 + s.x1) / 2 + (o.isX ? 0 : 1), o.y0 + 1, (s.z0 + s.z1) / 2 + (o.isX ? 1 : 0)) ?? areaOf((s.x0 + s.x1) / 2 - (o.isX ? 0 : 1), o.y0 + 1, (s.z0 + s.z1) / 2 - (o.isX ? 1 : 0));
+    if (o.y0 > 9 && !want('library')) continue;
+    // front zones, 3 ft each side, the width of the opening
+    const zones = o.isX ? [{ x0: s.x0, x1: s.x1, z0: s.z1, z1: s.z1 + 3 }, { x0: s.x0, x1: s.x1, z0: s.z0 - 3, z1: s.z0 }] : [{ x0: s.x1, x1: s.x1 + 3, z0: s.z0, z1: s.z1 }, { x0: s.x0 - 3, x1: s.x0, z0: s.z0, z1: s.z1 }];
+    const found = new Map();
+    for (const z of zones) { z.y0 = o.y0 + 0.08; z.y1 = o.y0 + 6.8; for (const g of all) { if (g.src === 'house' || g.src === 'drapes' || !(g.area && (!only || only.includes(g.area)))) continue; const [a, b, c] = ov(g, z); if (a > 0.05 && b > 0.02 && c > 0.05) found.set(g.src, `front: ${g.src}(${g.mat}) ${where(g)}`); } }
+    if (o.d) {   // swing sector (closed -> open), sampled
+      const d = o.d; for (const g of all) { if (g.src === 'house' || g.src === 'drapes' || !(g.area && (!only || only.includes(g.area)))) continue; if (g.y0 > d.y1 || g.y1 < d.y0 + 0.05) continue;
+        let hit = false; for (let k = 0; k <= 12 && !hit; k++) { const t = d.closed + (d.open - d.closed) * k / 12; for (let r = 0.3; r <= d.w + 0.05; r += 0.25) { const x = d.x + r * Math.cos(t), z = d.z - r * Math.sin(t); if (x > g.x0 && x < g.x1 && z > g.z0 && z < g.z1) { hit = true; break; } } }
+        if (hit) found.set(g.src + '#swing', `SWING: ${g.src}(${g.mat}) ${where(g)}`); }
+    }
+    if (found.size) { log(`-- ${o.name} [${area}]`); for (const v of found.values()) log('   ' + v); }
+  }
+  // cupboard / fridge doors (hinged)
+  for (const d of items.hinged) { const ar = areaOf(d.cx, d.y0 + 1, d.cz); if (!want(ar)) continue; const found = [];
+    for (const g of all) { if (g.src === 'house' || g.area !== ar || g.y0 > d.y1 || g.y1 < d.y0 + 0.05) continue; let hit = false;
+      for (let k = 1; k <= 12 && !hit; k++) { const t = d.closed + (d.open - d.closed) * k / 12; for (let r = 0.2; r <= d.w; r += 0.2) { const x = d.x + r * Math.cos(t), z = d.z - r * Math.sin(t); if (x > g.x0 + 0.02 && x < g.x1 - 0.02 && z > g.z0 + 0.02 && z < g.z1 - 0.02) { hit = true; break; } } }
+      if (hit) found.push(`${g.src}(${g.mat})`); }
+    if (found.length) log(`-- hinged ${d.label} [${ar}] swing hits: ${[...new Set(found)].slice(0, 12).join(', ')}`); }
+}
+
+// ---- 4. floating: connected components (AABB touching within 0.04) not reaching the house -----
+log('\n== 4. FLOATING (groups of pieces touching nothing that reaches a floor or wall) ==');
+{
+  const par = new Map(); const f = x => { while (par.get(x) !== x) { par.set(x, par.get(par.get(x))); x = par.get(x); } return x; }; const u = (a, b) => par.set(f(a), f(b));
+  const cand = all.filter(g => g.src !== 'house' && g.area && (!only || only.includes(g.area)));
+  const HOUSE = -1; par.set(HOUSE, HOUSE); for (const g of cand) par.set(g.id, g.id);
+  const tol = 0.04;
+  for (const g of cand) for (const h of near(g)) { const [a, b, c] = ov(g, h); if (a > -tol && b > -tol && c > -tol) { if (h.src === 'house') u(g.id, HOUSE); else if (par.has(h.id)) u(g.id, h.id); } }
+  const groups = new Map(); for (const g of cand) { const r = f(g.id); if (r === f(HOUSE)) continue; if (!groups.has(r)) groups.set(r, []); groups.get(r).push(g); }
+  for (const gs of groups.values()) { const srcs = [...new Set(gs.map(g => g.src))]; const lo = Math.min(...gs.map(g => g.y0)); const e = gs.reduce((a, g) => ({ x0: Math.min(a.x0, g.x0), x1: Math.max(a.x1, g.x1), y0: Math.min(a.y0, g.y0), y1: Math.max(a.y1, g.y1), z0: Math.min(a.z0, g.z0), z1: Math.max(a.z1, g.z1) }), { x0: 1e9, x1: -1e9, y0: 1e9, y1: -1e9, z0: 1e9, z1: -1e9 });
+    // what is under it?
+    let below = 1e9, belowSrc = ''; for (const h of all) { if (gs.includes(h)) continue; const [a, , c] = ov(e, h); if (a > 0.01 && c > 0.01 && h.y1 <= lo + 0.01 && lo - h.y1 < below) { below = lo - h.y1; belowSrc = h.src + '(' + h.mat + ')'; } }
+    log(`[${gs[0].area}] ${srcs.slice(0, 5).join(', ')}${srcs.length > 5 ? ' ...' : ''}  ${where(e)}  gap below ${below < 1e8 ? fmt(below) + ' to ' + belowSrc : 'none'}`); }
+}
+
+// ---- 5. pictures: overlaps with trim, curtains, each other ------------------------------------
+log('\n== 5. PICTURES vs trim / curtains / other pictures / furniture on the wall ==');
+{
+  const pics = items.extras.filter(e => e.file !== undefined || e.canvas).filter(e => e.w && e.h && !e.flat && !e.rug).map(e => { const ar = areaOf(e.x, e.y, e.z); const nx = Math.abs(Math.sin(e.rotY)) > 0.5; const hw = e.w / 2 + 0.25, hh = e.h / 2 + 0.25;
+    return { e, ar, x0: nx ? e.x - 0.15 : e.x - hw, x1: nx ? e.x + 0.15 : e.x + hw, z0: nx ? e.z - hw : e.z - 0.15, z1: nx ? e.z + hw : e.z + 0.15, y0: e.y - hh, y1: e.y + hh }; }).filter(p => want(p.ar) && (p.e.file || p.e.canvas === 'chalk'));
+  for (const p of pics) { const hits = new Set();
+    for (const h of near(p)) { if (h.src !== 'house' && h.src !== 'drapes') continue; if (h.src === 'house' && !['fir', 'timber'].includes(h.mat)) continue; const [a, b, c] = ov(p, h); if (a > 0.02 && b > 0.04 && c > 0.02) hits.add(`${h.src === 'house' ? 'trim' : 'curtain'} ${where(h)}`); }
+    for (const q of pics) if (q !== p) { const [a, b, c] = ov(p, q); if (a > 0.02 && b > 0.02 && c > 0.02) hits.add(`picture ${q.e.file}`); }
+    log(`${hits.size ? '!!' : 'ok'} [${p.ar}] ${p.e.file ?? p.e.canvas} ${fmt(p.e.w)}x${fmt(p.e.h)} at X ${fmt(P(p.e.x, p.e.z)[0])} Y ${fmt(P(p.e.x, p.e.z)[1])} centre h ${fmt(p.e.y - AREAS[p.ar][4])} (frame ${fmt(p.y0 + 0.25 - 0.1 - AREAS[p.ar][4])}..${fmt(p.y1 - 0.25 + 0.1 - AREAS[p.ar][4])})${[...hits].map(s => '\n     ' + s).join('')}`); }
+}
+
+// ---- 6. coplanar same-facing faces (z-fighting candidates) -----------------------------------
+log('\n== 6. COPLANAR FACES (same plane within 0.002, same facing, overlapping, different material or source) ==');
+{
+  const boxes = all.filter(g => g.box || g.src === 'house'), hits = new Map();
+  const isBoxy = g => g.box === 'box' || g.box === 'soft' || (g.src === 'house');
+  for (const g of roomG) { if (!g.box) continue;
+    for (const h of near(g)) { if (h === g || !isBoxy(h) || (h.src !== 'house' && h.id < g.id && want(h.area))) continue; if (h.src === g.src && h.mat === g.mat) continue;
+      for (const [ax, lo, hi, o1l, o1h, o2l, o2h] of [['x', 'x0', 'x1', 'y0', 'y1', 'z0', 'z1'], ['y', 'y0', 'y1', 'x0', 'x1', 'z0', 'z1'], ['z', 'z0', 'z1', 'x0', 'x1', 'y0', 'y1']]) {
+        const a = Math.min(g[o1h], h[o1h]) - Math.max(g[o1l], h[o1l]), b = Math.min(g[o2h], h[o2h]) - Math.max(g[o2l], h[o2l]); if (a < 0.03 || b < 0.03) continue;
+        for (const side of [lo, hi]) if (Math.abs(g[side] - h[side]) < 0.002) {
+          if (g.mat === h.mat && h.src !== 'house') continue;
+          if (h.src === 'house' && h.mat === 'floor' && side === 'y0') continue;        // bottoms on the floor face down: hidden
+          if (side === 'y0' && ax === 'y') { /* both bottoms: hidden unless seen from below */ if (g.y0 > AREAS[g.area]?.[4] + 0.1 && h.y0 > AREAS[g.area]?.[4] + 0.1) {} else continue; }
+          const key = [g.src, h.src].sort().join(' = ') + ' ' + ax + (side === lo ? '-' : '+');
+          if (!hits.has(key)) hits.set(key, `[${g.area}] ${g.src}(${g.mat}) and ${h.src}(${h.mat}) share the ${ax}${side === lo ? 'min' : 'max'} face ${ax === 'y' ? 'h ' + fmt(g[side]) : (ax === 'x' ? 'X ' + fmt(P(g[side], 0)[0]) : 'Y ' + fmt(-g[side]))}, overlap ${fmt(a)} x ${fmt(b)}  ${where(g)}`);
+        }
+      }
+    }
+  }
+  [...hits.values()].forEach(s => log(s));
+  log('-- any flat faces (built pieces, all shapes) sharing a plane with another piece or the house:');
+  const seen = new Set();
+  for (const g of roomG) { if (!g.planes?.length) continue;
+    for (const h of near(g)) { if (h === g || !h.planes?.length || (h.src !== 'house' && h.id < g.id && want(h.area))) continue; if (h.mat === g.mat) continue;
+      for (const p of g.planes) for (const q of h.planes) { if (p.ax !== q.ax || p.sg !== q.sg || Math.abs(p.c - q.c) > 0.0006) continue;
+        const a = Math.min(p.a1, q.a1) - Math.max(p.a0, q.a0), b = Math.min(p.b1, q.b1) - Math.max(p.b0, q.b0); if (a < 0.02 || b < 0.02) continue;
+        const fl = AREAS[g.area]?.[4] ?? 0; if (p.ax === 1 && p.sg < 0) continue;                      // faces looking down: unseen
+        const key = [g.src, g.mat, h.src, h.mat, p.ax, p.sg].join('|'); if (seen.has(key)) continue; seen.add(key);
+        log(`[${g.area}] ${g.src}(${g.mat}) and ${h.src}(${h.mat}) share a ${['X', 'up', 'Y'][p.ax]}${p.sg > 0 ? '+' : '-'} plane at ${p.ax === 1 ? 'h ' + fmt(p.c - fl) + ' above floor' : p.ax === 0 ? 'X ' + fmt(p.c + 21.665) : 'Y ' + fmt(-p.c)}, ${fmt(a)} x ${fmt(b)}  ${where(g)}`); } } }
+  // flat drawn things lying on a surface with too little gap
+  for (const e of items.extras.filter(e => e.flat)) { const ar = areaOf(e.x, e.y, e.z); if (!want(ar)) continue;
+    for (const h of all) { if (!(e.x > h.x0 && e.x < h.x1 && e.z > h.z0 && e.z < h.z1)) continue; const gap = e.y - h.y1; if (gap > -0.0005 && gap < 0.003 && h.src !== 'house') log(`[${ar}] flat sign at h ${fmt(e.y)} only ${gap.toFixed(4)} above ${h.src}(${h.mat})`); } }
+}
+
+// ---- 7. walking: occupancy, routes with 0.72 (the walker) and 1.5 (3 ft clear) ----------------
+log('\n== 7. WALKING ==');
+{
+  for (const d of house.doors) if (!d.fixed && !d.exterior) d.stop.off = true;
+  for (const d of house.doors) if (d.exterior && !d.fixed) d.stop.off = true;      // assume the visitor opens them
+  const floors = [[F1, 'ground'], [F1 - 0.1, 'porch'], [F2, 'upper']];
+  const RES = 0.2, X0 = -26, X1 = 26, Z0 = -50, Z1 = 2, NX = Math.round((X1 - X0) / RES), NZ = Math.round((Z1 - Z0) / RES);
+  const surf = house.surfaces;
+  const build = (feet, R) => { const g = new Uint8Array(NX * NZ);
+    for (let i = 0; i < NX; i++) for (let k = 0; k < NZ; k++) { const x = X0 + (i + 0.5) * RES, z = Z0 + (k + 0.5) * RES;
+      const s = surf.find(s => x >= s.x0 && x <= s.x1 && z >= s.z0 && z <= s.z1 && (Math.abs(s.h - feet) < 0.2 || (s.ramp && Math.min(s.h, s.h2) <= feet + 0.2 && Math.max(s.h, s.h2) >= feet - 1.7)));
+      if (!s) { g[i * NZ + k] = 2; continue; } }
+    const lo = feet + 1.4, hi = feet + 5.7;
+    for (const c of colliders) { if (c.off || c.y1 <= lo || c.y0 >= hi) continue; const i0 = Math.max(0, Math.floor((c.x0 - R - X0) / RES)), i1 = Math.min(NX - 1, Math.floor((c.x1 + R - X0) / RES)), k0 = Math.max(0, Math.floor((c.z0 - R - Z0) / RES)), k1 = Math.min(NZ - 1, Math.floor((c.z1 + R - Z0) / RES));
+      for (let i = i0; i <= i1; i++) for (let k = k0; k <= k1; k++) { const x = X0 + (i + 0.5) * RES, z = Z0 + (k + 0.5) * RES; const dx = Math.max(c.x0 - x, 0, x - c.x1), dz = Math.max(c.z0 - z, 0, z - c.z1); if (dx * dx + dz * dz < R * R && g[i * NZ + k] === 0) g[i * NZ + k] = 1; } }
+    return g; };
+  const idx = (X, Y) => [Math.floor((wx(X) - X0) / RES), Math.floor((wz(Y) - Z0) / RES)];
+  const bfs = (g, X, Y) => { const d = new Int32Array(NX * NZ).fill(-1); const [i, k] = idx(X, Y); const q = [i * NZ + k]; d[q[0]] = 0; if (g[q[0]]) return { d, start: false };
+    for (let h = 0; h < q.length; h++) { const c = q[h], ci = Math.floor(c / NZ), ck = c % NZ; for (const [di, dk] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const ni = ci + di, nk = ck + dk; if (ni < 0 || nk < 0 || ni >= NX || nk >= NZ) continue; const n = ni * NZ + nk; if (d[n] >= 0 || g[n]) continue; d[n] = d[c] + 1; q.push(n); } } return { d, start: true }; };
+  const TARGETS = { 'living (hearth)': [14.3, 17.8], 'living (sofa end)': [5.5, 14.3], 'living (window seat)': [5, 25], 'living (street chairs)': [10, 5], 'hall stair foot': [25.7, 4.8], 'back hall': [22, 20], 'office': [25, 30], 'office (iMac)': [22.8, 30], 'dining (table end)': [31.0, 8.5], 'dining (far side)': [36.3, 12.4], 'coffee bar': [36, 19.8], 'kitchen (centre)': [34.5, 28.9], 'kitchen (sink)': [39.5, 29], 'kitchen (porch door)': [33.4, 33.5] };
+  const PORCH = { 'porch': [36.7, 40], 'porch steps': [36.7, 45.6] };
+  { const radii = [0.72, 0.9, 1.05, 1.2, 1.35, 1.5]; const gs = radii.map(R => [build(F1, R), R]); const best = {};
+    for (const [g, R] of gs) { const { d } = bfs(g, 21.9, 2.2); for (const [n, [X, Y]] of Object.entries(TARGETS)) { const [i, k] = idx(X, Y); let ok = false; for (let a = -4; a <= 4; a++) for (let b = -4; b <= 4; b++) if (d[(i + a) * NZ + k + b] >= 0) ok = true; if (ok) best[n] = R; } }
+    log('-- widest clear path (2 x radius) from the front door to each place: ' + Object.entries(TARGETS).map(([n]) => `${n} ${best[n] ? (2 * best[n]).toFixed(1) + ' ft' : 'NONE'}`).join('; ')); }
+  if (Q.has('zoom')) { const [R, ax0, ax1, ay0, ay1] = Q.get('zoom').split(',').map(Number); const g = build(F1, R), { d } = bfs(g, 21.9, 2.2); const rows = [];
+    for (let Y = ay0; Y <= ay1; Y += 0.25) { let s = Y.toFixed(2).padStart(6) + ' '; for (let X = ax0; X <= ax1; X += 0.25) { const [i, k] = idx(X, Y); const v = g[i * NZ + k], r = d[i * NZ + k]; s += v === 2 ? ' ' : v === 1 ? '#' : r >= 0 ? '.' : 'o'; } rows.push(s); } log(`zoom R=${R} X ${ax0}..${ax1} step 0.25 (columns), rows = Y`); log(rows.join('\n')); }
+  for (const R of [0.72]) {
+    const g = build(F1, R); const { d, start } = bfs(g, 21.9, 2.2);
+    log(`-- clearance radius ${R} (${R === 0.72 ? 'the walker' : '3 ft clear path'}) from inside the front door: ${start ? '' : 'START BLOCKED'}`);
+    for (const [n, [X, Y]] of Object.entries(TARGETS)) { const [i, k] = idx(X, Y); let best = -1; for (let a = -4; a <= 4; a++) for (let b = -4; b <= 4; b++) { const v = d[(i + a) * NZ + k + b]; if (v >= 0 && (best < 0 || v < best)) best = v; } log(`   ${n}: ${best >= 0 ? 'reached, ' + (best * RES).toFixed(0) + ' ft' : 'NOT REACHED'}`); }
+    // porch: separate floor height; join through the kitchen door
+    const gp = build(F1 - 0.1, R); const { d: dp, start: sp } = bfs(gp, 33.4, 36.3);
+    for (const [n, [X, Y]] of Object.entries(PORCH)) { const [i, k] = idx(X, Y); let best = -1; for (let a = -4; a <= 4; a++) for (let b = -4; b <= 4; b++) { const v = dp[(i + a) * NZ + k + b]; if (v >= 0 && (best < 0 || v < best)) best = v; } log(`   ${n} from the kitchen door (porch side${sp ? '' : ', START BLOCKED'}): ${best >= 0 ? 'reached, ' + (best * RES).toFixed(0) + ' ft' : 'NOT REACHED'}`); }
+    if (R === 0.72 && want('library')) { const gu = build(F2, R); const { d: du, start: su } = bfs(gu, 23, 19.2); for (const [n, [X, Y]] of Object.entries({ 'library centre': [9, 22], 'library chess': [6.6, 24.5], 'library reading table': [13, 21] })) { const [i, k] = idx(X, Y); let best = -1; for (let a = -4; a <= 4; a++) for (let b = -4; b <= 4; b++) { const v = du[(i + a) * NZ + k + b]; if (v >= 0 && (best < 0 || v < best)) best = v; } log(`   ${n} from the upstairs hall${su ? '' : ' START BLOCKED'}: ${best >= 0 ? 'reached' : 'NOT REACHED'}`); } }
+    if (Q.has('map') && R === Number(Q.get('map'))) { // ascii map of ground floor, plan orientation: rows = Y, cols = X
+      const rows = []; for (let Y = 0; Y < 47; Y += 0.5) { let s = ''; for (let X = 0; X < 43.4; X += 0.4) { const [i, k] = idx(X, Y); const v = g[i * NZ + k], r = d[i * NZ + k]; s += v === 2 ? ' ' : v === 1 ? '#' : r >= 0 ? '.' : 'o'; } rows.push(s); } log(rows.join('\n')); }
+  }
+  // walk-through solids: geometry spanning the body band whose footprint has a cell the walker can stand in
+  const g = build(F1, 0.72), gu = build(F2, 0.72), gp = build(F1 - 0.1, 0.72);
+  const thr = new Map(), low = new Map();
+  for (const h of roomG) { if (h.src === 'drapes') continue; const fl = AREAS[h.area][4], gg = fl === F2 ? gu : fl === F1 ? g : gp;
+    if ((h.x1 - h.x0) * (h.z1 - h.z0) < 0.06) continue; if (h.y0 > fl + 5.0) continue;
+    let free = 0, n = 0; for (let x = h.x0 + 0.1; x < h.x1 - 0.05; x += 0.2) for (let z = h.z0 + 0.1; z < h.z1 - 0.05; z += 0.2) { n++; const i = Math.floor((x - X0) / RES), k = Math.floor((z - Z0) / RES); if (gg[i * NZ + k] === 0) free++; }
+    if (!free) continue;
+    if (h.y1 > fl + 1.4) { const v = thr.get(h.src) ?? { a: 0, h }; v.a += free * 0.04; thr.set(h.src, v); } else if (h.y1 > fl + 0.4) { const v = low.get(h.src) ?? { a: 0, h }; v.a += free * 0.04; low.set(h.src, v); } }
+  log('-- solid-looking pieces the walker can stand inside (body band, sq ft of footprint the walker centre can occupy):');
+  [...thr.entries()].filter(([, v]) => v.a >= 0.08).sort((a, b) => b[1].a - a[1].a).forEach(([s, v]) => log(`   [${v.h.area}] ${s} (${v.h.mat}) ${fmt(v.a)} sq ft  ${where(v.h)}`));
+  log('-- low pieces (0.4..1.4 ft) the walker strides through (walk.js ignores colliders lower than feet+1.4):');
+  [...low.entries()].filter(([, v]) => v.a >= 0.2).sort((a, b) => b[1].a - a[1].a).forEach(([s, v]) => log(`   [${v.h.area}] ${s} (${v.h.mat}) ${fmt(v.a)} sq ft  ${where(v.h)}`));
+}
+
+// ---- 8. scale: models, with their final sizes -----------------------------------------------
+log('\n== 8. MODELS (final size in ft: W x H x D, base height above the floor, triangles) ==');
+{ let tri = 0; for (const m of modelBoxes.filter(m => want(m.area)).sort((a, b) => (a.area + a.src).localeCompare(b.area + b.src))) { tri += m.tri; log(`[${m.area}] ${m.src} ${fmt(m.x1 - m.x0)} x ${fmt(m.y1 - m.y0)} x ${fmt(m.z1 - m.z0)}  base ${fmt(m.y0 - AREAS[m.area][4])}  top ${fmt(m.y1 - AREAS[m.area][4])}  scale ${m.model.scale ?? 1}  tris ${m.tri}  at X ${fmt(P(m.model.x, m.model.z)[0])} Y ${fmt(P(m.model.x, m.model.z)[1])}`); }
+  log(`model triangles in these areas: ${tri}`);
+  const byArea = {}; for (const g of all) if (g.area) byArea[g.area] = (byArea[g.area] ?? 0) + (g.tri || 0); log('triangles by area (built + models): ' + JSON.stringify(Object.fromEntries(Object.entries(byArea).map(([k, v]) => [k, Math.round(v)]))));
+  const tot = all.reduce((a, g) => a + (g.tri || 0), 0); log(`whole house triangles (built + models, no garden): ${Math.round(tot)}`);
+}
+// ---- 9. heights of seating and tables (colliders) -------------------------------------------------
+log('\n== 9. SEATS (sit height above floor) ==');
+for (const s of items.seats) { const ar = areaOf(s.x, s.y - 2.45 - 0.5, s.z); if (!want(ar)) continue; log(`[${ar}] ${s.label} seat at ${fmt(s.y - 2.45 - AREAS[ar][4])} ft, X ${fmt(P(s.x, s.z)[0])} Y ${fmt(P(s.x, s.z)[1])}`); }
+} catch (e) { log('ERROR ' + e.stack); }
+done();
+</script>

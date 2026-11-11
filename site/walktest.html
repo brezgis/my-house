@@ -1,0 +1,30 @@
+<!doctype html><meta charset="utf-8"><title>walk test</title>
+<script type="importmap">{ "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }</script>
+<pre id="out">running</pre>
+<script type="module">
+import * as THREE from 'three';
+import { Builder } from './src/builder.js';
+import { buildHouse } from './src/house.js';
+import { Walker } from './src/walk.js';
+const B = new Builder(); const { surfaces, spawn, doors } = buildHouse(B);
+const openAll = on => { for (const d of doors) if (!d.fixed) d.stop.off = on; };
+const cam = new THREE.PerspectiveCamera(); const dom = document.createElement('canvas');
+const w = new Walker(cam, dom, { colliders: B.colliders, surfaces }); w.enabled = true;
+const run = (name, x, y, z, yaw, secs) => { w.place(x, y, z, yaw); w.keys.add('KeyW'); for (let i = 0; i < secs * 60; i++) w.update(1 / 60); w.keys.clear();
+  return `${name}: x=${w.pos.x.toFixed(2)} y=${w.pos.y.toFixed(2)} z=${w.pos.z.toFixed(2)}`; };
+const shut = run('front door shut (expect z about 0.6: stopped at the door)', 1.83, 0, 34, 0, 14);
+openAll(true);
+const lines = [
+  shut,
+  run('front walk -> hall (expect y 1.60, z about -21.7)', 1.83, 0, 34, 0, 14),
+  run('up the stair (expect y 10.80, z about -20.1)', 4.0, 1.6, -4.4, 0, 8),
+  run('down the stair (expect y 1.60, z > -5)', 4.0, 10.8, -18.2, Math.PI, 8),
+  run('into a wall from the lawn (expect y 0, z about 1)', -12, 0, 30, 0, 9),
+  run('terrace door into living room (expect y 1.60, x > -20)', -30, 1.2, -5.8, -Math.PI / 2, 4),
+  run('bedroom 4 -> sleeping porch (expect y 10.80, z about -38.5)', 7.6, 10.8, -26, 0, 5),
+  run('landing window must stop you (expect z about -1.3, y 10.80)', 1.5, 10.8, -4, Math.PI, 4),
+  run('library door past the chimney (expect x < -5)', 2.5, 10.8, -19.2, Math.PI / 2, 4),
+  `colliders=${B.colliders.length} surfaces=${surfaces.length}`,
+];
+document.getElementById('out').textContent = lines.join('\n');
+</script>

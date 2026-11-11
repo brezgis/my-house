@@ -1,0 +1,272 @@
+/* The interface of Anna's House.
+   Paper and walnut ink, set in Goudy (Sorts Mill Goudy, a revival of Frederic Goudy's
+   1915 Oldstyle, of the Greenes' own years). Two ornaments only, both from the house:
+   the ebony peg the Greenes set into every joint (here: keys, card corners), and the
+   cloud lift, the stepped curve they cut into beams and rails (here: the one rule).
+   The lantern is the house's mark. */
+
+@font-face { font-family: 'Goudy House'; src: url(../assets/fonts/goudy-regular.woff2) format('woff2'); font-style: normal; font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Goudy House'; src: url(../assets/fonts/goudy-italic.woff2) format('woff2'); font-style: italic; font-weight: 400; font-display: swap; }
+
+:root {
+  --paper: #f0e5cf;          /* vellum */
+  --paper-deep: #e4d5b8;     /* the same paper in shade */
+  --ink: #2a1c13;            /* walnut ink; also the ebony of the pegs */
+  --ink-soft: #5b4636;
+  --teak: #7a4b2a;           /* stained redwood: rules and headings */
+  --verdigris: #3d6151;      /* weathered copper: focus and "on" */
+  --amber: #e2a647;          /* art glass with a lamp behind it */
+  --night: #1e1610;          /* the room before the lamps are lit */
+  --smoke: rgba(30, 21, 15, .74);
+  --cream: #f6eddc;          /* lettering laid straight onto the scene */
+  --serif: 'Goudy House', 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .22 0 0 0 0 .12 .14 0 0 0 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --pegs: linear-gradient(var(--ink), var(--ink)) 9px 9px / 5px 5px no-repeat,
+          linear-gradient(var(--ink), var(--ink)) calc(100% - 9px) 9px / 5px 5px no-repeat,
+          linear-gradient(var(--ink), var(--ink)) 9px calc(100% - 9px) / 5px 5px no-repeat,
+          linear-gradient(var(--ink), var(--ink)) calc(100% - 9px) calc(100% - 9px) / 5px 5px no-repeat;
+  --lift: 0 1px 0 rgba(255, 255, 255, .5) inset, 0 2px 4px rgba(20, 12, 6, .25), 0 22px 48px -12px rgba(20, 12, 6, .6);
+  --gutter: max(16px, env(safe-area-inset-left));
+}
+
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--night); color: var(--cream); font-family: var(--serif);
+  -webkit-font-smoothing: antialiased; font-variant-numeric: oldstyle-nums; }
+canvas { display: block; touch-action: none; opacity: 0; transition: opacity 1.4s ease; }
+.ready canvas { opacity: 1; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+[hidden] { display: none !important; }
+
+/* Keys are drawn as the ebony pegs of the house: small, dark, slightly pillowed squares. */
+kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 1.6em; height: 1.6em; padding: .1em .32em 0; box-sizing: border-box;
+  border-radius: 3px; background: var(--ink); color: var(--paper); font: inherit; font-size: .86em; line-height: 1; vertical-align: .02em;
+  box-shadow: inset 0 1px 0 rgba(255, 240, 210, .22), inset 0 -2px 0 rgba(0, 0, 0, .45); }
+kbd + kbd { margin-left: 3px; }
+kbd, #prompt b { font-variant-numeric: lining-nums; }
+
+/* ---- The threshold (loading) ---------------------------------------------------- */
+#loading { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 24px;
+  background: radial-gradient(ellipse at 50% 42%, #2e2117 0%, var(--night) 62%); transition: opacity .9s ease; }
+#loading.gone { opacity: 0; pointer-events: none; }
+.threshold { display: flex; flex-direction: column; align-items: center; text-align: center; width: min(420px, 100%); }
+.threshold .lamp { width: 62px; height: 87px; color: #c9b291; filter: drop-shadow(0 0 0 rgba(226, 166, 71, 0)); transition: filter .6s ease; }
+#loading.lit .lamp { filter: drop-shadow(0 0 18px rgba(226, 166, 71, .55)); }
+#glassFill { transition: y .5s ease, height .5s ease; animation: flicker 3.2s ease-in-out infinite; }
+@keyframes flicker { 0%, 100% { opacity: 1; } 40% { opacity: .82; } 55% { opacity: .95; } 70% { opacity: .86; } }
+.threshold .name { margin: 22px 0 14px; font-size: clamp(28px, 6vw, 38px); letter-spacing: .02em; color: var(--paper); }
+.threshold .rule { width: 220px; height: 11px; overflow: visible; }
+.threshold .rule path { fill: none; stroke-width: 1.2; }
+.threshold .rule .track { stroke: rgba(240, 229, 207, .14); }
+.threshold .rule .fill { stroke: var(--amber); stroke-width: 1.8; stroke-dasharray: 100 100; stroke-dashoffset: 100; transition: stroke-dashoffset .6s ease; }
+.threshold .lines { position: relative; height: 3.2em; width: 100%; margin-top: 22px; font-style: italic; font-size: 17px; line-height: 1.45; color: rgba(240, 229, 207, .82); }
+.threshold .lines span { position: absolute; inset: 0; opacity: 0; animation: line 30s linear infinite; animation-delay: calc(var(--i) * 5s - .2s); }
+@keyframes line { 0% { opacity: 0; } 2.5% { opacity: 1; } 14% { opacity: 1; } 16.6% { opacity: 0; } 100% { opacity: 0; } }
+.threshold .count { margin: 10px 0 0; font-size: 13.5px; letter-spacing: .03em; color: rgba(240, 229, 207, .5); min-height: 1.4em; }
+#loading.failed .lines, #loading.failed .rule { display: none; }
+#loading.failed .count { color: var(--paper); font-size: 16px; }
+
+/* ---- The invitation (welcome) ------------------------------------------------- */
+#welcome { position: fixed; z-index: 10; left: clamp(16px, 5vw, 72px); bottom: clamp(16px, 7vh, 72px); width: min(410px, calc(100vw - 32px));
+  opacity: 0; transform: translateY(10px); visibility: hidden; transition: opacity .9s ease, transform .9s ease, visibility 0s linear .9s; }
+.ui-open #welcome { opacity: 1; transform: none; visibility: visible; transition: opacity .9s ease .1s, transform .9s ease .1s, visibility 0s; }
+.ui-open .walking #welcome, .ui-card #welcome { opacity: 0; transform: translateY(6px); visibility: hidden; pointer-events: none; transition: opacity .5s ease, transform .5s ease, visibility 0s linear .5s; }
+#welcome .card { position: relative; padding: 30px 34px 24px; color: var(--ink); border-radius: 2px;
+  background: var(--pegs), var(--grain), linear-gradient(170deg, #f4ead6, var(--paper) 60%, #ebdfc6); box-shadow: var(--lift); }
+#welcome .mark { display: block; width: 26px; height: 36px; color: var(--ink); margin-bottom: 14px; }
+#welcome h1 { margin: 0; font-weight: 400; font-size: clamp(38px, 5.2vw, 52px); line-height: 1; letter-spacing: -.005em; }
+#welcome .rule { display: block; width: 168px; height: 9px; margin: 14px 0 16px; color: var(--teak); }
+#welcome .invite { margin: 0 0 22px; font-size: 17px; line-height: 1.55; max-width: 30em; }
+#welcome .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 22px; }
+#enter { font-size: 18px; letter-spacing: .02em; color: var(--paper); background: var(--ink); border: 0; border-radius: 2px; padding: 11px 28px 12px; cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 240, 210, .18), 0 1px 0 rgba(0, 0, 0, .2); transition: background .2s ease; }
+#enter:hover { background: #46301f; }
+#enter:focus-visible { outline-color: var(--verdigris); }
+.link { background: none; border: 0; padding: 4px 0; cursor: pointer; color: var(--teak); font-size: 15.5px; text-decoration: underline; text-decoration-thickness: 1px;
+  text-underline-offset: 4px; text-decoration-color: rgba(122, 75, 42, .45); }
+.link:hover { text-decoration-color: currentColor; }
+.link:focus-visible { outline-color: var(--verdigris); }
+#welcome .teach { margin: 20px 0 0; padding-top: 14px; border-top: 1px solid rgba(122, 75, 42, .22); font-size: 14px; line-height: 1.5; color: var(--ink-soft);
+  display: flex; flex-wrap: wrap; gap: 6px 16px; }
+#welcome .teach span { white-space: nowrap; }
+#welcome .teach kbd { margin-right: 1px; }
+.touch #welcome .keys-teach, html:not(.touch) #welcome .touch-teach { display: none; }
+#trickle { position: absolute; left: 34px; right: 34px; bottom: 0; height: 2px; background: linear-gradient(90deg, var(--amber) var(--p, 0%), transparent 0); opacity: 0; transition: opacity .6s ease; }
+#trickle.on { opacity: .7; }
+
+/* ---- In the house ------------------------------------------------------------- */
+/* A dim corner under the caption, so cream letters hold over a sunlit lawn. */
+#hud { position: fixed; z-index: 6; left: var(--gutter); bottom: max(14px, env(safe-area-inset-bottom)); pointer-events: none; opacity: 0; transition: opacity .6s ease;
+  color: var(--cream); text-shadow: 0 1px 2px rgba(20, 12, 6, .8), 0 0 14px rgba(20, 12, 6, .55); }
+#hud::before { content: ''; position: absolute; left: -60px; bottom: -40px; width: 420px; height: 170px; z-index: -1;
+  background: radial-gradient(ellipse at 20% 80%, rgba(20, 13, 8, .5), transparent 65%); }
+.walking #hud { opacity: 1; }
+#room { font-size: 23px; line-height: 1.1; letter-spacing: .01em; min-height: 1.1em; }
+#clock { font-size: 15px; font-style: italic; margin-top: 3px; opacity: .88; }
+
+#dot { position: fixed; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px; border-radius: 50%; background: rgba(255, 248, 235, .8);
+  box-shadow: 0 0 0 1px rgba(20, 12, 6, .35); opacity: 0; pointer-events: none; z-index: 6; }
+.walking #dot { opacity: 1; }
+.touch #dot { opacity: 0 !important; }
+
+/* The E prompt: a small paper label, the kind pinned beside things in a collector's house. */
+#prompt { position: fixed; z-index: 6; left: 50%; bottom: 23%; transform: translate(-50%, 4px); max-width: calc(100vw - 32px); box-sizing: border-box;
+  padding: 7px 15px 8px 9px; border-radius: 2px; color: var(--ink); font-size: 16px; line-height: 1.3; letter-spacing: .005em;
+  background: var(--grain), var(--paper); box-shadow: 0 1px 0 rgba(255, 255, 255, .45) inset, 0 6px 18px -4px rgba(20, 12, 6, .55);
+  opacity: 0; transition: opacity .2s ease, transform .2s ease; pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#prompt:not(:has(b)) { padding-left: 15px; }
+#prompt.on { opacity: 1; transform: translate(-50%, 0); }
+#prompt b { display: inline-flex; align-items: center; justify-content: center; min-width: 1.5em; height: 1.5em; margin-right: 10px; border-radius: 3px;
+  background: var(--ink); color: var(--paper); font-weight: 400; font-size: .85em; vertical-align: .05em;
+  box-shadow: inset 0 1px 0 rgba(255, 240, 210, .22), inset 0 -2px 0 rgba(0, 0, 0, .45); }
+.touch #prompt b { display: none; }
+.touch #prompt { padding-left: 15px; bottom: 30%; white-space: normal; text-align: center; }
+
+/* Passing notes: lantern lit, now playing, eye height. */
+#toast { position: fixed; z-index: 8; left: 50%; top: max(76px, 11vh); transform: translate(-50%, -6px); max-width: min(520px, calc(100vw - 32px)); box-sizing: border-box;
+  padding: 8px 18px 9px; border-radius: 2px; color: var(--ink); background: var(--grain), var(--paper); font-size: 16px; line-height: 1.35; text-align: center;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .45) inset, 0 8px 22px -6px rgba(20, 12, 6, .6); opacity: 0; pointer-events: none; transition: opacity .3s ease, transform .3s ease; }
+#toast.on { opacity: 1; transform: translate(-50%, 0); }
+#toast i { color: var(--teak); }
+
+/* What is on the gramophone, beside the little player when there is one. */
+#playing { position: fixed; z-index: 6; left: var(--gutter); bottom: 78px; max-width: min(360px, calc(100vw - 32px)); color: var(--cream); font-size: 14.5px; line-height: 1.35;
+  text-shadow: 0 1px 2px rgba(20, 12, 6, .85), 0 0 12px rgba(20, 12, 6, .6); opacity: 0; transition: opacity .6s ease, bottom .4s ease; pointer-events: none; }
+#playing.on { opacity: .95; }
+#playing.over-card { bottom: 238px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 360px; }
+#playing i { opacity: .8; }
+#record-card { bottom: 88px !important; outline: 6px solid var(--paper); outline-offset: 0; box-shadow: 0 1px 0 7px rgba(42, 28, 19, .25), 0 14px 30px -6px rgba(0, 0, 0, .6) !important; }
+.touch #record-card { bottom: auto !important; top: calc(84px + env(safe-area-inset-top)) !important; }
+.touch #playing.over-card { bottom: auto; top: calc(84px + 156px + env(safe-area-inset-top)); }
+
+/* "H for help": a whisper in the corner that fades once you know it is there. */
+#hint { position: fixed; z-index: 6; right: max(16px, env(safe-area-inset-right)); bottom: max(14px, env(safe-area-inset-bottom)); padding: 6px 8px;
+  background: none; border: 0; cursor: pointer; color: var(--cream); font-size: 14.5px; text-shadow: 0 1px 2px rgba(20, 12, 6, .85), 0 0 12px rgba(20, 12, 6, .6);
+  opacity: 0; visibility: hidden; transition: opacity 1.6s ease, visibility 0s linear 1.6s; }
+.walking #hint { opacity: .9; visibility: visible; transition: opacity .6s ease; }
+.walking #hint.faded { opacity: 0; visibility: hidden; transition: opacity 2.4s ease, visibility 0s linear 2.4s; }
+#hint kbd { font-size: .85em; text-shadow: none; margin-right: 4px; }
+
+/* Pointer given back (Esc): say how to take it up again. */
+#looknote { position: fixed; z-index: 6; left: 50%; top: calc(50% + 22px); transform: translateX(-50%); padding: 6px 14px 7px; border-radius: 2px; color: var(--cream);
+  background: var(--smoke); font-size: 15px; font-style: italic; white-space: nowrap; opacity: 0; transition: opacity .3s ease; pointer-events: none; }
+#looknote.on { opacity: 1; }
+
+/* ---- Cards: help, settings (and about, in about.js) ----------------------------------- */
+.sheet { position: fixed; inset: 0; z-index: 30; display: none; place-items: center; padding: 16px; background: rgba(22, 15, 10, .5); }
+.sheet.on { display: grid; animation: sheetIn .25s ease; }
+@keyframes sheetIn { from { opacity: 0; } }
+.sheet .paper { position: relative; box-sizing: border-box; width: min(720px, 100%); max-height: min(86vh, 860px); max-height: min(86dvh, 860px); overflow: auto;
+  overscroll-behavior: contain; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: rgba(122, 75, 42, .45) transparent; padding: 28px 36px 26px; color: var(--ink); border-radius: 2px;
+  background: var(--pegs), var(--grain), linear-gradient(170deg, #f4ead6, var(--paper) 60%, #ebdfc6); background-attachment: local, local, local; box-shadow: var(--lift);
+  animation: paperIn .3s ease; }
+@keyframes paperIn { from { transform: translateY(8px); } }
+.sheet h2 { margin: 0; font-weight: 400; font-size: 30px; line-height: 1.1; }
+.sheet .rule { display: block; width: 150px; height: 9px; margin: 12px 0 18px; color: var(--teak); }
+.sheet .close { position: absolute; top: 14px; right: 16px; width: 40px; height: 40px; border: 0; background: none; cursor: pointer; color: var(--teak); font-size: 26px; line-height: 1; border-radius: 2px; }
+.sheet .close:hover { color: var(--ink); }
+.sheet :focus-visible { outline-color: var(--verdigris); }
+.sheet h3 { margin: 0 0 8px; font-weight: 400; font-style: italic; font-size: 19px; color: var(--teak); }
+.sheet .foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; margin-top: 22px; padding-top: 14px; border-top: 1px solid rgba(122, 75, 42, .22); font-size: 15px; }
+.sheet .foot .note { color: var(--ink-soft); font-style: italic; margin-left: auto; }
+
+#help .groups { display: grid; grid-template-columns: 1fr 1fr; gap: 22px 40px; }
+#help dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 7px 14px; align-items: baseline; font-size: 15.5px; line-height: 1.35; }
+#help dt { white-space: nowrap; text-align: right; }
+#help dd { margin: 0; }
+#help dd small { color: var(--ink-soft); font-size: 13.5px; }
+#help .touch-only, .touch #help .keys-only { display: none; }
+.touch #help .touch-only { display: block; }
+
+#settings .paper { width: min(500px, 100%); }
+#settings .row { display: grid; grid-template-columns: 8.5em 1fr; gap: 6px 16px; align-items: center; padding: 12px 0; border-top: 1px solid rgba(122, 75, 42, .16); }
+#settings .row:first-of-type { border-top: 0; }
+#settings label, #settings .lbl { font-size: 16.5px; }
+#settings .val { grid-column: 2; font-size: 14px; font-style: italic; color: var(--ink-soft); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+#settings .val .link { font-style: normal; font-size: 14px; }
+#settings .pair { display: flex; align-items: center; gap: 14px; }
+#settings select { font: inherit; font-size: 15px; color: var(--ink); background: var(--paper-deep); border: 1px solid rgba(122, 75, 42, .4); border-radius: 2px; padding: 5px 8px; }
+/* Sliders: a teak rail with an ebony peg to push along it */
+#settings input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 28px; background: transparent; margin: 0; cursor: pointer; }
+#settings input[type=range]::-webkit-slider-runnable-track { height: 3px; background: linear-gradient(90deg, var(--teak) var(--fill, 50%), rgba(122, 75, 42, .25) 0); border-radius: 2px; }
+#settings input[type=range]::-moz-range-track { height: 3px; background: rgba(122, 75, 42, .25); border-radius: 2px; }
+#settings input[type=range]::-moz-range-progress { height: 3px; background: var(--teak); }
+#settings input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; margin-top: -6.5px; border-radius: 3px; background: var(--ink);
+  box-shadow: inset 0 1px 0 rgba(255, 240, 210, .25), inset 0 -2px 0 rgba(0, 0, 0, .45), 0 1px 2px rgba(0, 0, 0, .3); }
+#settings input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border: 0; border-radius: 3px; background: var(--ink); }
+#settings input[type=range]:focus-visible { outline-offset: 2px; }
+#settings input[type=range]:disabled { opacity: .4; }
+/* An on/off switch, like a brass light switch plate: the peg slides across */
+.switch { position: relative; width: 46px; height: 24px; flex: none; -webkit-appearance: none; appearance: none; margin: 0; cursor: pointer; border-radius: 2px;
+  background: rgba(122, 75, 42, .22); border: 1px solid rgba(122, 75, 42, .4); transition: background .2s ease; }
+.switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 3px; background: var(--ink-soft); transition: transform .2s ease, background .2s ease;
+  box-shadow: inset 0 1px 0 rgba(255, 240, 210, .25), inset 0 -2px 0 rgba(0, 0, 0, .35); }
+.switch:checked { background: var(--verdigris); border-color: var(--verdigris); }
+.switch:checked::after { transform: translateX(22px); background: var(--paper); }
+
+/* ---- Touch: a faint pad for the left thumb, three pegs for the right ------------------ */
+#touch { display: none; }
+.touch.ui-open .walking #touch { display: block; }
+#pad { position: fixed; z-index: 7; left: calc(var(--gutter) + 18px); bottom: calc(max(14px, env(safe-area-inset-bottom)) + 40px); width: 116px; height: 116px; border-radius: 50%;
+  border: 1.5px solid rgba(246, 237, 220, .38); background: radial-gradient(circle, rgba(30, 21, 15, .18), rgba(30, 21, 15, .05) 70%); pointer-events: none; }
+#pad::before { content: ''; position: absolute; inset: 50% auto auto 50%; width: 1px; height: 1px; }
+#pad i { position: absolute; left: 50%; top: 50%; width: 42px; height: 42px; margin: -21px; border-radius: 50%; background: rgba(246, 237, 220, .3); border: 1.5px solid rgba(246, 237, 220, .55); }
+#pad span { position: absolute; left: 0; right: 0; top: calc(100% + 6px); text-align: center; font-size: 13px; font-style: italic; color: var(--cream); opacity: .7;
+  text-shadow: 0 1px 2px rgba(20, 12, 6, .85); }
+#tbtns { position: fixed; z-index: 7; right: max(16px, env(safe-area-inset-right)); bottom: calc(max(14px, env(safe-area-inset-bottom)) + 34px); display: grid;
+  grid-template-columns: auto auto; grid-template-areas: ". lamp" "jump use"; gap: 12px; align-items: end; }
+#tbtns button { width: 54px; height: 54px; border-radius: 50%; border: 1.5px solid rgba(246, 237, 220, .55); background: var(--smoke); color: var(--cream); font-size: 14px; padding: 0;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; }
+#tbtns button:active, #tbtns button.down { background: rgba(70, 48, 31, .9); }
+#tbtns .use { grid-area: use; width: 74px; height: 74px; font-size: 17px; }
+#tbtns .use.ready { border-color: var(--amber); box-shadow: 0 0 0 3px rgba(226, 166, 71, .3); }
+#tbtns .jump { grid-area: jump; } #tbtns .lamp { grid-area: lamp; justify-self: end; }
+#tbtns .lamp.lit { border-color: var(--amber); color: var(--amber); }
+.touch #hint { bottom: auto; top: max(12px, env(safe-area-inset-top)); width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1.5px solid rgba(246, 237, 220, .55);
+  background: var(--smoke); font-size: 19px; text-shadow: none; }
+.touch .walking #hint.faded { opacity: .9; visibility: visible; }
+.touch #hud { bottom: auto; top: max(12px, env(safe-area-inset-top)); }
+.touch #hud::before { bottom: auto; top: -50px; background: radial-gradient(ellipse at 20% 30%, rgba(20, 13, 8, .45), transparent 65%); }
+.touch #toast { top: max(70px, 12vh); }
+
+/* ---- The picture for links shared elsewhere (?card) ------------------------------- */
+#social { display: none; }
+.ui-card #social { display: grid; position: fixed; inset: 0; z-index: 40; place-items: start center; padding-top: 30px; text-align: center;
+  background: radial-gradient(ellipse 52% 46% at 50% 18%, rgba(20, 13, 8, .5), rgba(20, 13, 8, 0) 100%); }
+#social .mark { width: 36px; height: 50px; color: var(--paper); filter: drop-shadow(0 2px 6px rgba(0, 0, 0, .5)); }
+#social h2 { margin: 6px 0 4px; font-weight: 400; font-size: 88px; line-height: 1; color: var(--paper); text-shadow: 0 2px 22px rgba(20, 12, 6, .7); }
+#social .rule { width: 260px; height: 12px; color: var(--amber); }
+#social p { position: fixed; left: 0; right: 0; bottom: 30px; margin: 0; font-size: 28px; font-style: italic; color: var(--cream); text-shadow: 0 1px 12px rgba(20, 12, 6, .9); }
+.ui-card #hud, .ui-card #hint, .ui-card #dot { display: none; }
+
+/* ---- Phones ------------------------------------------------------------------- */
+@media (max-width: 560px) {
+  #welcome { left: 0; right: 0; bottom: 0; width: auto; }
+  #welcome .card { padding: 24px max(22px, env(safe-area-inset-left)) calc(20px + env(safe-area-inset-bottom)); box-shadow: 0 -10px 40px -10px rgba(20, 12, 6, .6); }
+  #welcome .mark { position: absolute; right: 26px; top: 26px; margin: 0; }
+  #welcome .invite { font-size: 16px; margin-bottom: 18px; }
+  #welcome .teach { margin-top: 16px; }
+  .sheet { padding: 0; place-items: end stretch; }
+  .sheet .paper { width: 100%; max-height: 92dvh; padding: 24px 22px calc(22px + env(safe-area-inset-bottom)); }
+  #help .groups { grid-template-columns: 1fr; gap: 18px; }
+  #settings .row { grid-template-columns: 1fr; }
+  #settings .val { grid-column: 1; }
+  #room { font-size: 20px; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  #welcome { bottom: 10px; }
+  #welcome .card { padding: 18px 24px 16px; }
+  #welcome .mark, #welcome .teach { display: none; }
+  #welcome h1 { font-size: 34px; }
+  #welcome .rule { margin: 8px 0 10px; }
+  #welcome .invite { font-size: 15px; margin-bottom: 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+  .threshold .lines span { animation: none; }
+  .threshold .lines span:first-child { opacity: 1; }
+  #glassFill { animation: none; }
+}
+@media (forced-colors: active) {
+  #welcome .card, .sheet .paper, #prompt, #toast { border: 1px solid CanvasText; }
+}

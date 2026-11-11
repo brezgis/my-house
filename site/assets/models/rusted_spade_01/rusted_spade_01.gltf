@@ -1,0 +1,159 @@
+{
+ "asset": {
+  "generator": "Khronos glTF Blender I/O v3.3.32",
+  "version": "2.0"
+ },
+ "scene": 0,
+ "scenes": [
+  {
+   "name": "Scene",
+   "nodes": [
+    0
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "mesh": 0,
+   "name": "rusted_spade_01"
+  }
+ ],
+ "materials": [
+  {
+   "doubleSided": true,
+   "name": "rusted_spade_01",
+   "normalTexture": {
+    "index": 0
+   },
+   "pbrMetallicRoughness": {
+    "baseColorTexture": {
+     "index": 1
+    },
+    "metallicRoughnessTexture": {
+     "index": 2
+    }
+   }
+  }
+ ],
+ "meshes": [
+  {
+   "name": "Cylinder.001",
+   "primitives": [
+    {
+     "material": 0,
+     "attributes": {
+      "POSITION": 0,
+      "NORMAL": 1,
+      "TEXCOORD_0": 2
+     },
+     "indices": 3
+    }
+   ]
+  }
+ ],
+ "textures": [
+  {
+   "sampler": 0,
+   "source": 0
+  },
+  {
+   "sampler": 0,
+   "source": 1
+  },
+  {
+   "sampler": 0,
+   "source": 2
+  }
+ ],
+ "images": [
+  {
+   "mimeType": "image/jpeg",
+   "name": "rusted_spade_01_nor_gl",
+   "uri": "textures/rusted_spade_01_nor_gl_1k.jpg"
+  },
+  {
+   "mimeType": "image/jpeg",
+   "name": "rusted_spade_01_diff",
+   "uri": "textures/rusted_spade_01_diff_1k.jpg"
+  },
+  {
+   "mimeType": "image/jpeg",
+   "name": "rusted_spade_01_metal-rusted_spade_01_rough",
+   "uri": "textures/rusted_spade_01_arm_1k.jpg"
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 0,
+   "componentType": 5126,
+   "count": 2307,
+   "type": "VEC3",
+   "min": [
+    -0.08405739068984985,
+    -0.503204345703125,
+    -0.022995220497250557
+   ],
+   "max": [
+    0.0840710923075676,
+    0.5977024435997009,
+    0.022619640454649925
+   ]
+  },
+  {
+   "bufferView": 1,
+   "componentType": 5126,
+   "count": 2307,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 2,
+   "componentType": 5126,
+   "count": 2307,
+   "type": "VEC2"
+  },
+  {
+   "bufferView": 3,
+   "componentType": 5123,
+   "count": 10497,
+   "type": "SCALAR"
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteOffset": 0,
+   "byteLength": 27684,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 27684,
+   "byteLength": 27684,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 55368,
+   "byteLength": 18456,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 73824,
+   "byteLength": 20994,
+   "target": 34963
+  }
+ ],
+ "samplers": [
+  {
+   "magFilter": 9729,
+   "minFilter": 9987
+  }
+ ],
+ "buffers": [
+  {
+   "uri": "rusted_spade_01.bin",
+   "byteLength": 94818
+  }
+ ]
+}

@@ -1,0 +1,164 @@
+{
+ "asset": {
+  "generator": "Khronos glTF Blender I/O v5.3.43",
+  "version": "2.0"
+ },
+ "scene": 0,
+ "scenes": [
+  {
+   "name": "Scene",
+   "nodes": [
+    1
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "mesh": 0,
+   "name": "Mesh_0",
+   "translation": [
+    -0.2933521270751953,
+    68.33650970458984,
+    -0.7023773193359375
+   ]
+  },
+  {
+   "name": "unit_fix",
+   "scale": [
+    0.001,
+    0.001,
+    0.001
+   ],
+   "children": [
+    0
+   ]
+  }
+ ],
+ "materials": [
+  {
+   "name": "default",
+   "occlusionTexture": {
+    "index": 0
+   },
+   "pbrMetallicRoughness": {
+    "baseColorTexture": {
+     "index": 1
+    },
+    "metallicFactor": 0.10000000149011612,
+    "roughnessFactor": 0.800000011920929
+   }
+  }
+ ],
+ "meshes": [
+  {
+   "name": "Mesh_0",
+   "primitives": [
+    {
+     "material": 0,
+     "attributes": {
+      "POSITION": 0,
+      "NORMAL": 1,
+      "TEXCOORD_0": 2
+     },
+     "indices": 3
+    }
+   ]
+  }
+ ],
+ "textures": [
+  {
+   "sampler": 0,
+   "source": 0
+  },
+  {
+   "sampler": 0,
+   "source": 1
+  }
+ ],
+ "images": [
+  {
+   "name": "Image_1",
+   "uri": "textures/Image_1.jpg",
+   "mimeType": "image/jpeg"
+  },
+  {
+   "name": "Image_0",
+   "uri": "textures/Image_0.jpg",
+   "mimeType": "image/jpeg"
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 0,
+   "componentType": 5126,
+   "count": 4715,
+   "type": "VEC3",
+   "min": [
+    -60.83763122558594,
+    -68.33650970458984,
+    -21.121610641479492
+   ],
+   "max": [
+    61.42433547973633,
+    76.8824234008789,
+    22.419891357421875
+   ]
+  },
+  {
+   "bufferView": 1,
+   "componentType": 5126,
+   "count": 4715,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 2,
+   "componentType": 5126,
+   "count": 4715,
+   "type": "VEC2"
+  },
+  {
+   "bufferView": 3,
+   "componentType": 5123,
+   "count": 18000,
+   "type": "SCALAR"
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteOffset": 0,
+   "byteLength": 56580,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 56580,
+   "byteLength": 56580,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 113160,
+   "byteLength": 37720,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 150880,
+   "byteLength": 36000,
+   "target": 34963
+  }
+ ],
+ "samplers": [
+  {
+   "magFilter": 9729,
+   "minFilter": 9987
+  }
+ ],
+ "buffers": [
+  {
+   "uri": "si_megalodon_tooth.bin",
+   "byteLength": 186880
+  }
+ ]
+}

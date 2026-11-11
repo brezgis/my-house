@@ -1,0 +1,513 @@
+[
+  {
+    "slug": "bruegel_harvesters",
+    "title": "The Harvesters",
+    "artist": "Pieter Bruegel the Elder",
+    "year": "1565",
+    "width_px": 1024,
+    "height_px": 754,
+    "source_url": "https://www.metmuseum.org/art/collection/search/435809",
+    "licence": "Public domain (The Met Open Access, CC0)",
+    "suggested_rooms": [
+      "dining room",
+      "living room"
+    ]
+  },
+  {
+    "slug": "cassatt_childs_bath",
+    "title": "The Child's Bath",
+    "artist": "Mary Cassatt",
+    "year": "1893",
+    "width_px": 675,
+    "height_px": 1024,
+    "source_url": "https://www.artic.edu/artworks/111442",
+    "licence": "Public domain (Art Institute of Chicago, CC0 open access)",
+    "suggested_rooms": [
+      "bathroom"
+    ]
+  },
+  {
+    "slug": "cezanne_basket_of_apples",
+    "title": "The Basket of Apples",
+    "artist": "Paul Cezanne",
+    "year": "c. 1893",
+    "width_px": 1024,
+    "height_px": 817,
+    "source_url": "https://www.artic.edu/artworks/111436",
+    "licence": "Public domain (Art Institute of Chicago, CC0 open access)",
+    "suggested_rooms": [
+      "dining room",
+      "kitchen"
+    ]
+  },
+  {
+    "slug": "coorte_strawberries",
+    "title": "Strawberries on a Stone Ledge",
+    "artist": "Adriaen Coorte",
+    "year": "1696",
+    "width_px": 809,
+    "height_px": 1024,
+    "source_url": "https://commons.wikimedia.org/wiki/File:Adriaen_Coorte_-_Een_bakje_aardbeien_op_een_stenen_plint_-_SK-A-5098_-_Rijksmuseum.jpg",
+    "licence": "Public domain (Wikimedia Commons: Public domain)",
+    "suggested_rooms": [
+      "kitchen (small)"
+    ]
+  },
+  {
+    "slug": "dow_boats_at_rest",
+    "title": "Boats at Rest",
+    "artist": "Arthur Wesley Dow",
+    "year": "c. 1895",
+    "width_px": 1024,
+    "height_px": 742,
+    "source_url": "https://www.artic.edu/artworks/121377",
+    "licence": "Public domain (Art Institute of Chicago, CC0 open access)",
+    "suggested_rooms": [
+      "living room",
+      "stair hall"
+    ]
+  },
+  {
+    "slug": "fantin_latour_roses",
+    "title": "Roses in a Bowl",
+    "artist": "Henri Fantin-Latour",
+    "year": "1881",
+    "width_px": 843,
+    "height_px": 703,
+    "source_url": "https://www.artic.edu/artworks/20534",
+    "licence": "Public domain (Art Institute of Chicago, CC0 open access)",
+    "suggested_rooms": [
+      "bedroom",
+      "dining room (small)"
+    ]
+  },
+  {
+    "slug": "golden_autumn",
+    "title": "Golden Autumn",
+    "artist": "Isaac Levitan",
+    "year": "1895",
+    "width_px": 1024,
+    "height_px": 658,
+    "source_url": "https://commons.wikimedia.org/wiki/File:Levitan_Zolotaya_Osen.jpg",
+    "licence": "Public domain (Wikimedia Commons). Pre-existing file; source identified after the fact by matching aspect ratio, so treat the exact file as probable.",
+    "suggested_rooms": [
+      "living room"
+    ]
+  },
+  {
+    "slug": "hammershoi_music_room",
+    "title": "Interior. The Music Room, Strandgade 30",
+    "artist": "Vilhelm Hammershøi",
+    "year": "1907",
+    "width_px": 864,
+    "height_px": 1024,
+    "source_url": "https://www.artic.edu/artworks/270002",
+    "licence": "Public domain (Art Institute of Chicago, CC0 open access)",
+    "suggested_rooms": [
+      "study",
+      "reading nook"
+    ]
+  },
+  {
+    "slug": "hiroshige_kameido_plum",
+    "title": "Plum Garden at Kameido (One Hundred Famous Views of Edo)",
+    "artist": "Utagawa Hiroshige",
+    "year": "1857",
+    "width_px": 704,
+    "height_px": 1024,
+    "source_url": "https://commons.wikimedia.org/wiki/File:Plum_garden_at_Kameido_(Kameido_umeyashiki)_(CBL_J_2693).jpg",
+    "licence": "Public domain (Wikimedia Commons: Public domain)",
+    "suggested_rooms": [
+      "bedroom",
+      "bathroom"
+    ]
+  },
+  {
+    "slug": "hiroshige_mishima_mist",
+    "title": "Mishima: Morning Mist (Fifty-three Stations of the Tokaido)",
+    "artist": "Utagawa Hiroshige",
+    "year": "c. 1833/34",
+    "width_px": 1024,
+    "height_px": 656,
+    "source_url": "https://www.artic.edu/artworks/10926",
+    "licence": "Public domain (Art Institute of Chicago, CC0 open access)",
+    "suggested_rooms": [
+      "study",
+      "entry hall"
+    ]
+  },
+  {
+    "slug": "hokusai_cranes_pine",
+    "title": "Cranes on a Snow-covered Pine",
+    "artist": "Katsushika Hokusai",
+    "year": "c. 1834",
+    "width_px": 471,
+    "height_px": 1024,
+    "source_url": "https://www.artic.edu/artworks/21720",
+    "licence": "Public domain (Art Institute of Chicago, CC0 open access)",
+    "suggested_rooms": [
+      "entry hall",
+      "stair hall (narrow wall)"
+    ]
+  },
+  {
+    "slug": "hokusai_great_wave",
+    "title": "Under the Wave off Kanagawa (The Great Wave)",
+    "artist": "Katsushika Hokusai",
+    "year": "1830/33",
+    "width_px": 1024,
+    "height_px": 701,
+    "source_url": "https://www.artic.edu/artworks/24645",
+    "licence": "Public domain (Art Institute of Chicago, CC0 open access)",
+    "suggested_rooms": [
+      "bathroom",
+      "study"
+    ]
+  },
+  {
+    "slug": "hunters",
+    "title": "Hunters in the Snow (Winter)",
+    "artist": "Pieter Bruegel the Elder",
+    "year": "1565",
+    "width_px": 1024,
+    "height_px": 729,
+    "source_url": "https://commons.wikimedia.org/wiki/File:Pieter_Bruegel_the_Elder_-_Hunters_in_the_Snow_(Winter)_-_Google_Art_Project.jpg",
+    "licence": "Public domain (Wikimedia Commons). Pre-existing file; source identified after the fact by matching aspect ratio, so treat the exact file as probable.",
+    "suggested_rooms": [
+      "living room",
+      "dining room"
+    ]
+  },
+  {
+    "slug": "klimt_birch_forest",
+    "title": "Birch Forest (Birkenwald)",
+    "artist": "Gustav Klimt",
+    "year": "1903",
+    "width_px": 1024,
+    "height_px": 1012,
+    "source_url": "https://commons.wikimedia.org/wiki/File:Gustav_Klimt_006.jpg",
+    "licence": "Public domain (Wikimedia Commons: Public domain)",
+    "suggested_rooms": [
+      "living room",
+      "primary bedroom"
+    ]
+  },
+  {
+    "slug": "klimt_farm_garden_sunflowers",
+    "title": "Farm Garden with Sunflowers",
+    "artist": "Gustav Klimt",
+    "year": "c. 1907",
+    "width_px": 1011,
+    "height_px": 1024,
+    "source_url": "https://commons.wikimedia.org/wiki/File:Gustav_Klimt_-_Bauerngarten_mit_Sonnenblumen_-_3685_-_%C3%96sterreichische_Galerie_Belvedere.jpg",
+    "licence": "Public domain (Wikimedia Commons: Public domain)",
+    "suggested_rooms": [
+      "dining room",
+      "sunroom"
+    ]
+  },
+  {
+    "slug": "kuindzhi_birch_grove",
+    "title": "Birch Grove",
+    "artist": "Arkhip Kuindzhi",
+    "year": "1879",
+    "width_px": 1024,
+    "height_px": 633,
+    "source_url": "https://commons.wikimedia.org/wiki/File:0828Ha._Kuindzhi_A.I._Birch_Grove,_1879.jpg",
+    "licence": "Public domain (Wikimedia Commons: Public domain)",
+    "suggested_rooms": [
+      "living room"
+    ]
+  },
+  {
+    "slug": "larsson",
+    "title": "The Flower Window (Blomsterfönstret), from A Home",
+    "artist": "Carl Larsson",
+    "year": "1894",
+    "width_px": 1024,
+    "height_px": 682,
+    "source_url": "https://commons.wikimedia.org/wiki/File:Blomsterfönstret_av_Carl_Larsson_1894.jpg",
+    "licence": "Public domain (Wikimedia Commons). Pre-existing file; source identified after the fact by matching aspect ratio, so treat the exact file as probable.",
+    "suggested_rooms": [
+      "dining room",
+      "sunroom"
+    ]
+  },
+  {
+    "slug": "larsson_breakfast_birch",
+    "title": "Breakfast under the Big Birch (from A Home)",
+    "artist": "Carl Larsson",
+    "year": "1896",
+    "width_px": 1024,
+    "height_px": 699,
+    "source_url": "https://commons.wikimedia.org/wiki/File:Breakfast_under_the_Big_Birch._From_A_Home_(26_watercolours)_(Carl_Larsson)_-_Nationalmuseum_-_24220.tif",
+    "licence": "Public domain (Wikimedia Commons: Public domain)",
+    "suggested_rooms": [
+      "dining room",
+      "kitchen"
+    ]
+  },
+  {
+    "slug": "larsson_kitchen",
+    "title": "The Kitchen (from A Home)",
+    "artist": "Carl Larsson",
+    "year": "c. 1894-99 (A Home series)",
+    "width_px": 1024,
+    "height_px": 702,
+    "source_url": "https://commons.wikimedia.org/wiki/File:The_Kitchen._From_A_Home_(26_watercolours)_(Carl_Larsson)_-_Nationalmuseum_-_24211.tif",
+    "licence": "Public domain (Wikimedia Commons: Public domain)",
+    "suggested_rooms": [
+      "kitchen"
+    ]
+  },
+  {
+    "slug": "milkmaid",
+    "title": "The Milkmaid",
+    "artist": "Johannes Vermeer",
+    "year": "c. 1660",
+    "width_px": 913,
+    "height_px": 1024,
+    "source_url": "https://commons.wikimedia.org/wiki/File:Johannes_Vermeer_-_Het_melkmeisje_-_Google_Art_Project.jpg",
+    "licence": "Public domain (Wikimedia Commons). Pre-existing file; source identified after the fact by matching aspect ratio, so treat the exact file as probable.",
+    "suggested_rooms": [
+      "kitchen"
+    ]
+  },
+  {
+    "slug": "monet_water_lilies",
+    "title": "Water Lilies",
+    "artist": "Claude Monet",
+    "year": "1906",
+    "width_px": 1024,
+    "height_px": 983,
+    "source_url": "https://www.artic.edu/artworks/16568",
+    "licence": "Public domain (Art Institute of Chicago, CC0 open access)",
+    "suggested_rooms": [
+      "bathroom",
+      "primary bedroom"
+    ]
+  },
+  {
+    "slug": "monet_wheatstacks",
+    "title": "Stacks of Wheat (End of Summer)",
+    "artist": "Claude Monet",
+    "year": "1890–91",
+    "width_px": 1024,
+    "height_px": 605,
+    "source_url": "https://www.artic.edu/artworks/64818",
+    "licence": "Public domain (Art Institute of Chicago, CC0 open access)",
+    "suggested_rooms": [
+      "living room",
+      "stair hall"
+    ]
+  },
+  {
+    "slug": "morris_willow_bough",
+    "title": "Willow Bough (wallpaper)",
+    "artist": "William Morris (Morris & Co.)",
+    "year": "designed 1887",
+    "width_px": 792,
+    "height_px": 1024,
+    "source_url": "https://commons.wikimedia.org/wiki/File:Willow_Bough_MET_DP306734.jpg",
+    "licence": "Public domain (Wikimedia Commons: CC0)",
+    "suggested_rooms": [
+      "bedroom",
+      "bathroom",
+      "stair hall"
+    ]
+  },
+  {
+    "slug": "pissarro_rabbit_warren_snow",
+    "title": "Rabbit Warren at Pontoise, Snow",
+    "artist": "Camille Pissarro",
+    "year": "1879",
+    "width_px": 1024,
+    "height_px": 833,
+    "source_url": "https://www.artic.edu/artworks/20530",
+    "licence": "Public domain (Art Institute of Chicago, CC0 open access)",
+    "suggested_rooms": [
+      "living room",
+      "study"
+    ]
+  },
+  {
+    "slug": "polenov_moscow_courtyard",
+    "title": "Moscow Courtyard",
+    "artist": "Vasily Polenov",
+    "year": "1878",
+    "width_px": 1024,
+    "height_px": 844,
+    "source_url": "https://commons.wikimedia.org/wiki/File:Moscow_Courtyard_(Polenov,_1878)_-_Google_Art_Project.jpg",
+    "licence": "Public domain (Wikimedia Commons: Public domain)",
+    "suggested_rooms": [
+      "dining room",
+      "study"
+    ]
+  },
+  {
+    "slug": "redoute_rose",
+    "title": "Rosa centifolia foliacea (from Les Roses)",
+    "artist": "Pierre-Joseph Redouté",
+    "year": "1824 (plate in Les Roses, 1817-24)",
+    "width_px": 710,
+    "height_px": 1024,
+    "source_url": "https://commons.wikimedia.org/wiki/File:Redoute_-_Rosa_centifolia_foliacea.jpg",
+    "licence": "Public domain (Wikimedia Commons: Public domain)",
+    "suggested_rooms": [
+      "bathroom",
+      "bedroom (small)"
+    ]
+  },
+  {
+    "slug": "savrasov_rooks",
+    "title": "The Rooks Have Come Back",
+    "artist": "Alexei Savrasov",
+    "year": "1871",
+    "width_px": 782,
+    "height_px": 1024,
+    "source_url": "https://commons.wikimedia.org/wiki/File:Aleksey_Savrasov_-_%D0%93%D1%80%D0%B0%D1%87%D0%B8_%D0%BF%D1%80%D0%B8%D0%BB%D0%B5%D1%82%D0%B5%D0%BB%D0%B8_-_Google_Art_Project.jpg",
+    "licence": "Public domain (Wikimedia Commons: Public domain)",
+    "suggested_rooms": [
+      "study",
+      "stair hall"
+    ]
+  },
+  {
+    "slug": "shishkin_morning_pine_forest",
+    "title": "Morning in a Pine Forest",
+    "artist": "Ivan Shishkin (with Konstantin Savitsky)",
+    "year": "1889",
+    "width_px": 1024,
+    "height_px": 694,
+    "source_url": "https://commons.wikimedia.org/wiki/File:Shishkin,_Ivan_-_Morning_in_a_Pine_Forest.jpg",
+    "licence": "Public domain (Wikimedia Commons: Public domain)",
+    "suggested_rooms": [
+      "living room",
+      "child's room"
+    ]
+  },
+  {
+    "slug": "shishkin_rye",
+    "title": "Rye",
+    "artist": "Ivan Shishkin",
+    "year": "1878",
+    "width_px": 1024,
+    "height_px": 577,
+    "source_url": "https://commons.wikimedia.org/wiki/File:Ivan_Shishkin_-_%D0%A0%D0%BE%D0%B6%D1%8C_-_Google_Art_Project.jpg",
+    "licence": "Public domain (Wikimedia Commons: Public domain)",
+    "suggested_rooms": [
+      "living room",
+      "dining room"
+    ]
+  },
+  {
+    "slug": "sisley_street_in_moret",
+    "title": "Street in Moret",
+    "artist": "Alfred Sisley",
+    "year": "c. 1890",
+    "width_px": 1024,
+    "height_px": 817,
+    "source_url": "https://www.artic.edu/artworks/81561",
+    "licence": "Public domain (Art Institute of Chicago, CC0 open access)",
+    "suggested_rooms": [
+      "entry hall",
+      "study"
+    ]
+  },
+  {
+    "slug": "sunflowers",
+    "title": "Sunflowers",
+    "artist": "Vincent van Gogh",
+    "year": "1888",
+    "width_px": 812,
+    "height_px": 1024,
+    "source_url": "https://commons.wikimedia.org/wiki/File:Vincent_Willem_van_Gogh_127.jpg",
+    "licence": "Public domain (Wikimedia Commons). Pre-existing file; source identified after the fact by matching aspect ratio, so treat the exact file as probable.",
+    "suggested_rooms": [
+      "dining room",
+      "kitchen"
+    ]
+  },
+  {
+    "slug": "the_kiss",
+    "title": "The Kiss (Lovers)",
+    "artist": "Gustav Klimt",
+    "year": "1907-08",
+    "width_px": 1021,
+    "height_px": 1024,
+    "source_url": "https://commons.wikimedia.org/wiki/File:The_Kiss_-_Gustav_Klimt_-_Google_Cultural_Institute.jpg",
+    "licence": "Public domain (Wikimedia Commons). Pre-existing file; source identified after the fact by matching aspect ratio, so treat the exact file as probable.",
+    "suggested_rooms": [
+      "primary bedroom"
+    ]
+  },
+  {
+    "slug": "van_gogh_almond_blossom",
+    "title": "Almond Blossom",
+    "artist": "Vincent van Gogh",
+    "year": "1890",
+    "width_px": 1024,
+    "height_px": 809,
+    "source_url": "https://commons.wikimedia.org/wiki/File:Vincent_van_Gogh_-_Almond_blossom_-_Google_Art_Project.jpg",
+    "licence": "Public domain (Wikimedia Commons: Public domain)",
+    "suggested_rooms": [
+      "primary bedroom",
+      "nursery/guest bedroom"
+    ]
+  },
+  {
+    "slug": "van_gogh_bedroom",
+    "title": "The Bedroom",
+    "artist": "Vincent van Gogh",
+    "year": "1889",
+    "width_px": 1024,
+    "height_px": 802,
+    "source_url": "https://www.artic.edu/artworks/28560",
+    "licence": "Public domain (Art Institute of Chicago, CC0 open access)",
+    "suggested_rooms": [
+      "guest bedroom",
+      "primary bedroom"
+    ]
+  },
+  {
+    "slug": "van_gogh_grapes_lemons",
+    "title": "Grapes, Lemons, Pears, and Apples",
+    "artist": "Vincent van Gogh",
+    "year": "1887",
+    "width_px": 1024,
+    "height_px": 848,
+    "source_url": "https://www.artic.edu/artworks/64957",
+    "licence": "Public domain (Art Institute of Chicago, CC0 open access)",
+    "suggested_rooms": [
+      "kitchen"
+    ]
+  },
+  {
+    "slug": "vermeer_little_street",
+    "title": "The Little Street",
+    "artist": "Johannes Vermeer",
+    "year": "c. 1658",
+    "width_px": 827,
+    "height_px": 1024,
+    "source_url": "https://commons.wikimedia.org/wiki/File:Johannes_Vermeer_-_Gezicht_op_huizen_in_Delft,_bekend_als_%27Het_straatje%27_-_Google_Art_Project.jpg",
+    "licence": "Public domain (Wikimedia Commons: Public domain)",
+    "suggested_rooms": [
+      "entry hall",
+      "study"
+    ]
+  },
+  {
+    "slug": "vermeer_water_pitcher",
+    "title": "Young Woman with a Water Pitcher",
+    "artist": "Johannes Vermeer",
+    "year": "ca. 1662",
+    "width_px": 909,
+    "height_px": 1024,
+    "source_url": "https://www.metmuseum.org/art/collection/search/437881",
+    "licence": "Public domain (The Met Open Access, CC0)",
+    "suggested_rooms": [
+      "bedroom",
+      "bathroom"
+    ]
+  }
+]

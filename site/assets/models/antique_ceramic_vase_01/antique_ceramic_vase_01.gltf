@@ -1,0 +1,155 @@
+{
+ "asset": {
+  "generator": "Khronos glTF Blender I/O v1.6.16",
+  "version": "2.0"
+ },
+ "scene": 0,
+ "scenes": [
+  {
+   "name": "Scene",
+   "nodes": [
+    0
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "mesh": 0,
+   "name": "antique_ceramic_vase_01"
+  }
+ ],
+ "materials": [
+  {
+   "doubleSided": true,
+   "name": "antique_ceramic_vase_01",
+   "pbrMetallicRoughness": {
+    "baseColorTexture": {
+     "index": 1
+    },
+    "roughnessFactor": 0.111,
+    "metallicFactor": 0.012
+   }
+  }
+ ],
+ "meshes": [
+  {
+   "name": "Cylinder.006",
+   "primitives": [
+    {
+     "material": 0,
+     "attributes": {
+      "POSITION": 0,
+      "NORMAL": 1,
+      "TEXCOORD_0": 2
+     },
+     "indices": 3
+    }
+   ]
+  }
+ ],
+ "textures": [
+  {
+   "sampler": 0,
+   "source": 0
+  },
+  {
+   "sampler": 0,
+   "source": 1
+  },
+  {
+   "sampler": 0,
+   "source": 2
+  }
+ ],
+ "images": [
+  {
+   "mimeType": "image/jpeg",
+   "name": "antique_ceramic_vase_01_nor_gl",
+   "uri": "textures/antique_ceramic_vase_01_nor_gl_1k.jpg"
+  },
+  {
+   "mimeType": "image/jpeg",
+   "name": "antique_ceramic_vase_01_diff",
+   "uri": "textures/antique_ceramic_vase_01_diff_1k.jpg"
+  },
+  {
+   "mimeType": "image/jpeg",
+   "name": "antique_ceramic_vase_01_metal-antique_ceramic_vase_01_rough",
+   "uri": "textures/antique_ceramic_vase_01_arm_1k.jpg"
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 0,
+   "componentType": 5126,
+   "count": 2257,
+   "type": "VEC3",
+   "min": [
+    -0.12771284580230713,
+    -0.0001368989615002647,
+    -0.12771284580230713
+   ],
+   "max": [
+    0.12771283090114594,
+    0.4394439458847046,
+    0.12771283090114594
+   ]
+  },
+  {
+   "bufferView": 1,
+   "componentType": 5126,
+   "count": 2257,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 2,
+   "componentType": 5126,
+   "count": 2257,
+   "type": "VEC2"
+  },
+  {
+   "bufferView": 3,
+   "componentType": 5123,
+   "count": 12000,
+   "type": "SCALAR"
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteOffset": 0,
+   "byteLength": 27084,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 27084,
+   "byteLength": 27084,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 54168,
+   "byteLength": 18056,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 72224,
+   "byteLength": 24000,
+   "target": 34963
+  }
+ ],
+ "samplers": [
+  {
+   "magFilter": 9729,
+   "minFilter": 9987
+  }
+ ],
+ "buffers": [
+  {
+   "uri": "antique_ceramic_vase_01.bin",
+   "byteLength": 96224
+  }
+ ]
+}

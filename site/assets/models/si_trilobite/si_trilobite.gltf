@@ -1,0 +1,159 @@
+{
+ "asset": {
+  "generator": "Khronos glTF Blender I/O v5.3.43",
+  "version": "2.0"
+ },
+ "scene": 0,
+ "scenes": [
+  {
+   "name": "Scene",
+   "nodes": [
+    0
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "mesh": 0,
+   "name": "mesh_0",
+   "rotation": [
+    0.70710688829422,
+    0,
+    0,
+    0.7071066498756409
+   ],
+   "translation": [
+    -0.004523709416389465,
+    0.052469752728939056,
+    0.671165943145752
+   ]
+  }
+ ],
+ "materials": [
+  {
+   "name": "glTFMaterial",
+   "occlusionTexture": {
+    "index": 0
+   },
+   "pbrMetallicRoughness": {
+    "baseColorTexture": {
+     "index": 1
+    },
+    "metallicFactor": 0,
+    "roughnessFactor": 0.6000000238418579
+   }
+  }
+ ],
+ "meshes": [
+  {
+   "name": "mesh_0",
+   "primitives": [
+    {
+     "material": 0,
+     "attributes": {
+      "POSITION": 0,
+      "NORMAL": 1,
+      "TEXCOORD_0": 2
+     },
+     "indices": 3
+    }
+   ]
+  }
+ ],
+ "textures": [
+  {
+   "sampler": 0,
+   "source": 0
+  },
+  {
+   "sampler": 0,
+   "source": 1
+  }
+ ],
+ "images": [
+  {
+   "name": "Coltraneia_oufatenensis_Morzadec__2001-20k-occlusion-webthumb",
+   "uri": "textures/Coltraneia_oufatenensis_Morzadec__2001-20k-occlusion-webthum.jpg",
+   "mimeType": "image/jpeg"
+  },
+  {
+   "name": "Coltraneia_oufatenensis_Morzadec__2001-20k-diffuse-webthumb",
+   "uri": "textures/Coltraneia_oufatenensis_Morzadec__2001-20k-diffuse-webthumb.jpg",
+   "mimeType": "image/jpeg"
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 0,
+   "componentType": 5126,
+   "count": 2777,
+   "type": "VEC3",
+   "min": [
+    -0.12285938858985901,
+    -0.7151291966438293,
+    -0.055270202457904816
+   ],
+   "max": [
+    0.1317991465330124,
+    -0.6274209022521973,
+    0.05257425829768181
+   ]
+  },
+  {
+   "bufferView": 1,
+   "componentType": 5126,
+   "count": 2777,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 2,
+   "componentType": 5126,
+   "count": 2777,
+   "type": "VEC2"
+  },
+  {
+   "bufferView": 3,
+   "componentType": 5123,
+   "count": 9000,
+   "type": "SCALAR"
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteOffset": 0,
+   "byteLength": 33324,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 33324,
+   "byteLength": 33324,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 66648,
+   "byteLength": 22216,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 88864,
+   "byteLength": 18000,
+   "target": 34963
+  }
+ ],
+ "samplers": [
+  {
+   "magFilter": 9729,
+   "minFilter": 9987
+  }
+ ],
+ "buffers": [
+  {
+   "uri": "si_trilobite.bin",
+   "byteLength": 106864
+  }
+ ]
+}

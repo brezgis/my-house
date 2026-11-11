@@ -1,0 +1,155 @@
+{
+ "asset": {
+  "generator": "Khronos glTF Blender I/O v5.3.43",
+  "version": "2.0"
+ },
+ "scene": 0,
+ "scenes": [
+  {
+   "name": "Scene",
+   "nodes": [
+    0
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "mesh": 0,
+   "name": "lambis_shell"
+  }
+ ],
+ "materials": [
+  {
+   "doubleSided": true,
+   "name": "lambis_shell",
+   "pbrMetallicRoughness": {
+    "baseColorTexture": {
+     "index": 1
+    },
+    "roughnessFactor": 0.405,
+    "metallicFactor": 0.163
+   }
+  }
+ ],
+ "meshes": [
+  {
+   "name": "mesh",
+   "primitives": [
+    {
+     "attributes": {
+      "POSITION": 0,
+      "NORMAL": 1,
+      "TEXCOORD_0": 2
+     },
+     "indices": 3,
+     "material": 0
+    }
+   ]
+  }
+ ],
+ "textures": [
+  {
+   "sampler": 0,
+   "source": 0
+  },
+  {
+   "sampler": 0,
+   "source": 1
+  },
+  {
+   "sampler": 0,
+   "source": 2
+  }
+ ],
+ "images": [
+  {
+   "name": "lambis_shell_nor_gl_1k",
+   "uri": "textures/lambis_shell_nor_gl_1k.jpg",
+   "mimeType": "image/jpeg"
+  },
+  {
+   "name": "lambis_shell_diff_1k",
+   "uri": "textures/lambis_shell_diff_1k.jpg",
+   "mimeType": "image/jpeg"
+  },
+  {
+   "name": "lambis_shell_arm_1k",
+   "uri": "textures/lambis_shell_arm_1k.jpg",
+   "mimeType": "image/jpeg"
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 0,
+   "componentType": 5126,
+   "count": 3944,
+   "max": [
+    0.06778253614902496,
+    0.04649100825190544,
+    0.040952399373054504
+   ],
+   "min": [
+    -0.07165389508008957,
+    -1.1468463299024734e-06,
+    -0.03365020453929901
+   ],
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 1,
+   "componentType": 5126,
+   "count": 3944,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 2,
+   "componentType": 5126,
+   "count": 3944,
+   "type": "VEC2"
+  },
+  {
+   "bufferView": 3,
+   "componentType": 5123,
+   "count": 17997,
+   "type": "SCALAR"
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteLength": 47328,
+   "byteOffset": 0,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 47328,
+   "byteOffset": 47328,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 31552,
+   "byteOffset": 94656,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 35994,
+   "byteOffset": 126208,
+   "target": 34963
+  }
+ ],
+ "samplers": [
+  {
+   "magFilter": 9729,
+   "minFilter": 9987
+  }
+ ],
+ "buffers": [
+  {
+   "byteLength": 162204,
+   "uri": "lambis_shell.bin"
+  }
+ ]
+}

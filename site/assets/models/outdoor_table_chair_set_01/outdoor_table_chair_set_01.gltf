@@ -1,0 +1,367 @@
+{
+ "asset": {
+  "generator": "Khronos glTF Blender I/O v1.6.16",
+  "version": "2.0"
+ },
+ "scene": 0,
+ "scenes": [
+  {
+   "name": "Scene",
+   "nodes": [
+    0,
+    1,
+    2
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "mesh": 0,
+   "name": "outdoor_table_chair_set_01_chair_01",
+   "rotation": [
+    0,
+    0.12110016494989395,
+    0,
+    0.9926403164863586
+   ]
+  },
+  {
+   "mesh": 1,
+   "name": "outdoor_table_chair_set_01_table"
+  },
+  {
+   "mesh": 2,
+   "name": "outdoor_table_chair_set_01_chair_02",
+   "rotation": [
+    0,
+    0.13368111848831177,
+    0,
+    0.991024374961853
+   ]
+  }
+ ],
+ "materials": [
+  {
+   "doubleSided": true,
+   "name": "outdoor_table_chair_set_01_chair",
+   "normalTexture": {
+    "index": 0
+   },
+   "pbrMetallicRoughness": {
+    "baseColorTexture": {
+     "index": 1
+    },
+    "metallicRoughnessTexture": {
+     "index": 2
+    }
+   }
+  },
+  {
+   "doubleSided": true,
+   "name": "outdoor_table_chair_set_01_table",
+   "normalTexture": {
+    "index": 3
+   },
+   "pbrMetallicRoughness": {
+    "baseColorTexture": {
+     "index": 4
+    },
+    "metallicRoughnessTexture": {
+     "index": 5
+    }
+   }
+  }
+ ],
+ "meshes": [
+  {
+   "name": "Folding_Chair_Wood",
+   "primitives": [
+    {
+     "material": 0,
+     "attributes": {
+      "POSITION": 0,
+      "NORMAL": 1,
+      "TEXCOORD_0": 2
+     },
+     "indices": 3
+    }
+   ]
+  },
+  {
+   "name": "Folding_Table_Wood.001",
+   "primitives": [
+    {
+     "material": 1,
+     "attributes": {
+      "POSITION": 4,
+      "NORMAL": 5,
+      "TEXCOORD_0": 6
+     },
+     "indices": 7
+    }
+   ]
+  },
+  {
+   "name": "Folding_Chair_Wood.001",
+   "primitives": [
+    {
+     "material": 0,
+     "attributes": {
+      "POSITION": 8,
+      "NORMAL": 9,
+      "TEXCOORD_0": 10
+     },
+     "indices": 11
+    }
+   ]
+  }
+ ],
+ "textures": [
+  {
+   "sampler": 0,
+   "source": 0
+  },
+  {
+   "sampler": 0,
+   "source": 1
+  },
+  {
+   "sampler": 0,
+   "source": 2
+  },
+  {
+   "sampler": 0,
+   "source": 3
+  },
+  {
+   "sampler": 0,
+   "source": 4
+  },
+  {
+   "sampler": 0,
+   "source": 5
+  }
+ ],
+ "images": [
+  {
+   "mimeType": "image/jpeg",
+   "name": "outdoor_table_chair_set_01_chair_nor_gl",
+   "uri": "textures/outdoor_table_chair_set_01_chair_nor_gl_1k.jpg"
+  },
+  {
+   "mimeType": "image/jpeg",
+   "name": "outdoor_table_chair_set_01_chair_diff",
+   "uri": "textures/outdoor_table_chair_set_01_chair_diff_1k.jpg"
+  },
+  {
+   "mimeType": "image/jpeg",
+   "name": "outdoor_table_chair_set_01_chair_metal-outdoor_table_chair_set_01_chair_rough",
+   "uri": "textures/outdoor_table_chair_set_01_chair_arm_1k.jpg"
+  },
+  {
+   "mimeType": "image/jpeg",
+   "name": "outdoor_table_chair_set_01_table_nor_gl",
+   "uri": "textures/outdoor_table_chair_set_01_table_nor_gl_1k.jpg"
+  },
+  {
+   "mimeType": "image/jpeg",
+   "name": "outdoor_table_chair_set_01_table_diff",
+   "uri": "textures/outdoor_table_chair_set_01_table_diff_1k.jpg"
+  },
+  {
+   "mimeType": "image/jpeg",
+   "name": "outdoor_table_chair_set_01_table_metal-outdoor_table_chair_set_01_table_rough",
+   "uri": "textures/outdoor_table_chair_set_01_table_arm_1k.jpg"
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 0,
+   "componentType": 5126,
+   "count": 2587,
+   "type": "VEC3",
+   "min": [
+    -0.34395384788513184,
+    -0.0060634249821305275,
+    0.2645845413208008
+   ],
+   "max": [
+    0.12660439312458038,
+    0.8522489070892334,
+    0.8637667894363403
+   ]
+  },
+  {
+   "bufferView": 1,
+   "componentType": 5126,
+   "count": 2587,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 2,
+   "componentType": 5126,
+   "count": 2587,
+   "type": "VEC2"
+  },
+  {
+   "bufferView": 3,
+   "componentType": 5123,
+   "count": 6870,
+   "type": "SCALAR"
+  },
+  {
+   "bufferView": 4,
+   "componentType": 5126,
+   "count": 1792,
+   "type": "VEC3",
+   "min": [
+    -0.4255073368549347,
+    -4.1690427110552264e-08,
+    -0.2748631536960602
+   ],
+   "max": [
+    0.2661757171154022,
+    0.7259218692779541,
+    0.41698747873306274
+   ]
+  },
+  {
+   "bufferView": 5,
+   "componentType": 5126,
+   "count": 1792,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 6,
+   "componentType": 5126,
+   "count": 1792,
+   "type": "VEC2"
+  },
+  {
+   "bufferView": 7,
+   "componentType": 5123,
+   "count": 4254,
+   "type": "SCALAR"
+  },
+  {
+   "bufferView": 8,
+   "componentType": 5126,
+   "count": 2585,
+   "type": "VEC3",
+   "min": [
+    -0.23049524426460266,
+    -0.006063422188162804,
+    -0.8425913453102112
+   ],
+   "max": [
+    0.3673396408557892,
+    0.8522489070892334,
+    -0.17118015885353088
+   ]
+  },
+  {
+   "bufferView": 9,
+   "componentType": 5126,
+   "count": 2585,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 10,
+   "componentType": 5126,
+   "count": 2585,
+   "type": "VEC2"
+  },
+  {
+   "bufferView": 11,
+   "componentType": 5123,
+   "count": 6867,
+   "type": "SCALAR"
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteOffset": 0,
+   "byteLength": 31044,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 31044,
+   "byteLength": 31044,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 62088,
+   "byteLength": 20696,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 82784,
+   "byteLength": 13740,
+   "target": 34963
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 96524,
+   "byteLength": 21504,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 118028,
+   "byteLength": 21504,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 139532,
+   "byteLength": 14336,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 153868,
+   "byteLength": 8508,
+   "target": 34963
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 162376,
+   "byteLength": 31020,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 193396,
+   "byteLength": 31020,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 224416,
+   "byteLength": 20680,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 245096,
+   "byteLength": 13734,
+   "target": 34963
+  }
+ ],
+ "samplers": [
+  {
+   "magFilter": 9729,
+   "minFilter": 9987
+  }
+ ],
+ "buffers": [
+  {
+   "uri": "outdoor_table_chair_set_01.bin",
+   "byteLength": 258830
+  }
+ ]
+}

@@ -1,0 +1,155 @@
+{
+ "asset": {
+  "generator": "Khronos glTF Blender I/O v4.1.62",
+  "version": "2.0"
+ },
+ "scene": 0,
+ "scenes": [
+  {
+   "name": "Scene",
+   "nodes": [
+    0
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "mesh": 0,
+   "name": "metal_jug"
+  }
+ ],
+ "materials": [
+  {
+   "doubleSided": true,
+   "name": "metal_jug",
+   "pbrMetallicRoughness": {
+    "baseColorTexture": {
+     "index": 1
+    },
+    "metallicFactor": 0.0,
+    "roughnessFactor": 0.786
+   }
+  }
+ ],
+ "meshes": [
+  {
+   "name": "Cylinder.001",
+   "primitives": [
+    {
+     "material": 0,
+     "attributes": {
+      "POSITION": 0,
+      "NORMAL": 1,
+      "TEXCOORD_0": 2
+     },
+     "indices": 3
+    }
+   ]
+  }
+ ],
+ "textures": [
+  {
+   "sampler": 0,
+   "source": 0
+  },
+  {
+   "sampler": 0,
+   "source": 1
+  },
+  {
+   "sampler": 0,
+   "source": 2
+  }
+ ],
+ "images": [
+  {
+   "name": "metal_jug_nor_gl",
+   "uri": "textures/metal_jug_nor_gl.jpg",
+   "mimeType": "image/jpeg"
+  },
+  {
+   "name": "metal_jug_diff",
+   "uri": "textures/metal_jug_diff.jpg",
+   "mimeType": "image/jpeg"
+  },
+  {
+   "name": "metal_jug_rough",
+   "uri": "textures/metal_jug_rough.jpg",
+   "mimeType": "image/jpeg"
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 0,
+   "componentType": 5126,
+   "count": 1799,
+   "type": "VEC3",
+   "min": [
+    -0.09817837178707123,
+    -0.00012543857155833393,
+    -0.09792434424161911
+   ],
+   "max": [
+    0.0987076610326767,
+    0.28743499517440796,
+    0.09792428463697433
+   ]
+  },
+  {
+   "bufferView": 1,
+   "componentType": 5126,
+   "count": 1799,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 2,
+   "componentType": 5126,
+   "count": 1799,
+   "type": "VEC2"
+  },
+  {
+   "bufferView": 3,
+   "componentType": 5123,
+   "count": 9000,
+   "type": "SCALAR"
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteOffset": 0,
+   "byteLength": 21588,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 21588,
+   "byteLength": 21588,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 43176,
+   "byteLength": 14392,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 57568,
+   "byteLength": 18000,
+   "target": 34963
+  }
+ ],
+ "samplers": [
+  {
+   "magFilter": 9729,
+   "minFilter": 9987
+  }
+ ],
+ "buffers": [
+  {
+   "uri": "metal_jug.bin",
+   "byteLength": 75568
+  }
+ ]
+}

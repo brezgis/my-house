@@ -1,0 +1,7 @@
+# Working material that stays on the build machine: test screenshots, originals of
+# downloaded assets, private notes. The cited source drawings are kept.
+research/*
+!research/drawings/
+tools/local.env
+.DS_Store
+__pycache__/

@@ -1,0 +1,164 @@
+{
+ "asset": {
+  "generator": "Khronos glTF Blender I/O v5.3.43",
+  "version": "2.0"
+ },
+ "scene": 0,
+ "scenes": [
+  {
+   "name": "Scene",
+   "nodes": [
+    1
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "mesh": 0,
+   "name": "Mesh_0",
+   "translation": [
+    601.743896484375,
+    -43.18978500366211,
+    42.17034912109375
+   ]
+  },
+  {
+   "name": "unit_fix",
+   "scale": [
+    0.001,
+    0.001,
+    0.001
+   ],
+   "children": [
+    0
+   ]
+  }
+ ],
+ "materials": [
+  {
+   "name": "default",
+   "occlusionTexture": {
+    "index": 0
+   },
+   "pbrMetallicRoughness": {
+    "baseColorTexture": {
+     "index": 1
+    },
+    "metallicFactor": 0.10000000149011612,
+    "roughnessFactor": 0.800000011920929
+   }
+  }
+ ],
+ "meshes": [
+  {
+   "name": "Mesh_0",
+   "primitives": [
+    {
+     "material": 0,
+     "attributes": {
+      "POSITION": 0,
+      "NORMAL": 1,
+      "TEXCOORD_0": 2
+     },
+     "indices": 3
+    }
+   ]
+  }
+ ],
+ "textures": [
+  {
+   "sampler": 0,
+   "source": 0
+  },
+  {
+   "sampler": 0,
+   "source": 1
+  }
+ ],
+ "images": [
+  {
+   "name": "Image_1",
+   "uri": "textures/Image_1.jpg",
+   "mimeType": "image/jpeg"
+  },
+  {
+   "name": "Image_0",
+   "uri": "textures/Image_0.jpg",
+   "mimeType": "image/jpeg"
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 0,
+   "componentType": 5126,
+   "count": 3861,
+   "type": "VEC3",
+   "min": [
+    -848.2279052734375,
+    43.23712921142578,
+    -249.55206298828125
+   ],
+   "max": [
+    -354.5212707519531,
+    912.3177490234375,
+    162.1509246826172
+   ]
+  },
+  {
+   "bufferView": 1,
+   "componentType": 5126,
+   "count": 3861,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 2,
+   "componentType": 5126,
+   "count": 3861,
+   "type": "VEC2"
+  },
+  {
+   "bufferView": 3,
+   "componentType": 5123,
+   "count": 11997,
+   "type": "SCALAR"
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteOffset": 0,
+   "byteLength": 46332,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 46332,
+   "byteLength": 46332,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 92664,
+   "byteLength": 30888,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 123552,
+   "byteLength": 23994,
+   "target": 34963
+  }
+ ],
+ "samplers": [
+  {
+   "magFilter": 9729,
+   "minFilter": 9987
+  }
+ ],
+ "buffers": [
+  {
+   "uri": "si_kneeling_winged_monster.bin",
+   "byteLength": 147546
+  }
+ ]
+}

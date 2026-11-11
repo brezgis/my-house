@@ -1,0 +1,188 @@
+{
+ "asset": {
+  "generator": "Khronos glTF Blender I/O v5.3.43",
+  "version": "2.0"
+ },
+ "scene": 0,
+ "scenes": [
+  {
+   "name": "Scene",
+   "nodes": [
+    0
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "mesh": 0,
+   "name": "Model",
+   "translation": [
+    0.002104891464114189,
+    -0.0001668296754360199,
+    -0.0009814389050006866
+   ]
+  }
+ ],
+ "materials": [
+  {
+   "doubleSided": true,
+   "name": "Material",
+   "pbrMetallicRoughness": {
+    "baseColorTexture": {
+     "index": 1
+    },
+    "metallicFactor": 0.0,
+    "roughnessFactor": 0.633
+   }
+  }
+ ],
+ "meshes": [
+  {
+   "name": "Model.002",
+   "primitives": [
+    {
+     "attributes": {
+      "POSITION": 0,
+      "NORMAL": 1,
+      "TEXCOORD_0": 2,
+      "COLOR_0": 3,
+      "COLOR_1": 4
+     },
+     "indices": 5,
+     "material": 0
+    }
+   ]
+  }
+ ],
+ "textures": [
+  {
+   "sampler": 0,
+   "source": 0
+  },
+  {
+   "sampler": 0,
+   "source": 1
+  },
+  {
+   "sampler": 0,
+   "source": 2
+  }
+ ],
+ "images": [
+  {
+   "name": "3D_duck_01_normal_1K",
+   "uri": "textures/3D_duck_01_normal_1K.jpg",
+   "mimeType": "image/jpeg"
+  },
+  {
+   "name": "3D_duck_01_basecolor_1K",
+   "uri": "textures/3D_duck_01_basecolor_1K.jpg",
+   "mimeType": "image/jpeg"
+  },
+  {
+   "name": "3D_duck_01_roughness_1K",
+   "uri": "textures/3D_duck_01_roughness_1K.jpg",
+   "mimeType": "image/jpeg"
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 0,
+   "componentType": 5126,
+   "count": 4084,
+   "max": [
+    0.055764090269804,
+    0.12063120305538177,
+    0.034859586507081985
+   ],
+   "min": [
+    -0.05997387319803238,
+    0.0001668296754360199,
+    -0.03289670869708061
+   ],
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 1,
+   "componentType": 5126,
+   "count": 4084,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 2,
+   "componentType": 5126,
+   "count": 4084,
+   "type": "VEC2"
+  },
+  {
+   "bufferView": 3,
+   "componentType": 5121,
+   "count": 4084,
+   "normalized": true,
+   "type": "VEC4"
+  },
+  {
+   "bufferView": 4,
+   "componentType": 5123,
+   "count": 4084,
+   "normalized": true,
+   "type": "VEC4"
+  },
+  {
+   "bufferView": 5,
+   "componentType": 5123,
+   "count": 18000,
+   "type": "SCALAR"
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteLength": 49008,
+   "byteOffset": 0,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 49008,
+   "byteOffset": 49008,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 32672,
+   "byteOffset": 98016,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 16336,
+   "byteOffset": 130688,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 32672,
+   "byteOffset": 147024,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 36000,
+   "byteOffset": 179696,
+   "target": 34963
+  }
+ ],
+ "samplers": [
+  {
+   "magFilter": 9729,
+   "minFilter": 9987
+  }
+ ],
+ "buffers": [
+  {
+   "byteLength": 215696,
+   "uri": "st_duck_decoy.bin"
+  }
+ ]
+}

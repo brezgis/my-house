@@ -1,0 +1,159 @@
+{
+ "asset": {
+  "generator": "Khronos glTF Blender I/O v3.3.32",
+  "version": "2.0"
+ },
+ "scene": 0,
+ "scenes": [
+  {
+   "name": "Scene",
+   "nodes": [
+    0
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "mesh": 0,
+   "name": "garden_gnome"
+  }
+ ],
+ "materials": [
+  {
+   "doubleSided": true,
+   "name": "garden_gnome_01",
+   "normalTexture": {
+    "index": 0
+   },
+   "pbrMetallicRoughness": {
+    "baseColorTexture": {
+     "index": 1
+    },
+    "metallicRoughnessTexture": {
+     "index": 2
+    }
+   }
+  }
+ ],
+ "meshes": [
+  {
+   "name": "garden_gnome_01",
+   "primitives": [
+    {
+     "material": 0,
+     "attributes": {
+      "POSITION": 0,
+      "NORMAL": 1,
+      "TEXCOORD_0": 2
+     },
+     "indices": 3
+    }
+   ]
+  }
+ ],
+ "textures": [
+  {
+   "sampler": 0,
+   "source": 0
+  },
+  {
+   "sampler": 0,
+   "source": 1
+  },
+  {
+   "sampler": 0,
+   "source": 2
+  }
+ ],
+ "images": [
+  {
+   "mimeType": "image/jpeg",
+   "name": "garden_gnome_nor_gl",
+   "uri": "textures/garden_gnome_nor_gl_1k.jpg"
+  },
+  {
+   "mimeType": "image/jpeg",
+   "name": "garden_gnome_diff",
+   "uri": "textures/garden_gnome_diff_1k.jpg"
+  },
+  {
+   "mimeType": "image/jpeg",
+   "name": "garden_gnome_metal-garden_gnome_rough",
+   "uri": "textures/garden_gnome_arm_1k.jpg"
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 0,
+   "componentType": 5126,
+   "count": 3687,
+   "type": "VEC3",
+   "min": [
+    -0.14380550384521484,
+    4.159222953603603e-06,
+    -0.09822571277618408
+   ],
+   "max": [
+    0.11408481746912003,
+    0.5989997386932373,
+    0.11213694512844086
+   ]
+  },
+  {
+   "bufferView": 1,
+   "componentType": 5126,
+   "count": 3687,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 2,
+   "componentType": 5126,
+   "count": 3687,
+   "type": "VEC2"
+  },
+  {
+   "bufferView": 3,
+   "componentType": 5123,
+   "count": 17997,
+   "type": "SCALAR"
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteOffset": 0,
+   "byteLength": 44244,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 44244,
+   "byteLength": 44244,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 88488,
+   "byteLength": 29496,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 117984,
+   "byteLength": 35994,
+   "target": 34963
+  }
+ ],
+ "samplers": [
+  {
+   "magFilter": 9729,
+   "minFilter": 9987
+  }
+ ],
+ "buffers": [
+  {
+   "uri": "garden_gnome.bin",
+   "byteLength": 153978
+  }
+ ]
+}

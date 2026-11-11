@@ -1,0 +1,195 @@
+<!doctype html><meta charset="utf-8"><title>staff test</title>
+<script type="importmap">{ "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
+</script>
+<style>body { font: 13px/1.4 ui-monospace, monospace; margin: 16px; } pre { white-space: pre-wrap; }</style>
+<pre id="out">running</pre>
+<script type="module">
+// Headless logic test for the household (src/staff.js). Builds the house and its
+// furniture (no rendering), hires the staff, then runs the simulation for a few
+// minutes with a visitor who wanders from room to room, asks for drinks and pets
+// cats. Reports where everyone is, what they did, and whether anyone was ever
+// found inside a wall or a piece of furniture.  ?mins=6  ?seed=7  ?hour=15
+import * as THREE from 'three';
+import { Builder } from './src/builder.js';
+import { buildHouse } from './src/house.js';
+import { furnish } from './src/furnish.js';
+import { makeMaterials } from './src/materials.js';
+import { bringToLife } from './src/life.js';
+import { plantGarden, TREES } from './src/garden.js';
+import { makeTrees } from './src/trees.js';
+
+const Q = new URLSearchParams(location.search), out = document.getElementById('out');
+const errors = [];
+addEventListener('error', e => errors.push(String(e.message)));
+addEventListener('unhandledrejection', e => errors.push(String(e.reason)));
+console.warn = (...a) => errors.push('warn: ' + a.join(' '));
+// ?poses: the cast on a plain floor, for checking bodies and poses quickly.  ?poses=side for a side view
+async function poses() {
+  const { useThree, buildRobot } = await import('./src/staff/models.js');
+  const { useThreeDrinks, buildDrink, MENU } = await import('./src/staff/drinks.js');
+  useThree(THREE); useThreeDrinks(THREE);
+  out.remove(); document.body.style.margin = 0;
+  const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(innerWidth, innerHeight); r.toneMapping = THREE.ACESFilmicToneMapping; document.body.appendChild(r.domElement);
+  const sc = new THREE.Scene(); sc.background = new THREE.Color(0xd9d2c4);
+  sc.add(new THREE.HemisphereLight(0xfff4e6, 0x8a7a66, 1.6)); const sun = new THREE.DirectionalLight(0xfff0dc, 2.2); sun.position.set(5, 10, 8); sc.add(sun);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshStandardMaterial({ color: 0xb59a78, roughness: 0.9 })); floor.rotation.x = -Math.PI / 2; sc.add(floor);
+  const cam = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.05, 200);
+  if (Q.get('poses') === 'drinks') {
+    MENU.forEach((d, i) => { const g = buildDrink(d); g.position.set((i - (MENU.length - 1) / 2) * 0.45, 0, 0); sc.add(g); });
+    cam.position.set(0, 0.9, 3.2); cam.lookAt(0, 0.12, 0);
+  } else if (Q.get('poses') === 'garden') {
+    const { buildGardener, buildBarrow } = await import('./src/staff/models.js');
+    ['bramble', 'thistle'].forEach((k, i) => { const b = buildGardener(k); b.root.position.set((i - 0.5) * 3.4, 0, -5); sc.add(b.root); b.face.draw(['happy', 'neutral'][i]); });
+    const w = buildBarrow(); w.position.set(4.2, 0, -5.5); w.rotation.y = -0.8; sc.add(w);
+    cam.position.set(0, 4.6, 6); cam.lookAt(0, 2.6, -5);
+  } else {
+    ['barty', 'mort', 'fig'].forEach((k, i) => { const b = buildRobot(k); b.root.position.set((i - 1) * 3.2, 0, -5); sc.add(b.root); b.face.draw(['sass', 'neutral', 'happy'][i]); });
+    cam.position.set(0, 5.2, 7); cam.lookAt(0, 3, -5);
+  }
+  r.render(sc, cam);
+}
+async function runTest() {
+const B = new Builder(), house = buildHouse(B), items = furnish(B, house), garden = plantGarden(B, items);
+const renderer = new THREE.WebGLRenderer({ canvas: document.createElement('canvas') });
+const materials = makeMaterials(renderer), scene = new THREE.Scene();
+makeTrees(scene, materials, B.colliders, TREES);
+const life = bringToLife({ scene, renderer, items, garden, materials, doors: house.doors, colliders: B.colliders, onChange() {} });
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+let last = -1, stable = 0;
+for (let i = 0; i < 160 && stable < 8; i++) { await sleep(250); const n = scene.children.length + B.colliders.length; stable = n === last ? stable + 1 : 0; last = n; }
+
+const { hireStaff } = await import('./src/staff.js');
+const camera = new THREE.PerspectiveCamera(56, 1.6, 0.25, 500);
+const walker = { pos: new THREE.Vector3(), yaw: 0, pitch: 0, seated: null };
+const day = { light: 1, night: 0, hour: Number(Q.get('hour') ?? 10) };
+const ctx = { THREE, scene, camera, renderer, materials, house, items, garden, colliders: B.colliders, interact: life.interact, animated: life.animated, loadModel: life.loadModel, sound: null, day, walker, mode: 'walk', headless: true, seed: Number(Q.get('seed') ?? 7) };
+const staff = hireStaff(ctx), H = staff.H, nav = staff.nav;
+const T = Number(Q.get('mins') ?? 10) * 60;
+const rnd = (() => { let s = 99; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+
+// The visitor arrives at the spawn (just inside the front door), then walks room to room
+const P = (X, Y, f = 0) => ({ x: X - 21.665, z: -Y, f });
+const stations = [P(9.5, 9), P(35, 4.5), P(34, 20), P(36.5, 27), P(24.5, 30), P(22, 4, 1), P(8, 24, 1), P(10, 9.5), P(22, 12)];
+// then out into the garden (world feet)
+const gardenStops = [{ x: 2, z: 40 }, { x: -48, z: 6 }, { x: 46, z: -75 }, { x: 85, z: -92 }, { x: -60, z: -68 }, { x: -9, z: -142 }, { x: -88, z: -108 }, { x: 30, z: -52 }];
+let outside = false, gs = 0;
+const sp = house.spawn; walker.pos.set(sp.x, nav.floorY(0, sp.x, sp.z), sp.z); walker.yaw = sp.yaw ?? 0;
+let st = 0, dwellUntil = 20, path = null, pi = 0;
+const look = () => { camera.position.set(walker.pos.x, walker.pos.y + 4.85, walker.pos.z); camera.rotation.set(-0.08, walker.yaw, 0, 'YXZ'); camera.updateMatrixWorld(); };
+function walk(dt, t) {
+  if (!outside && t > T * 0.45) { outside = true; path = null; walker.pos.set(2, 0.05, 30); dwellUntil = t + 10; }
+  if (outside) {
+    if (!path) {
+      if (t < dwellUntil) { walker.yaw += Math.sin(t * 0.37) * dt * 0.4; return; }
+      const s = gardenStops[gs++ % gardenStops.length]; path = H.out.path(0, walker.pos.x, walker.pos.z, 0, s.x, s.z, 0.8); pi = 1;
+      if (!path) { dwellUntil = t + 5; return; }
+    }
+    const p = path[pi]; if (!p) { path = null; dwellUntil = t + 15 + rnd() * 15; return; }
+    const dx = p.x - walker.pos.x, dz = p.z - walker.pos.z, L = Math.hypot(dx, dz), stepL = 4.5 * dt;
+    walker.yaw = Math.atan2(-dx, -dz);
+    if (L < stepL) { walker.pos.x = p.x; walker.pos.z = p.z; pi++; } else { walker.pos.x += dx / L * stepL; walker.pos.z += dz / L * stepL; }
+    walker.pos.y = 0.05; return;
+  }
+  if (!path) {
+    if (t < dwellUntil) { walker.yaw += Math.sin(t * 0.37) * dt * 0.4; return; }
+    const s = stations[st++ % stations.length], f0 = nav.floorOf(walker.pos.y + 0.5);
+    path = nav.path(f0, walker.pos.x, walker.pos.z, s.f, s.x, s.z, 1, true); pi = 1;
+    if (!path) { dwellUntil = t + 5; return; }
+  }
+  const p = path[pi]; if (!p) { path = null; dwellUntil = t + 15 + rnd() * 15; return; }
+  const dx = p.x - walker.pos.x, dz = p.z - walker.pos.z, L = Math.hypot(dx, dz), stepL = 4.5 * dt;
+  for (const d of house.doors) if (!d.fixed && !d.isOpen && Math.hypot(d.cx - walker.pos.x, d.cz - walker.pos.z) < 2.5) { d.isOpen = true; d.stop.off = true; }
+  walker.yaw = Math.atan2(-dx, -dz);
+  if (L < stepL) { walker.pos.x = p.x; walker.pos.z = p.z; pi++; } else { walker.pos.x += dx / L * stepL; walker.pos.z += dz / L * stepL; }
+  const stairs = p.f !== nav.floorOf(walker.pos.y + 0.5) || (path[pi - 1] && path[pi - 1].f !== p.f);
+  walker.pos.y = stairs ? (nav.stair && walker.pos.z < nav.stair.zHi ? nav.FLOORS[1] : nav.floorY(0, walker.pos.x, walker.pos.z)) : nav.FLOORS[p.f];
+}
+
+const DT = 1 / 20;
+const who = [...H.robots, ...H.gardeners, H.roomba];
+const stats = new Map(who.map(a => [a, { dist: 0, px: a.x, pz: a.z, tasks: new Map(), bad: 0 }]));
+let violations = 0, ordered = 0, nextTalk = 25, choosing = null;
+const firstBad = [];
+const M = { ghostD: [], engagedFrames: 0, facingOk: 0, stillOk: 0, hostD: [], othersClose: 0, othersFrames: 0, doorBlock: 0, engageStart: new Map() };
+for (let t = 0; t < T; t += DT) {
+  if (t > T * 0.78) { day.hour = 22.5; day.light = 0.1; day.night = 0.9; }
+  walk(DT, t); look();
+  staff.step(DT);
+  const v = H.visitor;
+  // take a drink that is offered
+  for (const r of [...H.robots, ...H.gardeners]) if (r.carrying && r.forGuest && r.visitorDist() < 4.6 && rnd() < DT / 2) r.act();
+  // talk to the nearest robot now and then, through the card
+  if (choosing && t > choosing.at) {
+    const opts = H.talk.options; if (H.talk.robot && opts.length) {
+      const drinkFirst = !v.holding && ![...H.robots, ...H.gardeners].some(r => r.fetching || r.carrying) && ordered < 6;
+      const i = drinkFirst ? 0 : Math.min(opts.length - 1, 1 + Math.floor(rnd() * (opts.length - 1)));
+      if (/please\.$/.test(opts[i].text)) ordered++;
+      H.talk.choose(i);
+      choosing = H.talk.robot ? { at: t + 1.5 } : null;
+    } else choosing = null;
+  }
+  if (!choosing && t > nextTalk) {
+    const r = [...H.robots, ...H.gardeners].filter(r => r.visitorDist() < 9 && !r.carrying).sort((a, b) => a.visitorDist() - b.visitorDist())[0];
+    if (r) { r.act(); choosing = { at: t + 1.2 }; nextTalk = t + 30 + rnd() * 30; }
+  }
+  // measurements
+  for (const r of [...H.robots, ...H.gardeners]) {
+    const d = r.visitorDist();
+    if (r.engaged && d < 12 && r.taskName !== 'deliver') {
+      if (!M.engageStart.has(r)) M.engageStart.set(r, t);
+      if (t - M.engageStart.get(r) > 1.5) {
+        M.engagedFrames++;
+        let a = Math.atan2(v.x - r.x, v.z - r.z) - r.m.yaw; a = Math.abs(Math.atan2(Math.sin(a), Math.cos(a)));
+        if (a < 0.45) M.facingOk++; if (r.m.v < 0.15) M.stillOk++;
+      }
+    } else M.engageStart.delete(r);
+    if (r === H.host && ['host', 'greet'].includes(r.taskName) && !r.engaged && d < 40) (r.outdoor ? M.ghostD : M.hostD).push(d);
+    if (r !== H.host && !r.carrying && d < 40 && !r.outdoor) { M.othersFrames++; if (d < 5) M.othersClose++; }
+    if (r.m.v < 0.05 && !r.engaged && H.nearDoor(r.f, r.x, r.z, 1.5)) { M.doorBlock++; (M.doorWho ??= new Map()).set(r.name + ':' + r.taskName + '@' + r.x.toFixed(1) + ',' + r.z.toFixed(1), Math.round(t)); }
+  }
+  if (Q.has('trace') && t > 268 && t < 282 && Math.round(t / DT) % 10 === 0) { const b = H.robots[0]; (M.trace ??= []).push(`${t.toFixed(1)} ${b.taskName} v=${b.m.v.toFixed(2)} moving=${b.m.moving} path=${b.m.path ? b.m.path.length + '/' + b.m.i : '-'} goal=${b.m.goal ? b.m.goal.x.toFixed(1) + ',' + b.m.goal.z.toFixed(1) : '-'} at ${b.x.toFixed(1)},${b.z.toFixed(1)} guest ${b.visitorDist().toFixed(1)} eng=${b.engaged} spin=${b.anim}`); }
+  for (const b of H.ctx.colliders) if (b.staff && walker.pos.x > b.x0 && walker.pos.x < b.x1 && walker.pos.z > b.z0 && walker.pos.z < b.z1 && walker.pos.y + 1.5 < b.y1 && walker.pos.y + 5.5 > b.y0) M.inBody = (M.inBody ?? 0) + 1;
+  for (const a of who) { const s = stats.get(a); s.dist += Math.hypot(a.x - s.px, a.z - s.pz); s.px = a.x; s.pz = a.z; s.tasks.set(a.taskName, (s.tasks.get(a.taskName) ?? 0) + DT); }
+  if (Math.round(t / DT) % 5 === 0) for (const b of staff.check()) {
+    const s = stats.get(who.find(a => a.name === b.who)); s.bad++; violations++;
+    if (firstBad.length < 12) firstBad.push(`t=${t.toFixed(1)} ${b.who} (${b.task}) at x=${b.x.toFixed(2)} z=${b.z.toFixed(2)} f=${b.f} inside box x ${b.box.x0.toFixed(2)}..${b.box.x1.toFixed(2)} z ${b.box.z0.toFixed(2)}..${b.box.z1.toFixed(2)}`);
+  }
+}
+const med = a => { const s = [...a].sort((p, q) => p - q); return s.length ? s[Math.floor(s.length / 2)] : NaN; };
+const pct = (a, b) => b ? (100 * a / b).toFixed(1) + '%' : 'n/a';
+const lines = [];
+lines.push(`simulated ${(T / 60).toFixed(1)} min at dt ${DT} (indoors until ${(T * 0.45 / 60).toFixed(1)} min, then the garden; night from ${(T * 0.78 / 60).toFixed(1)} min); colliders ${B.colliders.length}`);
+lines.push(`garden plan: ${H.out.floors[0].cells.length} walkable cells; spots ${Object.entries(H.gspots).map(([k, v]) => k + ' ' + (Array.isArray(v) ? v.length : v ? 'ok' : 'NONE')).join(', ')}`);
+lines.push(`walkable cells: ground ${nav.floors[0].cells.length}, upstairs ${nav.floors[1].cells.length}; stair link ${nav.stair ? 'yes' : 'NO'}; bar ${!!H.spots.bar}, kitchen ${!!H.spots.kitchen}`);
+lines.push(`events ${JSON.stringify(H.events)}`);
+lines.push(`visit memory: rooms ${[...H.mem.rooms].join(', ')}; drinks ${H.mem.drinks.join(', ')}; asked ${[...H.mem.asked].join(', ')}; met ${[...H.mem.met].join(', ')}`);
+lines.push(`cast cost: ${JSON.stringify(staff.cost())}`);
+lines.push(`ATTENTION while speaking with the guest (after the first 1.5 s): facing her ${pct(M.facingOk, M.engagedFrames)}, holding still ${pct(M.stillOk, M.engagedFrames)} of ${M.engagedFrames} frames`);
+lines.push(`DISTANCE: host while hosting median ${med(M.hostD).toFixed(1)} ft, under 4 ft ${pct(M.hostD.filter(d => d < 4).length, M.hostD.length)}; other robots within 5 ft of her ${pct(M.othersClose, M.othersFrames)}`);
+lines.push(`DISTANCE outdoors: gardener host median ${med(M.ghostD).toFixed(1)} ft, under 4 ft ${pct(M.ghostD.filter(d => d < 4).length, M.ghostD.length)}`);
+lines.push(`BODIES: frames the visitor's centre was inside a robot's collider (she walks blind, the robot must glide aside): ${M.inBody ?? 0}; glides ${H.events.glides ?? 0}`);
+if (M.trace) lines.push(M.trace.join('\n'));
+lines.push(`DOORWAYS: frames a robot stood idle within 1.5 ft of a door: ${M.doorBlock} ${[...(M.doorWho ?? [])].slice(0, 6).join(' ')}`);
+lines.push(`INSIDE-COLLIDER SAMPLES: ${violations}`);
+for (const b of firstBad) lines.push('  ' + b);
+lines.push('');
+for (const s of staff.status()) {
+  const a = who.find(k => k.name === s.who), st2 = stats.get(a);
+  const tasks = [...st2.tasks].sort((p, q) => q[1] - p[1]).map(([k, v]) => `${k} ${Math.round(v)}s`).join(', ');
+  lines.push(`${s.who.padEnd(9)} f${s.f} ${s.room.padEnd(15)} (${String(s.x).padStart(6)}, ${String(s.z).padStart(6)}) now: ${s.task}${s.carrying ? ' carrying ' + s.carrying : ''}  moved ${Math.round(st2.dist)} ft  inside: ${st2.bad}\n          time by task: ${tasks}\n          recent: ${a.history.slice(-14).map(h => h.join(':')).join(' ')}`);
+}
+lines.push('');
+lines.push('Some of what was said:');
+const said = [];
+for (const b of H.bubbles.all) for (const [t, text] of b.log) said.push([t, b.name, text]);
+said.sort((a, b) => a[0] - b[0]);
+for (const [t, n, text] of said.filter((_, i) => i % Math.max(1, Math.floor(said.length / 45)) === 0).slice(0, 50)) lines.push(`  ${t.toFixed(0).padStart(4)}s ${n}: ${text}`);
+lines.push(`  (${said.length} lines in all; distinct ${new Set(said.map(s => s[2])).size})`);
+lines.push('');
+lines.push(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no errors');
+out.textContent = lines.join('\n');
+document.title = 'staff test done';
+}
+
+if (Q.has('poses')) await poses(); else await runTest();
+</script>

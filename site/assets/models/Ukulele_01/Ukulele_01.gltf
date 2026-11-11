@@ -1,0 +1,159 @@
+{
+ "asset": {
+  "generator": "Khronos glTF Blender I/O v1.6.16",
+  "version": "2.0"
+ },
+ "scene": 0,
+ "scenes": [
+  {
+   "name": "Scene",
+   "nodes": [
+    0
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "mesh": 0,
+   "name": "Ukulele_01"
+  }
+ ],
+ "materials": [
+  {
+   "doubleSided": true,
+   "name": "Ukulele_01",
+   "normalTexture": {
+    "index": 0
+   },
+   "pbrMetallicRoughness": {
+    "baseColorTexture": {
+     "index": 1
+    },
+    "metallicRoughnessTexture": {
+     "index": 2
+    }
+   }
+  }
+ ],
+ "meshes": [
+  {
+   "name": "Circle.015",
+   "primitives": [
+    {
+     "material": 0,
+     "attributes": {
+      "POSITION": 0,
+      "NORMAL": 1,
+      "TEXCOORD_0": 2
+     },
+     "indices": 3
+    }
+   ]
+  }
+ ],
+ "textures": [
+  {
+   "sampler": 0,
+   "source": 0
+  },
+  {
+   "sampler": 0,
+   "source": 1
+  },
+  {
+   "sampler": 0,
+   "source": 2
+  }
+ ],
+ "images": [
+  {
+   "mimeType": "image/jpeg",
+   "name": "Ukulele_01_nor_gl",
+   "uri": "textures/Ukulele_01_nor_gl_1k.jpg"
+  },
+  {
+   "mimeType": "image/jpeg",
+   "name": "Ukulele_01_diff",
+   "uri": "textures/Ukulele_01_diff_1k.jpg"
+  },
+  {
+   "mimeType": "image/jpeg",
+   "name": "Ukulele_01_metallic-Ukulele_01_roughness",
+   "uri": "textures/Ukulele_01_arm_1k.jpg"
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 0,
+   "componentType": 5126,
+   "count": 4137,
+   "type": "VEC3",
+   "min": [
+    -0.08820801973342896,
+    2.099982521031052e-05,
+    -0.022253332659602165
+   ],
+   "max": [
+    0.08830045163631439,
+    0.5270119309425354,
+    0.02868189662694931
+   ]
+  },
+  {
+   "bufferView": 1,
+   "componentType": 5126,
+   "count": 4137,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 2,
+   "componentType": 5126,
+   "count": 4137,
+   "type": "VEC2"
+  },
+  {
+   "bufferView": 3,
+   "componentType": 5123,
+   "count": 12000,
+   "type": "SCALAR"
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteOffset": 0,
+   "byteLength": 49644,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 49644,
+   "byteLength": 49644,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 99288,
+   "byteLength": 33096,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 132384,
+   "byteLength": 24000,
+   "target": 34963
+  }
+ ],
+ "samplers": [
+  {
+   "magFilter": 9729,
+   "minFilter": 9987
+  }
+ ],
+ "buffers": [
+  {
+   "uri": "Ukulele_01.bin",
+   "byteLength": 156384
+  }
+ ]
+}

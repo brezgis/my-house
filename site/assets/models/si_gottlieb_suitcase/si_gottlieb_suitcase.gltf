@@ -1,0 +1,159 @@
+{
+ "asset": {
+  "generator": "Khronos glTF Blender I/O v5.3.43",
+  "version": "2.0"
+ },
+ "scene": 0,
+ "scenes": [
+  {
+   "name": "Scene",
+   "nodes": [
+    0
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "mesh": 0,
+   "name": "mesh_0",
+   "rotation": [
+    0.70710688829422,
+    0,
+    0,
+    0.7071066498756409
+   ],
+   "translation": [
+    0.010303452610969543,
+    0.13793136179447174,
+    -0.3992241621017456
+   ]
+  }
+ ],
+ "materials": [
+  {
+   "name": "glTFMaterial",
+   "occlusionTexture": {
+    "index": 0
+   },
+   "pbrMetallicRoughness": {
+    "baseColorTexture": {
+     "index": 1
+    },
+    "metallicFactor": 0,
+    "roughnessFactor": 0.6000000238418579
+   }
+  }
+ ],
+ "meshes": [
+  {
+   "name": "mesh_0",
+   "primitives": [
+    {
+     "material": 0,
+     "attributes": {
+      "POSITION": 0,
+      "NORMAL": 1,
+      "TEXCOORD_0": 2
+     },
+     "indices": 3
+    }
+   ]
+  }
+ ],
+ "textures": [
+  {
+   "sampler": 0,
+   "source": 0
+  },
+  {
+   "sampler": 0,
+   "source": 1
+  }
+ ],
+ "images": [
+  {
+   "name": "Camilla_Gottliebs_Suitcase-20k-occlusion-webthumb",
+   "uri": "textures/Camilla_Gottliebs_Suitcase-20k-occlusion-webthumb.jpg",
+   "mimeType": "image/jpeg"
+  },
+  {
+   "name": "Camilla_Gottliebs_Suitcase-20k-diffuse-webthumb",
+   "uri": "textures/Camilla_Gottliebs_Suitcase-20k-diffuse-webthumb.jpg",
+   "mimeType": "image/jpeg"
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 0,
+   "componentType": 5126,
+   "count": 6424,
+   "type": "VEC3",
+   "min": [
+    -0.2185267060995102,
+    0.012844730168581009,
+    -0.12075627595186234
+   ],
+   "max": [
+    0.1979198008775711,
+    0.7857857346534729,
+    0.1382608264684677
+   ]
+  },
+  {
+   "bufferView": 1,
+   "componentType": 5126,
+   "count": 6424,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 2,
+   "componentType": 5126,
+   "count": 6424,
+   "type": "VEC2"
+  },
+  {
+   "bufferView": 3,
+   "componentType": 5123,
+   "count": 18000,
+   "type": "SCALAR"
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteOffset": 0,
+   "byteLength": 77088,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 77088,
+   "byteLength": 77088,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 154176,
+   "byteLength": 51392,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 205568,
+   "byteLength": 36000,
+   "target": 34963
+  }
+ ],
+ "samplers": [
+  {
+   "magFilter": 9729,
+   "minFilter": 9987
+  }
+ ],
+ "buffers": [
+  {
+   "uri": "si_gottlieb_suitcase.bin",
+   "byteLength": 241568
+  }
+ ]
+}

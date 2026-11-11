@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Model check</title>
+<!-- Before and after for reduced models (tools/decimate.py): ?ids=a,b,c. Each model is shown
+     twice from the same three-quarter view, the original (from assets/models/_orig/<id>/, copied
+     there only while checking) on the left and the reduced one on the right, with triangle counts.
+     Use with tools/shot.sh on this page: shot.sh out.png "ids=..." is not enough, as shot.sh
+     opens the house; run: tools/shot.sh out.png "page=modelcheck&ids=..." -->
+<style>body { margin: 0; background: #d9d4ca; font: 13px Helvetica, sans-serif; } canvas { display: block; }</style>
+<script type="importmap">{ "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }</script>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+const Q = new URLSearchParams(location.search), ids = (Q.get('ids') ?? 'mantel_clock_01').split(',');
+const W = innerWidth, H = innerHeight, rows = ids.length, cellH = H / rows;
+const renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setSize(W, H); renderer.setScissorTest(true); renderer.toneMapping = THREE.ACESFilmicToneMapping;
+document.body.append(renderer.domElement);
+const loader = new GLTFLoader();
+const load = url => new Promise(ok => loader.load(url, g => ok(g.scene), undefined, () => ok(null)));
+const tris = o => { let n = 0; o?.traverse(m => { if (m.isMesh) n += (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3; }); return n; };
+const label = (t, x, y) => { const d = document.createElement('div'); d.textContent = t; Object.assign(d.style, { position: 'fixed', left: x + 'px', top: y + 'px', background: 'rgba(255,255,255,.7)', padding: '2px 5px' }); document.body.append(d); };
+const cells = [];
+for (const [r, id] of ids.entries()) {
+  const [a, b] = await Promise.all([load(`assets/models/_orig/${id}/${id}.gltf`), load(`assets/models/${id}/${id}.gltf`)]);
+  for (const [c, o] of [[0, a], [1, b]]) {
+    const scene = new THREE.Scene(); scene.background = new THREE.Color(0xd9d4ca);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x887766, 1.6)); const d = new THREE.DirectionalLight(0xffffff, 2.5); d.position.set(2, 3, 4); scene.add(d);
+    const cam = new THREE.PerspectiveCamera(30, (W / 2) / cellH, 0.01, 100);
+    if (o) { scene.add(o); const box = new THREE.Box3().setFromObject(o), s = box.getSize(new THREE.Vector3()).length(), m = box.getCenter(new THREE.Vector3()); cam.position.copy(m).add(new THREE.Vector3(0.55, 0.42, 0.75).multiplyScalar(s * 1.25)); cam.lookAt(m); }
+    cells.push({ scene, cam, x: c * W / 2, y: r * cellH });
+    label(`${id} ${c ? 'reduced' : 'original'}: ${tris(o)} triangles`, c * W / 2 + 6, r * cellH + 4);
+  }
+}
+renderer.setAnimationLoop(() => { for (const { scene, cam, x, y } of cells) { renderer.setViewport(x, H - y - cellH, W / 2, cellH); renderer.setScissor(x, H - y - cellH, W / 2, cellH); renderer.render(scene, cam); } });
+window.__ready = true;
+</script>
+</body>
+</html>
