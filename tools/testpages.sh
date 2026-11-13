@@ -1,4 +1,5 @@
 #!/bin/bash
+"$(dirname "$0")/clean_cache.sh"      # sweep up after earlier Chrome runs (see that file)
 # Run the quick check pages and print their output (see tools/testpages.py).
 #   tools/testpages.sh [walktest stafftest gardentest friendtest]
 [ -f "$(dirname "$0")/local.env" ] && . "$(dirname "$0")/local.env"

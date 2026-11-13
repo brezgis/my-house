@@ -1,4 +1,5 @@
 #!/bin/bash
+"$(dirname "$0")/clean_cache.sh"      # sweep up after earlier Chrome runs (see that file)
 # Evaluate a JavaScript file in the settled house page (see tools/evaljs.py).
 #   tools/evaljs.sh <file.js> ["<query>"]
 [ -f "$(dirname "$0")/local.env" ] && . "$(dirname "$0")/local.env"

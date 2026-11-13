@@ -4,11 +4,12 @@
 // beans up hazel poles, kale and chard, cabbages and leeks, carrots and
 // strawberries, squash and pumpkins, herbs), a rain barrel with the hose
 // left beside it, sunflowers along the south fence, old espaliered apples
-// along the north, a glasshouse, compost bays and a wheelbarrow, a
-// scarecrow; through the gate the orchard and the beehives.
+// along the north, a glasshouse, compost bays and a wheelbarrow;
+// through the gate the orchard and the beehives (hives.js).
 
 import * as THREE from 'three';
 import { PAINT, GLOW } from './tools.js';
+import { buildHives } from './hives.js';
 
 export const POT = { x0: 26, x1: 66, z0: -104, z1: -56, cx: 46, cz: -80 };
 
@@ -127,21 +128,10 @@ export function buildPotager(K) {
     K.model('metal_jug', x + 1.6, z - 1.2, 0.4);
   }
   // A bench at the north end of the cross path, looking back down it
-  K.model('painted_wooden_bench', P.x1 - 2.4, P.cz, -Math.PI / 2, { scale: 1.25, collide: true });
+  K.bench(P.x1 - 2.4, P.cz, -Math.PI / 2);
   K.seat(P.x1 - 2.8, 1.6, P.cz, Math.PI / 2, 'sit in the potager');
 
-  // ---- The scarecrow, in a fisherman's hat ----
-  {
-    const x = 51, z = -95.8;
-    K.cyl('c#7a5e40/1', x, Y, Y + 6.3, z, 0.08, 0.07, 5); K.box('c#7a5e40/1', x - 0.06, x + 0.06, Y + 4.7, Y + 4.85, z - 1.9, z + 1.9);
-    K.box(PAINT.sweater, x - 0.45, x + 0.45, Y + 3.2, Y + 4.95, z - 0.75, z + 0.75); K.box(PAINT.sweater, x - 0.22, x + 0.22, Y + 4.55, Y + 4.95, z - 1.85, z + 1.85);
-    K.box(PAINT.denim, x - 0.4, x + 0.4, Y + 1.6, Y + 3.25, z - 0.62, z - 0.08); K.box(PAINT.denim, x - 0.4, x + 0.4, Y + 1.6, Y + 3.25, z + 0.08, z + 0.62);
-    K.sphere(PAINT.straw, x, Y + 5.55, z, 0.55, 1.1, 2);
-    for (const s of [-1, 1]) for (let i = 0; i < 5; i++) K.tube(PAINT.straw, [x, Y + 4.75, z + s * 1.85], [x + (r() - 0.5) * 0.4, Y + 4.4 - r() * 0.3, z + s * (2.05 + r() * 0.25)], 0.025, 3);
-    K.sphere('c#2a2420/1', x + 0.5, Y + 5.65, z - 0.18, 0.06, 1, 1); K.sphere('c#2a2420/1', x + 0.5, Y + 5.65, z + 0.18, 0.06, 1, 1);
-    K.model('fishermans_hat', x, z, 1.4, { y: Y + 5.85, scale: 1.25 });
-    K.crowOn = { x: x - 0.05, y: Y + 4.95, z: z + 1.7 };
-  }
+  for (let i = 0; i < 30; i++) r();      // (a scarecrow stood here once; these keep everything sown after it where it was)
 
   // ---- Self-seeded things in the gravel: it is loved, not manicured ----
   for (let i = 0; i < 70; i++) { const x = P.x0 + 3 + r() * (P.x1 - P.x0 - 6), z = P.z0 + 3 + r() * (P.z1 - P.z0 - 6), onPath = Math.abs(x - P.cx) < 2.6 || Math.abs(z - P.cz) < 2.6 || x < 32.3 || x > 59.7 || z > -62.3 || z < -97.7; if (onPath && Math.abs(x - P.cx) > 1.2 && Math.abs(z - P.cz) > 1.2) F.add(r() < 0.5 ? 'wildflowers' : 'grass', x, z, 0.35 + r() * 0.3); }
@@ -247,23 +237,9 @@ export function buildPotager(K) {
       if (Math.hypot(px - 95, pz + 101.5) < 8) continue;
       F.add(r() < 0.55 ? 'grass' : 'wildflowers', px, pz, 0.75 + r() * 0.4);
     }
-    // the hives, painted in soft colours, on a low stand facing the morning
-    const hiveMats = [PAINT.hive1, PAINT.hive2, PAINT.hive3, PAINT.hive4];
-    [[95, -96], [95, -101.5], [95, -107]].forEach(([x, z], i) => {
-      K.box('timber', x - 1.4, x + 1.4, 0, 0.9, z - 1.5, z + 1.5, G0);
-      const n = 2 + (i % 2), c = hiveMats[i];
-      K.box(c, x - 0.95, x + 0.95, 0.9, 1.15, z - 1.15, z + 1.2);                                     // floor and landing board
-      K.box(c, x - 0.95, x + 0.95, 0.9, 1.0, z + 1.2, z + 1.55);
-      for (let k = 0; k < n; k++) K.box(c, x - 0.85, x + 0.85, 1.15 + k * 0.82, 1.15 + (k + 1) * 0.82 - 0.04, z - 1.0, z + 1.05);
-      const top = 1.15 + n * 0.82;
-      K.box('copper', x - 1.0, x + 1.0, top, top + 0.12, z - 1.15, z + 1.2); K.box('copper', x - 1.05, x + 1.05, top + 0.12, top + 0.32, z - 1.2, z + 1.25);
-      K.box('c#17140f/0.9', x - 0.45, x + 0.45, 1.16, 1.24, z + 1.04, z + 1.06);
-      K.collide(x - 1.4, x + 1.4, z - 1.5, z + 1.6, 5);
-      K.hives.push({ x, y: 1.6, z: z + 1.4 });
-    });
-    // a straw skep in a little bee bole, for the look of it
-    { const x = 95.5, z = -84; K.box('timber', x - 1.2, x + 1.2, 0, 2.6, z - 1, z + 1, G0); K.box('timber', x - 1.5, x + 1.5, 4.3, 4.5, z - 1.3, z + 1.3, G0); for (const dz of [-0.9, 0.9]) K.box('timber', x - 0.1, x + 0.1, 2.6, 4.3, z + dz - 0.1, z + dz + 0.1); K.lathe(PAINT.straw, x, 2.6, z, [[0.75, 0], [0.8, 0.3], [0.75, 0.7], [0.6, 1.1], [0.35, 1.38], [0.01, 1.45]], 14); K.collide(x - 1.3, x + 1.3, z - 1.2, z + 1.2, 4); }
-    F.drift('lavender', 90.5, -101, 2, 6, 10, 1); F.drift('catmint', 90, -90, 2, 3, 4, 1); F.drift('wildflowers', 95, -113, 3, 2, 6, 1);
+    // the beehives, the honesty stall and the skep (garden/hives.js)
+    buildHives(K);
+    F.drift('lavender', 89.5, -97.5, 2.5, 2, 10, 1); F.drift('catmint', 92, -88, 2, 2, 4, 1); F.drift('wildflowers', 95, -113, 3, 2, 6, 1);      // (as many as ever, so the plants sown after these stay put)
     K.model('wooden_picnic_table', 90, -66, 0.25, { collide: true }); K.seat(90.4, 1.45, -63.6, 0.25 + Math.PI, 'sit at the orchard table');
   }
 }

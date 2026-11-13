@@ -1,4 +1,5 @@
 #!/bin/bash
+"$(dirname "$0")/clean_cache.sh"      # sweep up after earlier Chrome runs (see that file)
 # Z-fighting search (see tools/zfight.py, tools/zfight_page.js, tools/zfight_report.py).
 #   tools/zfight.sh <out.json> ["<extra query>"]     then: python3 tools/zfight_report.py <out.json>
 [ -f "$(dirname "$0")/local.env" ] && . "$(dirname "$0")/local.env"

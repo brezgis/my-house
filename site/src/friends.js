@@ -25,7 +25,9 @@
 //   ?friends=demo              all three posed in front of the camera, saying hello  (demo:feyn,gigi for some)
 //   ?friends=coffee            posed, each at their own fidget (bongos, coffee, typing)
 //   ?friends=dance             posed, dancing
-//   ?friends=chat:gigi:any gossip?     posed, with the chat box open and that line said
+//   ?friends=chat:gigi:any gossip?     posed, with the conversation card open and that line said
+//   ?friends=talk:gigi:any gossip?     the same, but live: the party runs on (&walkaway=6: after six seconds she turns and
+//                                      walks off, to see the card and the bubble fade)
 //   ?friends=here              rung and let in for real; ?friendtime=40 runs the party that many seconds first
 //   ?friends=ring:nano         rung this instant (arrives at the porch at once)
 //   ?friendseed=7              fix the dice
@@ -74,16 +76,27 @@ export function setupFriends(ctx) {
       if (kind === 'phone') { await openPhone(); if (a) await ui.phone.use(a); return; }
       const p = await loadParty();
       if (kind === 'demo' || kind === 'coffee' || kind === 'dance') p.stage(kind, ids(a));
-      else if (kind === 'chat') { const who = ids(a)[0] ?? 'gigi'; p.stage('chat', [who, ...ids('feyn,gigi,nano').filter(id => id !== who)], text); }
+      else if (kind === 'act') {      // ?friends=act:feyn:chalkboard  (&side=1.2: the camera that many radians round to their side)
+        const at = p.stageAct(a, text); const w = ctx.walker;
+        if (at && w?.place) { const ang = at.yaw + Math.PI + Number(Q.get('side') ?? 0.9), d = Number(Q.get('dist') ?? 6.5), x = at.x - Math.sin(ang + Math.PI) * d, z = at.z - Math.cos(ang + Math.PI) * d; w.place(x, at.y, z, Math.atan2(-(at.x - x), -(at.z - z)), -0.12); }
+      }
+      else if (kind === 'chat' || kind === 'talk') { const who = ids(a)[0] ?? 'gigi'; p.stage(kind === 'talk' ? 'live' : 'chat', [who, ...ids('feyn,gigi,nano').filter(id => id !== who)], text); }
       else if (kind === 'here' || kind === 'ring') {
         ctx.friendsDelay = 0; for (const id of ids(a)) p.ring(id); ctx.friendsDelay = undefined;
         const secs = Number(Q.get('friendtime') ?? (kind === 'here' ? 40 : 0)); for (let i = 0; i < secs * 15; i++) p.step(1 / 15, false);
       }
     };
+    let walked = false;
+    const away = Number(Q.get('walkaway') ?? 0);
     ctx.animated.push((t, dt) => {
-      if (done) return; since += dt;
+      if (done && away && !walked && since > away) {      // she turns round (over a second) and strolls off (three feet a second, for four seconds)
+        const w = ctx.walker, s = since - away; if (!w?.place) walked = true;
+        else { w.yaw0 ??= w.yaw; const yaw = w.yaw0 + Math.PI * Math.min(1, s), go = Math.max(0, s - 1) * 3, fx = -Math.sin(w.yaw0 + Math.PI), fz = -Math.cos(w.yaw0 + Math.PI); w.pos0 ??= w.pos.clone(); w.place(w.pos0.x + fx * go, w.pos0.y, w.pos0.z + fz * go, yaw, 0); if (s > 5) walked = true; }
+      }
+      if (done) { since += dt; return; }
+      since += dt;
       const staffReady = Q.get('staff') === '0' || window.__staff || since > 6;
-      if ((window.__ready || since > 14) && staffReady) { done = true; run().catch(e => console.warn('friends hook', e)); }
+      if ((window.__ready || since > 14) && staffReady) { done = true; since = 0; run().catch(e => console.warn('friends hook', e)); }
     });
   }
   const out = { phone, openPhone, loadParty, get party() { return party; }, get ui() { return ui; } };

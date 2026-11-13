@@ -1,6 +1,12 @@
 // The two small cards for the friends: the telephone (who to ring, who is here,
-// who to send home) and the chat box (type, or pick a suggestion). Paper and
-// walnut ink, in the house's own tokens (ui.css); the styles are injected here.
+// who to send home) and the conversation card. Paper and walnut ink, in the
+// house's own tokens (ui.css); the styles are injected here.
+//
+// The conversation card is kept small on purpose (the owner found it busy): the
+// friend's name, what they last said, two or three things to say back (1 to 3),
+// and one line on how to leave (0, or simply walk away: party.js fades the card
+// as she goes and lets the talk go once she has really gone). Their words also
+// float over their head; the card is there for when the bubble is out of view.
 //
 // Typing and the house: the walker and main.js listen for keys on `window` and
 // the mouse is pointer-locked while walking. So a card releases the pointer when
@@ -13,9 +19,8 @@ const CSS = `
 .fr-card.sheet { position: fixed; inset: auto; z-index: 7; display: block; box-sizing: border-box; padding: 15px 18px 12px; border-radius: 2px; place-items: initial;
   background: var(--pegs), var(--grain), linear-gradient(170deg, #f4ead6, var(--paper, #f0e5cf) 60%, #ebdfc6); color: var(--ink, #2a1c13); box-shadow: var(--lift, 0 12px 40px rgba(0,0,0,.5));
   font-family: var(--serif, Georgia, serif); font-size: 16px; line-height: 1.35; opacity: 0; visibility: hidden; transform: translateY(6px); transition: opacity .22s ease, transform .22s ease, visibility 0s .22s; animation: none; }
-.fr-card.sheet.on { display: block; animation: none; opacity: 1; visibility: visible; transform: none; transition: opacity .22s ease, transform .22s ease; }
-.touch .fr-card.sheet.resting { opacity: 1; }
-.fr-card.sheet.resting { opacity: .82; }
+.fr-card.sheet.on { display: block; animation: none; opacity: var(--fade, 1); visibility: visible; transform: none; transition: opacity .22s ease, transform .22s ease; }
+.fr-card.sheet.going { transition: opacity .7s ease, transform .7s ease, visibility 0s .7s; }
 .fr-card :focus-visible { outline: 2px solid var(--verdigris, #3d6151); outline-offset: 2px; }
 .fr-card.sheet h2 { margin: 0 34px 0 4px; font-weight: 400; font-size: 23px; line-height: 1.15; }
 .fr-card.sheet h2 small { display: block; font-size: 14px; font-style: italic; color: var(--teak, #7a4b2a); margin-top: 2px; }
@@ -45,38 +50,30 @@ const CSS = `
 #fr-phone .fr-line i { display: block; font-size: 13px; color: var(--teak, #7a4b2a); margin-bottom: 2px; }
 #fr-phone .fr-line:empty { display: none; }
 
-#fr-chat { right: max(16px, 4vw); bottom: max(84px, 13vh); width: min(430px, calc(100vw - 32px)); }
-#fr-chat .fr-log { max-height: min(212px, 30vh); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: rgba(122, 75, 42, .45) transparent; margin: 0 0 9px; padding: 0 4px; font-size: 15.5px; }
-#fr-chat .fr-log p { margin: 0 0 6px; display: grid; grid-template-columns: 4.6em 1fr; gap: 0 9px; }
-#fr-chat .fr-log p b { font-weight: 400; font-style: italic; font-size: 13.5px; color: var(--teak, #7a4b2a); text-align: right; padding-top: 1.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#fr-chat .fr-log p.you span { color: var(--ink-soft, #5b4636); }
-#fr-chat .fr-log p.you b { color: var(--ink-soft, #5b4636); }
-#fr-chat .fr-log p.note { display: block; font-style: italic; font-size: 13.5px; color: var(--ink-soft, #5b4636); text-align: center; }
-#fr-chat .fr-log p.new { animation: frIn .3s ease; }
+#fr-chat { right: max(16px, 4vw); bottom: max(84px, 13vh); width: min(360px, calc(100vw - 32px)); padding: 12px 16px 10px; }
+#fr-chat h2 { font-size: 20px; margin-bottom: 6px; }
+#fr-chat .fr-said { margin: 0 4px 10px; font-size: 15.5px; line-height: 1.4; max-height: 7.1em; overflow: hidden; }
+#fr-chat .fr-said:empty { display: none; }
+#fr-chat .fr-said.new { animation: frIn .3s ease; }
 @keyframes frIn { from { opacity: 0; transform: translateY(3px); } }
-#fr-chat .fr-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 9px; }
-#fr-chat .fr-chip { display: inline-flex; align-items: center; gap: 7px; font: inherit; font-size: 14.5px; color: var(--ink, #2a1c13); background: rgba(122, 75, 42, .08); border: 1px solid rgba(122, 75, 42, .32);
-  border-radius: 2px; padding: 4px 10px 5px 5px; cursor: pointer; text-align: left; }
-#fr-chat .fr-chip:hover { background: rgba(122, 75, 42, .18); }
-#fr-chat form { display: flex; gap: 7px; margin: 0; }
-#fr-chat input { flex: 1; min-width: 0; font: inherit; font-size: 16px; color: var(--ink, #2a1c13); background: rgba(255, 252, 244, .6); border: 1px solid rgba(122, 75, 42, .45); border-radius: 2px; padding: 6px 9px 7px; }
-#fr-chat input::placeholder { color: rgba(91, 70, 54, .7); font-style: italic; }
-#fr-chat input:focus { outline: 2px solid var(--verdigris, #3d6151); outline-offset: 1px; background: rgba(255, 252, 244, .9); }
+#fr-chat .fr-chips { display: grid; gap: 5px; margin: 0; }
+#fr-chat .fr-chip { display: flex; align-items: center; gap: 9px; font: inherit; font-size: 15px; color: var(--ink, #2a1c13); background: rgba(122, 75, 42, .07); border: 1px solid rgba(122, 75, 42, .26);
+  border-radius: 2px; padding: 5px 10px 6px 6px; cursor: pointer; text-align: left; }
+#fr-chat .fr-chip:hover { background: rgba(122, 75, 42, .17); }
+#fr-chat .fr-foot { margin-top: 8px; padding-top: 6px; }
 .touch #fr-chat { bottom: auto; top: max(58px, 9vh); }
 .touch .fr-card .fr-keys, .touch .fr-key { display: none; }
-.touch #fr-chat .fr-chip { padding: 8px 12px; }
+.touch #fr-chat .fr-chip { padding: 9px 12px; }
 .touch #fr-phone .fr-who { padding: 13px 4px; }
 @media (max-width: 560px) {
   #fr-phone { right: 16px; }
   #fr-chat { right: 16px; }
-  #fr-chat .fr-log { max-height: 24vh; }
 }
-@media (prefers-reduced-motion: reduce) { .fr-card.sheet, #fr-chat .fr-log p.new { transition: none; animation: none; } }
+@media (prefers-reduced-motion: reduce) { .fr-card.sheet, #fr-chat .fr-said.new { transition: none; animation: none; } }
 `;
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const rich = s => esc(s).replace(/\*([^*]+)\*/g, '<i>$1</i>');
-const RULE = '<svg class="fr-rule" aria-hidden="true"><use href="#cloudlift"/></svg>';
 
 export function makeUI({ canvas, touch = 'ontouchstart' in window } = {}) {
   const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
@@ -89,14 +86,14 @@ export function makeUI({ canvas, touch = 'ontouchstart' in window } = {}) {
   let hadLock = false;
   const release = () => { if (document.pointerLockElement) { hadLock = true; document.exitPointerLock?.(); } };
   const relock = () => {
-    if (!hadLock || touch || !canvas || phone.open || (chat.open && !chat.resting)) return;
+    if (!hadLock || touch || !canvas || phone.open) return;
     hadLock = false;
     try { const p = canvas.requestPointerLock?.(); p?.catch?.(() => {}); } catch { /* the browser kept the pointer: a click on the scene takes it back */ }
   };
 
   // ---- The telephone -----------------------------------------------------------------------
-  const phoneEl = make('fr-phone', 'The telephone', `<button class="fr-x" type="button" aria-label="Hang up">×</button><h2>The telephone<small>Who shall we ring?</small></h2>${RULE}
-    <div class="fr-list"></div><div class="fr-line" aria-live="polite"></div><div class="fr-foot"><span>Friends come to the front door.<span class="fr-keys"> Esc hangs up.</span></span></div>`);
+  const phoneEl = make('fr-phone', 'The telephone', `<button class="fr-x" type="button" aria-label="Hang up">×</button><h2>Who shall we ring?</h2>
+    <div class="fr-list"></div><div class="fr-line" aria-live="polite"></div>`);
   const phone = {
     open: false, api: null,
     show(api) {
@@ -112,7 +109,7 @@ export function makeUI({ canvas, touch = 'ontouchstart' in window } = {}) {
       phoneEl.querySelector('.fr-list').innerHTML = rows.map((r, i) => {
         const what = r.status === 'here' ? `here · <u>ask ${esc(r.short)} to head home</u>` : r.status === 'coming' ? 'on the way…' : r.status === 'leaving' ? 'just leaving…' : `<u>ring${r.been ? ' again' : ''}</u>`;
         return `<button class="fr-who" type="button" data-id="${r.id}" data-st="${r.status}"${r.status === 'coming' || r.status === 'leaving' ? ' disabled' : ''}><span class="fr-key">${i + 1}</span><span class="nm">${esc(r.name)}</span><span class="do">${what}</span>
-          <span class="tg">${esc(r.tag)}${r.been && r.status === 'away' ? ' · was round earlier' : ''}</span></button>`;
+          <span class="tg">${esc(r.tag)}</span></button>`;
       }).join('');
       if (focus) phoneEl.querySelector(`.fr-who[data-id="${focus}"]:not(:disabled)`)?.focus({ preventScroll: true });
     },
@@ -132,13 +129,12 @@ export function makeUI({ canvas, touch = 'ontouchstart' in window } = {}) {
     if (e.code === 'ArrowDown' || e.code === 'ArrowUp') { const bs = [...phoneEl.querySelectorAll('.fr-who:not(:disabled)')], i = bs.indexOf(document.activeElement); if (bs.length) { e.preventDefault(); bs[(i + (e.code === 'ArrowDown' ? 1 : bs.length - 1)) % bs.length].focus(); } }
   });
 
-  // ---- The chat box ------------------------------------------------------------------------
-  const chatEl = make('fr-chat', 'Talking with a friend', `<button class="fr-x" type="button" aria-label="Step back">×</button><h2><span class="nm"></span><small></small></h2>${RULE}
-    <div class="fr-log" role="log" aria-live="polite"></div><div class="fr-chips"></div>
-    <form autocomplete="off"><input type="text" maxlength="140" enterkeyhint="send" autocapitalize="sentences" aria-label="Say something" placeholder="Say something…"><button class="fr-btn" type="submit">Say</button></form>
-    <div class="fr-foot"><span class="fr-hint"></span><button class="fr-btn fr-dance" type="button">Dance</button></div>`);
-  const log = chatEl.querySelector('.fr-log'), input = chatEl.querySelector('input'), chipsEl = chatEl.querySelector('.fr-chips'), hint = chatEl.querySelector('.fr-hint'), danceBtn = chatEl.querySelector('.fr-dance');
-  const logs = new Map();                      // what has been said, kept per friend for the visit
+  // ---- The conversation card ----------------------------------------------------------------
+  const chatEl = make('fr-chat', 'Talking with a friend', `<button class="fr-x" type="button" aria-label="Leave the conversation">×</button><h2><span class="nm"></span></h2>
+    <p class="fr-said" aria-live="polite"></p><div class="fr-chips"></div><div class="fr-foot"><span class="fr-hint"></span></div>`);
+  const said = chatEl.querySelector('.fr-said'), chipsEl = chatEl.querySelector('.fr-chips'), hint = chatEl.querySelector('.fr-hint');
+  const last = new Map();                      // the last thing each friend said, for the visit
+  let fadeK = 1;
   const chat = {
     open: false, resting: false, who: null, api: null, chips: [],
     // who: { id, name, short, tag }.  api: { say(id, text), dance(), dancing(), chips(id), closed() }
@@ -146,56 +142,57 @@ export function makeUI({ canvas, touch = 'ontouchstart' in window } = {}) {
       if (phone.open) phone.hide();
       const again = chat.open && chat.who?.id === who.id;
       chat.who = who; chat.api = api; chat.open = true;
-      if (!again) {
-        chatEl.querySelector('.nm').textContent = who.name; chatEl.querySelector('small').textContent = who.tag;
-        log.innerHTML = (logs.get(who.id) ?? []).join(''); log.scrollTop = log.scrollHeight;
-        input.value = ''; input.placeholder = `Say something to ${who.short}…`;
-        chat.setChips(api.chips(who.id));
-      }
-      chatEl.classList.add('on'); chat.rest(false);      // no typing: you keep walking and looking, and choose a line with 1 to 4
+      if (!again) { chatEl.querySelector('.nm').textContent = who.name; said.innerHTML = last.get(who.id) ?? ''; chat.setChips(api.chips(who.id)); }
+      chat.fade(1); chatEl.classList.remove('going'); chatEl.classList.add('on');
       chat.sync();
     },
-    // resting: the card stays up as a record of the talk while you walk about; E on the friend takes up the pen again
-    rest(on) { on = false; chat.resting = on; chatEl.classList.toggle('resting', on); if (on && document.activeElement && chatEl.contains(document.activeElement)) document.activeElement.blur(); chat.sync(); },
-    hide(quiet) { if (!chat.open) return; const api = chat.api; chat.open = false; chat.resting = false; chatEl.classList.remove('on', 'resting'); if (chatEl.contains(document.activeElement)) document.activeElement.blur(); if (!quiet) { api?.closed?.(); relock(); } },
+    rest() {},                                 // (kept for callers: the card no longer has a resting state)
+    // quiet: no "closed" call back; soft: a slow fade, as when she walks away
+    hide(quiet, soft = false) {
+      if (!chat.open) return; const api = chat.api; chat.open = false;
+      chatEl.classList.toggle('going', soft); chatEl.classList.remove('on');
+      if (chatEl.contains(document.activeElement)) document.activeElement.blur();
+      if (!quiet) { api?.closed?.(); relock(); }
+    },
+    // 0..1 as she drifts off (party.js); written only when it changes
+    fade(k) { k = Math.round(Math.max(0, Math.min(1, k)) * 20) / 20; if (k !== fadeK) { fadeK = k; chatEl.style.setProperty('--fade', k); } },
     sync() {
       if (!chat.open) return;
-      danceBtn.textContent = chat.api?.dancing?.() ? 'Stop dancing' : 'Dance';
-      hint.innerHTML = touch ? 'Tap a line.' : '<span class="fr-key">1</span>–<span class="fr-key">4</span> say a line · <span class="fr-key">5</span> dance · <span class="fr-key">0</span> goodbye';
+      const n = chat.chips.length;
+      hint.innerHTML = touch ? 'Tap a line, or walk away to leave.' : `<span class="fr-key">1</span>${n > 1 ? `–<span class="fr-key">${n}</span>` : ''} answer · <span class="fr-key">0</span> goodbye, or just walk away`;
     },
     setChips(list) {
-      chat.chips = (list ?? []).slice(0, 4);
+      chat.chips = (list ?? []).slice(0, 3);      // three at most: enough to steer by, few enough to read at a glance
       chipsEl.innerHTML = chat.chips.map((c, i) => `<button class="fr-chip" type="button" data-i="${i}"><span class="fr-key">${i + 1}</span>${esc(c)}</button>`).join('');
+      chat.sync();
     },
-    // kind: 'you' | 'them' | 'note'
+    // kind: 'you' | 'them' | 'note'. The card shows only the friend's latest line (their bubble shows it too)
     add(kind, who, text, forId = chat.who?.id) {
-      const html = kind === 'note' ? `<p class="note new">${rich(text)}</p>` : `<p class="${kind} new"><b>${esc(who)}</b><span>${rich(text)}</span></p>`;
-      const list = logs.get(forId) ?? []; list.push(html.replace(' new"', '"')); if (list.length > 40) list.shift(); logs.set(forId, list);
-      if (chat.open && chat.who?.id === forId) { log.insertAdjacentHTML('beforeend', html); while (log.children.length > 40) log.firstChild.remove(); log.scrollTop = log.scrollHeight; }
+      if (kind === 'you') return;
+      const html = kind === 'note' ? `<i>${rich(text)}</i>` : rich(text);
+      last.set(forId, html);
+      if (chat.open && chat.who?.id === forId) { said.innerHTML = html; said.classList.remove('new'); void said.offsetWidth; said.classList.add('new'); }
     },
     send(text) {
       text = String(text ?? '').trim().slice(0, 140); if (!text || !chat.open) return;
-      chat.add('you', 'You', text); input.value = '';
       chat.api.say(chat.who.id, text);
     },
   };
-  chatEl.querySelector('form').style.display = 'none';      // the owner found free typing too much: lines are chosen, not typed
   addEventListener('keydown', e => {
     if (!chat.open || phone.open || e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName ?? '')) return;
-    const n = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Numpad1: 0, Numpad2: 1, Numpad3: 2, Numpad4: 3 }[e.code];
+    const n = { Digit1: 0, Digit2: 1, Digit3: 2, Numpad1: 0, Numpad2: 1, Numpad3: 2 }[e.code];
     if (n !== undefined && n < chat.chips.length) { e.preventDefault(); e.stopImmediatePropagation(); chat.send(chat.chips[n]); }
-    else if (e.code === 'Digit5' || e.code === 'Numpad5') { e.preventDefault(); e.stopImmediatePropagation(); chat.api.dance(); chat.sync(); }
+    else if (e.code === 'Digit5' || e.code === 'Numpad5') { e.preventDefault(); e.stopImmediatePropagation(); chat.api.dance(); chat.sync(); }      // (still there for those who know it)
     else if (e.code === 'Digit0' || e.code === 'Numpad0') { e.preventDefault(); e.stopImmediatePropagation(); chat.send('Goodbye'); }
+    else if (e.code === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); chat.hide(); }
   }, true);
   chatEl.addEventListener('click', e => {
     const c = e.target.closest('.fr-chip');
     if (c) { chat.send(chat.chips[Number(c.dataset.i)]); }
     else if (e.target.closest('.fr-x')) chat.hide();
-    else if (e.target.closest('.fr-dance')) { chat.api.dance(); chat.sync(); }
   });
-  chatEl.addEventListener('keydown', e => { if (e.code === 'Escape') { e.preventDefault(); chat.hide(); } });
   // Clicking back into the scene takes the pointer again: the card rests, still readable
-  document.addEventListener('pointerlockchange', () => { if (document.pointerLockElement) { hadLock = false; if (chat.open) chat.rest(true); if (phone.open) phone.hide(); } });
+  document.addEventListener('pointerlockchange', () => { if (document.pointerLockElement) { hadLock = false; if (phone.open) phone.hide(); } });
 
   return { phone, chat, relock };
 }

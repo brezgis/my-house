@@ -4,10 +4,14 @@
 // Toward the rim it runs wild: long grass, hedgerow, old trees, boulders,
 // and two benches looking out over the edge. Rooms, from the gate:
 //
-//   Front garden    a loose cottage garden either side of the brick walk, what
+//   Front garden    a loose cottage garden either side of the brick walk (old
+//                   herringbone round a millstone, garden/front_walk.js), what
 //                   is left of an old picket fence and its gate (always open)
 //                   under a rambling rose, a tree seat and a tyre swing on the
-//                   old oak, a mossy bird bath
+//                   old oak, a mossy bird bath; just inside the gate a little
+//                   free library like a tiny house (garden/little_library.js),
+//                   and outside it the mailbox, which holds the guest book
+//                   (garden/mailbox.js, guestbook.js)
 //   The terrace     string lights across the pergola, bistro set, potted
 //                   magnolias, ferns and hydrangeas
 //   Koi pond        south of the terrace: a natural pond with reeds and a mossy
@@ -15,14 +19,23 @@
 //                   frog on a lily pad, two ducks
 //   North lawn      the play set (tower, slide, swings, monkey bars, sandbox),
 //                   birches, a lilac
+//   The treehouse   a small cabin in the fork of the great oak at the north brink
+//                   past the play set, a ship's stair up, a balcony out over the
+//                   edge with a net beside it, a rope swing (garden/treehouse.js)
 //   The potager     north-west of the kitchen: picket fence, eight raised beds,
-//                   sundial, glasshouse, compost, scarecrow; beyond it the
-//                   orchard and the beehives
+//                   sundial, glasshouse, compost; beyond it the
+//                   orchard, the beehives, an honesty stall of honey and a
+//                   skep (garden/hives.js)
 //   Long border     one deep, loose border along a mown walk west from the
 //                   house, long grass on the other side, to a clearing with a
 //                   bench and an old summerhouse with a day bed
 //   The meadow      south-west: mown paths through wildflowers to a fire pit
 //                   and a hammock between two maples; fireflies at night
+//   The chapel      past the willow, at the end of stepping stones on from the
+//                   pond's: a little shingled building at the south edge, with
+//                   stained glass, seats and candles (garden/chapel.js)
+//   Airship stop    at the tip of the front lookout, past the gate down the mown
+//                   way: Line 6 to Vesper Street (garden/airstop.js, airship/)
 //
 // World coordinates (feet): x north(+)/south(-), y up, z street(+)/back(-).
 // The house stands in x -21.7..21.7, z 0..-46.
@@ -34,11 +47,20 @@ import { F1 } from './house.js';
 import { makeKit, PAINT, GLOW, GLOW_WARM } from './garden/tools.js';
 import { buildPond, pondLife, POND } from './garden/pond.js';
 import { buildPlay, playLife } from './garden/play.js';
+import { buildTreehouse, treehouseLife } from './garden/treehouse.js';
 import { buildPotager } from './garden/potager.js';
+import { buildLibrary } from './garden/little_library.js';
+import { buildMailbox } from './garden/mailbox.js';
+import { buildFrontWalk } from './garden/front_walk.js';
+import { buildChapel, chapelLife, CHAPEL } from './garden/chapel.js';
 import { creatures } from './garden/creatures.js';
+import { chaplain } from './garden/chaplain.js';
 import { wind, rng } from './garden/cards.js';
+import { makeFlames } from './flame.js';
+import { buildAirstop, airstopLife } from './garden/airstop.js';
 import { inPoly } from './garden/flora.js';
 
+export { CHAPEL };
 export const BOUNDS = { x0: -110, x1: 100, z0: -142, z1: 68 };
 // The island the house stands on (main.js draws the land and its rocky
 // underside). Its outline is fitted round what stands on it: each radius
@@ -83,7 +105,7 @@ export const TREES = [
   { kind: 'oak', x: -104, z: 22, seed: 14, height: 50 },
   { kind: 'pine', x: -114, z: 70, seed: 15 }, { kind: 'pine', x: 104, z: 70, seed: 16, height: 52 },
   // north side
-  { kind: 'oak', x: 97, z: 30, seed: 17, height: 44 },
+  { kind: 'oak', x: 106, z: 29, seed: 17, height: 48, trunk: 2.6, y: 0.01 },      // the treehouse oak, at the brink (garden/treehouse.js; y keeps it from the brink's clearing below)
   { kind: 'maple', x: 101, z: -22, seed: 18, height: 42 },
   { kind: 'lilac', x: 40, z: -6, seed: 19 }, { kind: 'lilac', x: 58, z: -47, seed: 20 },
   { kind: 'pine', x: 108, z: -60, seed: 21, height: 50 },
@@ -137,9 +159,6 @@ export function plantGarden(B, items) {
       for (let x = xa; x < xb; x += 3 + r() * 3) F.add(r() < 0.5 ? 'grass' : 'wildflowers', x, z + (r() - 0.5) * 2, 0.9 + r() * 0.4);
     };
     fence(gx0 - 21, gx0); fence(gx1, gx1 + 17); fence(gx1 + 32, gx1 + 41);
-    // one bay fallen flat in the grass
-    for (let x = -42; x < -32; x += 0.45) K.box(OLDPAINT, x - 0.13, x + 0.13, 0.05, 0.12, fz - 2.8, fz - 0.4);
-    K.box(OLDPAINT, -42.2, -31.8, 0.1, 0.22, fz - 1.0, fz - 0.8); K.box(OLDPAINT, -42.2, -31.8, 0.1, 0.22, fz - 2.4, fz - 2.2);
     // the arbour, smothered in a rambling rose
     for (const x of [gx0 - 0.3, gx1 + 0.3]) for (const z of [fz - 1.2, fz + 0.6]) K.box(OLDPAINT, x - 0.2, x + 0.2, 0, 8.4, z - 0.2, z + 0.2);
     for (const z of [fz - 1.2, fz + 0.6]) { const cx = (gx0 + gx1) / 2, R = (gx1 - gx0) / 2 + 0.3; for (let i = 0; i < 14; i++) { const a0 = Math.PI * i / 14, a1 = Math.PI * (i + 1) / 14; K.beam(OLDPAINT, [cx + Math.cos(a0) * R, 8.4 + Math.sin(a0) * 1.6, z], [cx + Math.cos(a1) * R, 8.4 + Math.sin(a1) * 1.6, z], 0.3, 0.3); } }
@@ -153,8 +172,8 @@ export function plantGarden(B, items) {
       for (let i = 0; i <= 6; i++) { const t = i / 6, x = hx + (ex - hx) * t, z = fz - 0.2 + (ez - fz) * t, h = 3.3 + 0.5 * Math.sin(Math.PI * t * 0.5 + (s < 0 ? Math.PI / 2 : 0)); K.box(OLDPAINT, x - 0.12, x + 0.12, 0.4, h, z - 0.04, z + 0.04); }
       K.collide(Math.min(hx, ex) - 0.1, Math.max(hx, ex) + 0.1, Math.min(fz, ez) - 0.3, Math.max(fz, ez), 4);
     }
-    B.wbox('pavers', px(20.55), px(26.55), -0.05, 0.06, 61.9, fz + 1);
-    K.extras.push({ draw: (g, w, h) => { g.fillStyle = '#d9d2c0'; g.fillRect(0, 0, w, h); g.strokeStyle = '#8a9480'; g.lineWidth = 8; g.strokeRect(8, 8, w - 16, h - 16); g.fillStyle = '#4a4f44'; g.font = 'italic 64px "Iowan Old Style", Palatino, Georgia, serif'; g.textAlign = 'center'; g.fillText('Come in,', w / 2, 96); g.font = 'italic 44px "Iowan Old Style", Palatino, Georgia, serif'; g.fillText('the garden is always open', w / 2, 166); }, cw: 600, ch: 230, w: 3.0, h: 1.15, x: px(23.55), y: 7.5, z: fz + 1.12, rotY: 0.04, rough: 0.9 });
+    buildFrontWalk(K);      // the brick walk from here to the porch steps (garden/front_walk.js)
+    K.extras.push({ draw: (g, w, h) => { g.fillStyle = '#d9d2c0'; g.fillRect(0, 0, w, h); g.strokeStyle = '#8a9480'; g.lineWidth = 8; g.strokeRect(8, 8, w - 16, h - 16); g.fillStyle = '#4a4f44'; g.font = 'italic 64px "Iowan Old Style", Palatino, Georgia, serif'; g.textAlign = 'center'; g.fillText('Welcome to', w / 2, 92); g.font = 'italic 76px "Iowan Old Style", Palatino, Georgia, serif'; g.fillText('Anna’s House', w / 2, 178); }, cw: 600, ch: 230, w: 3.0, h: 1.15, x: px(23.55), y: 7.5, z: fz + 1.12, rotY: 0.04, rough: 0.9 });
   }
 
   // ======================================================================================
@@ -243,7 +262,9 @@ export function plantGarden(B, items) {
   for (const [x, z] of [[-30, -16.5], [-35.5, -18.6], [-41, -19.3], [-46.5, -18.4], [-51.8, -16.6], [-57, -14.6], [-61.5, -14.0]]) G.blob('flagstone', x, z, 1.5, 1.1, { y: 0.09, wobble: 0.2, seed: Math.round(x * 7) });
   for (const [x, z] of [[-64.5, 23.6], [-63.5, 28.5], [-61.6, 33.2]]) G.blob('flagstone', x, z, 1.4, 1.05, { y: 0.09, wobble: 0.2, seed: Math.round(z * 7) });
   buildPlay(K);
+  buildTreehouse(K, { island: ISLAND, outline: islandEdge });      // in the great oak beyond the play set (garden/treehouse.js)
   buildPotager(K);
+  buildLibrary(K); buildMailbox(K);       // by the gate (garden/little_library.js, mailbox.js)
   K.pondAt = { x: POND.x, z: POND.z, y: POND.y };
 
   // ======================================================================================
@@ -258,7 +279,7 @@ export function plantGarden(B, items) {
     // the other side: long grass running into the meadow, foxgloves seeding about
     for (let z = z1; z > z0; z -= 2.4) for (let x = -24; x < -13; x += 2.4) { const qx = x + (r() - 0.5) * 2, qz = z + (r() - 0.5) * 2; if (qx > -16 + Math.sin(qz * 0.2) * 1.5) continue; F.add(r() < 0.6 ? 'grass' : r() < 0.7 ? 'wildflowers' : 'spires', qx, qz, 0.8 + r() * 0.4); }
     // a weathered bench in the clearing, looking back at the house
-    K.model('painted_wooden_bench', -9, -118, 0, { scale: 1.25, collide: true }); K.seat(-9, 1.6, -117.6, Math.PI, 'sit in the clearing');
+    K.bench(-9, -118, 0); K.seat(-9, 1.4, -117.9, Math.PI, 'sit in the clearing');
   }
 
   // ======================================================================================
@@ -330,7 +351,7 @@ export function plantGarden(B, items) {
     K.model('wicker_basket_01', fx + 7.4, fz - 3.6, 0.3);
     for (let i = 0; i < 6; i++) K.cyl('c#6a5038/1', fx + 7.6 + (i % 3) * 0.5, 0.25 + Math.floor(i / 3) * 0.45, 0.25 + Math.floor(i / 3) * 0.45 + 0.01, fz - 5.6, 0.22, 0.22, 7);
     K.hammock = { x: -96.5, z0: -104.4, z1: -121.6, low: 2.4 };
-    K.model('painted_wooden_bench', -100, -40, Math.PI * 0.25, { scale: 1.25, collide: true }); K.seat(-99.7, 1.6, -40.3, -Math.PI * 0.75, 'sit in the meadow');
+    K.bench(-100, -40, Math.PI * 0.25); K.seat(-99.93, 1.4, -39.93, -Math.PI * 0.75, 'sit in the meadow');
     K.model('dead_tree_trunk_02', -102, -82, 1.4, { scale: 0.8, collide: true });
     K.fireflySpots = [[-70, -100, 30], [-90, -60, 18], [-60, -130, 20], [POND.x, POND.z, 16], [86, -90, 16], [4, 82, 14], [-95, -60, 14]];
   }
@@ -370,7 +391,7 @@ export function plantGarden(B, items) {
       F.add('grass', x + s, z, 1.1); F.add('fern', x - s, z + 0.5, 0.9);
     }
     // two benches looking out over the edge, at the ends of the mown ways
-    const look = (x, z) => { const out = Math.atan2(x - I.x, z - I.z); K.model('painted_wooden_bench', x, z, out, { scale: 1.25, collide: true }); K.seat(x - Math.sin(out) * 0.3, 1.6, z - Math.cos(out) * 0.3, out + Math.PI, 'sit and look out'); };
+    const look = (x, z) => { const out = Math.atan2(x - I.x, z - I.z); K.bench(x, z, out); K.seat(x + Math.sin(out) * 0.1, 1.4, z + Math.cos(out) * 0.1, out + Math.PI, 'sit and look out'); };
     look(2, 95); look(-8, -158);
     // a few posts of an old fence near the north edge
     for (let i = 0; i < 6; i++) { const a = 0.2 + i * 0.05, d = islandEdge(a) * 0.86, x = I.x + Math.cos(a) * d, z = I.z + Math.sin(a) * d; if (inGarden(x, z)) continue; K.box(OLDWOOD, x - 0.25, x + 0.25, 0, 3.6 - (i % 3) * 0.5, z - 0.25, z + 0.25, { rot: [0, 0, (r() - 0.5) * 0.2] }); }
@@ -396,6 +417,12 @@ export function plantGarden(B, items) {
     for (const z of [-10.5, -3.5, 3.5, 10.5]) strand(xa, z, xb, z + 1.2, 0.8, 8);
     K.lamp(px(-6), y - 0.8, -5, 0.32); K.lamp(px(-6), y - 0.8, 6, 0.32);
   }
+
+  // ======================================================================================
+  // The chapel at the south edge (garden/chapel.js), laid out last
+  // ======================================================================================
+  buildChapel(K, items);
+  buildAirstop(K);      // the airship stop at the front lookout (garden/airstop.js)
 
   // ======================================================================================
   // Built once materials exist, and the things that move
@@ -444,16 +471,15 @@ export function plantGarden(B, items) {
     // the fire pit: flames after dark (or whenever you light it)
     if (K.fire) {
       const f = K.fire, lamp = { x: f.x, y: f.y + 1.6, z: f.z, power: 0, kind: 'fire' }; items.lamps.push(lamp);
-      const c = document.createElement('canvas'); c.width = 64; c.height = 128; const g = c.getContext('2d'); const gr = g.createRadialGradient(32, 100, 2, 32, 76, 80); gr.addColorStop(0, 'rgba(255,244,200,1)'); gr.addColorStop(0.35, 'rgba(255,170,60,.9)'); gr.addColorStop(0.75, 'rgba(220,70,20,.35)'); gr.addColorStop(1, 'rgba(120,20,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 128);
-      const mat = new T3.MeshBasicMaterial({ map: new T3.CanvasTexture(c), transparent: true, depthWrite: false, blending: T3.AdditiveBlending, side: T3.DoubleSide, toneMapped: false });
       const hearth = new T3.Group(); hearth.position.set(f.x, f.y, f.z); scene.add(hearth);
       const logMat = new T3.MeshStandardMaterial({ color: 0x2a1a12, roughness: 1, emissive: 0x401000, emissiveIntensity: 0 });
       for (let i = 0; i < 4; i++) { const l = new T3.Mesh(new T3.CylinderGeometry(0.17, 0.2, 2.0, 7), logMat); l.rotation.set(Math.PI / 2 - 0.35, (i / 4) * Math.PI * 2, 0); l.position.set(Math.cos(i * 1.57) * 0.3, 0.35, Math.sin(i * 1.57) * 0.3); hearth.add(l); }
-      const tongues = [0, 1, 2, 3, 4].map(i => { const fl = new T3.Mesh(new T3.PlaneGeometry(1.1, 1.8), mat); fl.rotation.y = (i / 5) * Math.PI; hearth.add(fl); return fl; });
+      // flames you can walk all round: four sheets crossed through the middle (flame.js; one draw)
+      const uT = { value: 0 }, flames = makeFlames(T3, mergeGeometries, uT, [0, 1, 2, 3].map(i => [(i / 4) * Math.PI + 0.2, 0, 0, 2.0 - (i % 2) * 0.3, 2.7 - (i % 2) * 0.5, i * 2.9]), 0.25); hearth.add(flames);
       let manual = null;
       ctx.interact.push({ x: f.x, y: 1.4, z: f.z, reach: 8, label: () => (lit() ? 'let the fire die down' : 'light the fire'), act: () => { manual = !lit(); } });
       const lit = () => manual ?? day.night > 0.45;
-      animated.push(t => { const on = lit(); lamp.power = on ? 0.9 : 0; logMat.emissiveIntensity = on ? 0.8 + 0.3 * Math.sin(t * 7) : 0; tongues.forEach((fl, i) => { fl.visible = on; const k = 0.8 + 0.25 * Math.sin(t * (7 + i) + i * 2) + 0.12 * Math.sin(t * 19 + i); fl.scale.set(0.8 + 0.2 * Math.sin(t * 5 + i), k, 1); fl.position.y = 0.3 + 0.8 * k; }); });
+      animated.push(t => { const on = lit(); lamp.power = on ? 0.9 : 0; logMat.emissiveIntensity = on ? 0.5 + 0.2 * Math.sin(t * 7) : 0; flames.visible = on; uT.value = t; });
     }
     // the hammock, swaying a little; lie in it and look up into the leaves
     if (K.hammock) {
@@ -476,6 +502,11 @@ export function plantGarden(B, items) {
     }
     pondLife(ctx, K);
     playLife(ctx, K);
+    treehouseLife(ctx, K);
+    chapelLife(ctx, K);
+    airstopLife(ctx, K);      // its bell, gate and windsock, and Dandelion the airship (airship/)
+    for (const f of K.setups) f(ctx);    // the library door, the mailbox, the honey stall (little_library.js, mailbox.js, hives.js)
+    chaplain(ctx, K);                    // Moth, who keeps the chapel (garden/chaplain.js)
     creatures(ctx, K);
     if (new URLSearchParams(location.search).has('gstats')) setTimeout(() => {
       const by = {}; let calls = 0, tris = 0;

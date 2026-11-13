@@ -26,6 +26,7 @@
 import * as THREE from 'three';
 import { W, wx, wz } from './builder.js';
 import { F1, F2, C2, D } from './house.js';
+import { CHAPEL } from './garden/chapel.js';
 
 const lerp = THREE.MathUtils.lerp, clamp = THREE.MathUtils.clamp, smooth = THREE.MathUtils.smoothstep;
 
@@ -46,13 +47,17 @@ const f = n => n.toFixed(3);
 const boxGLSL = BOXES.map(([X0, X1, Y0, Y1, y0, y1]) => {
   const a = [wx(X0), y0, wz(Y1)], b = [wx(X1), y1, wz(Y0)];
   return `  m = max(m, hlBox(p, vec3(${a.map(f)}), vec3(${b.map(f)})));`;
-}).join('\n');
+}).join('\n')
+  // the chapel in the garden is a room too; its box is already in world feet (garden/chapel.js)
+  + (({ x0, x1, y0, y1, z0, z1 }) => `\n  m = max(m, hlBox(p, vec3(${[x0, y0, z0].map(f)}), vec3(${[x1, y1, z1].map(f)})));`)(CHAPEL.inside);
 
 // Shared uniform values. Plain objects (not THREE.Vector*) so that three's uniform cloning
 // keeps a reference to them, and every material sees the same numbers.
 export const HL = {
   amb: { x: 0, y: 0, z: 0 },       // warm room light added indoors (irradiance)
-  k: { x: 1, y: 1, z: 1, w: 0 },   // indoors: sky diffuse scale, sky reflection scale, sky-fill cut
+  k: { x: 1, y: 1, z: 1, w: 0 },   // indoors: sky diffuse scale, sky reflection scale, sky-fill cut, how far whites are held back by lamplight
+  sh: { x: 0, y: 0, z: 0, w: 0 },  // indoors: corner shade on the room light, and on the lamps (set by shade.js)
+  cav: new Float32Array(6 * 8),    // up to six open shelves near the eye, shaded inside: per shelf x0, z0, x1, z1 and y0, y1, open side, weight (shade.js)
 };
 
 let installed = false;
@@ -62,19 +67,39 @@ export function installHouseLight() {
 #define HOUSE_LIGHT
 uniform vec3 uInAmb;
 uniform vec4 uInK;
+uniform vec4 uInSh;
+uniform vec4 uInCav[12];
 float hlBox(vec3 p, vec3 a, vec3 b) { return (all(greaterThan(p, a)) && all(lessThan(p, b))) ? 1.0 : 0.0; }
 float houseInside(vec3 p) {
   float m = 0.0;
 ${boxGLSL}
   return m;
 }
+// How open a spot indoors is, 1 in the open: less low on walls and on the sides of things (where
+// they meet the floor), up under the ceiling, and on faces turned down (the undersides of things).
+float houseShade(vec3 p, vec3 n, float inside) {
+  if (inside < 0.5) return 1.0;
+  bool up = p.y > ${f(F1 + 8.7)};
+  float h = max(p.y - (up ? ${f(F2)} : ${f(F1)}), 0.0), c = max((up ? ${f(C2)} : ${f(F1 + 8.2)}) - p.y, 0.0);
+  float side = 1.0 - abs(n.y);
+  float a = 1.0 - side * (0.5 * exp(-1.8 * h) + 0.22 * exp(-3.0 * c));
+  // inside an open shelf: darker toward the back (open side 0: +x, 1: -x, 2: +z, 3: -z)
+  for (int i = 0; i < 6; i++) {
+    vec4 A = uInCav[i * 2], B = uInCav[i * 2 + 1];
+    if (B.w <= 0.0 || p.x < A.x || p.x > A.z || p.z < A.y || p.z > A.w || p.y < B.x || p.y > B.y) continue;
+    float t = B.z < 0.5 ? (A.z - p.x) / (A.z - A.x) : B.z < 1.5 ? (p.x - A.x) / (A.z - A.x) : B.z < 2.5 ? (A.w - p.z) / (A.w - A.y) : (p.z - A.y) / (A.w - A.y);
+    a *= 1.0 - B.w * 0.6 * smoothstep(0.05, 0.9, t);
+  }
+  return a * (1.0 + min(n.y, 0.0) * mix(0.55, 0.15, smoothstep(6.0, 7.5, h)));
+}
 `;
   const after = `
 #ifdef HOUSE_LIGHT
   {
     float kd = mix(1.0, uInK.x, hlIn);
-    iblIrradiance *= kd;
-    irradiance = irradiance * kd + hlIn * uInAmb;
+    float ao = mix(1.0, hlAO, uInSh.x);
+    iblIrradiance *= kd * ao;
+    irradiance = (irradiance * kd + hlIn * uInAmb) * ao;
     radiance *= mix(1.0, uInK.y, hlIn);
   }
 #endif
@@ -83,17 +108,23 @@ ${boxGLSL}
     const S = THREE.ShaderLib[id];
     S.uniforms.uInAmb = { value: HL.amb };
     S.uniforms.uInK = { value: HL.k };
+    S.uniforms.uInSh = { value: HL.sh };
+    S.uniforms.uInCav = { value: HL.cav };
     S.fragmentShader = S.fragmentShader
       .replace('#include <common>', '#include <common>\n' + head)
       .replace('#include <lights_fragment_maps>', '#include <lights_fragment_maps>\n' + after);
   }
   // Where the fragment is, before any light is added (only where HOUSE_LIGHT is defined)
   let ch = THREE.ShaderChunk.lights_fragment_begin;
-  ch = '#ifdef HOUSE_LIGHT\n\tfloat hlIn = houseInside( cameraPosition + ( vec4( - vViewPosition, 0.0 ) * viewMatrix ).xyz );\n#endif\n' + ch;
+  ch = '#ifdef HOUSE_LIGHT\n\tvec3 hlP = cameraPosition + ( vec4( - vViewPosition, 0.0 ) * viewMatrix ).xyz;\n\tfloat hlIn = houseInside( hlP );\n\tfloat hlAO = houseShade( hlP, inverseTransformDirection( normal, viewMatrix ), hlIn );\n\tmaterial.diffuseColor /= 1.0 + uInK.w * hlIn * max( material.diffuseColor.r, max( material.diffuseColor.g, material.diffuseColor.b ) );\n#endif\n' + ch;
   // Indoors the sky fill (the second, unshadowed directional light) is dropped
   const dir = ch.indexOf('#if ( NUM_DIR_LIGHTS > 0 ) && defined( RE_Direct )');
   const re = ch.indexOf('RE_Direct( directLight', dir);
-  ch = ch.slice(0, re) + '#if defined( HOUSE_LIGHT ) && ( UNROLLED_LOOP_INDEX > 0 )\n\t\tdirectLight.color *= 1.0 - hlIn * uInK.z;\n\t\t#endif\n\t\t' + ch.slice(re);
+  // ...and a thing indoors that does not read the shadow map (a mesh without receiveShadow) gets no
+  // sun or moon at all: unshadowed, they came straight through the roof, and pale things shone at night
+  ch = ch.slice(0, re) + '#if defined( HOUSE_LIGHT ) && ( UNROLLED_LOOP_INDEX > 0 )\n\t\tdirectLight.color *= 1.0 - hlIn * uInK.z;\n\t\t#elif defined( HOUSE_LIGHT )\n\t\tif ( ! receiveShadow ) directLight.color *= 1.0 - hlIn;\n\t\t#endif\n\t\t' + ch.slice(re);
+  // The lamps (the point lights, the first loop) are shaded in the corners too, a little
+  ch = ch.replace('RE_Direct( directLight', '#ifdef HOUSE_LIGHT\n\t\tdirectLight.color *= mix( 1.0, hlAO, uInSh.y );\n\t\t#endif\n\t\tRE_Direct( directLight');
   THREE.ShaderChunk.lights_fragment_begin = ch;
 }
 // A material that should be lit as if outdoors wherever it is (window glass)
@@ -115,6 +146,10 @@ export function setHourLight(day, materials) {
   HL.k.x = lerp(0.12, 0.42, L);           // sky diffuse
   HL.k.y = lerp(0.1, 0.3, L);             // sky reflections
   HL.k.z = 1;                              // no sky fill through walls
+  // By lamplight the eye is wide open (exposure, below) and anything white near a lamp burns out to
+  // paper white beside mid-toned walls, as if lit from within. The palest surfaces are held back a
+  // little after dark (white about a third, mid-tones hardly at all); by day nothing changes.
+  HL.k.w = 0.7 * on;
   amb.copy(AMB_NIGHT).multiplyScalar(0.075).lerp(amb.clone().copy(AMB_DAY).multiplyScalar(0.5), L);
   HL.amb.x = amb.r; HL.amb.y = amb.g; HL.amb.z = amb.b;
   // emissive glows: lamps and their shades

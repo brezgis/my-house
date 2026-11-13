@@ -9,6 +9,7 @@ import { F1, F2 } from '../house.js';
 import { OAK } from '../kit/mats.js';
 import { props, DRAWN } from './trinkets.js';
 import { tools } from './kitchen.js';
+import { PLACE as JIG } from '../jigsaw_shapes.js';
 
 // ---- Plates with decals ------------------------------------------------------------------------
 // Each decal is drawn on a 256 px canvas whose inscribed circle becomes the plate's round face (0.95 r),
@@ -127,10 +128,9 @@ export default function (kit) {
   // a laptop left open at the street-side end, the recipe still on screen
   kit.laptop(t.sub(2.5, -1.05, z, 2), 0, 0, 0, { draw: DRAWN.laptop });
   mug(t, 1.85, -1.25, z, 'c#2f4a5a/0.4');
-  // a jigsaw, half done, on its board; the lid propped beside it
-  t.box('c#c9b49a/0.7', 0.2, 1.9, 0.62, 1.62, z, z + 0.02);
-  sign(t, 1.05, 1.12, z + 0.025, 1.6, 0.94, DRAWN.jigsaw(8), { flat: true, cw: 512, ch: 300 });
-  pack(t, 2.6, 1.2, z, 0.95, 0.65, 0.12, 'c#e9e1cf/0.6', (g, w, h) => { g.fillStyle = '#2a3549'; g.fillRect(0, 0, w, h); g.fillStyle = '#efe6d2'; g.font = `bold ${h * 0.5}px Georgia, serif`; g.textAlign = 'center'; g.fillText('1000 pieces', w / 2, h * 0.68); }, { both: false });
+  // a jigsaw, a third done, on a green felt board; the pieces, the loose ones round it and the box lid
+  // leaning on the jug are src/jigsaw.js (playable: E), placed by PLACE in src/jigsaw_shapes.js
+  t.box('c#4f6a55/0.95', JIG.cx - JIG.bw / 2, JIG.cx + JIG.bw / 2, JIG.cy - JIG.bd / 2, JIG.cy + JIG.bd / 2, z, z + JIG.bz);
   // the post, a book face down, reading glasses
   P.lettersPile(t, -3.0, -1.15, z, 5, 9, 0.3);
   bookStack(t, -1.1, -1.2, z, 2); kit.openBook(t, 0.0, -1.15, z, { cover: 'c#2f4a3a/0.7', turn: 0.15 }); P.glasses(t, 0.75, -1.05, z, -0.4);

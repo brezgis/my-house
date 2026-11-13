@@ -231,7 +231,7 @@ export function buildPond(K) {
         if (sAt(sx, sz) < 0.93 && !lilySpots.some(([px, pz, pr]) => (px !== x || pz !== z) && Math.hypot(px - sx, pz - sz) < pr + sr)) { pad(sx, sz, sr, q() * 6.28, 0.55 + q() * 0.4); lilySpots.push([sx, sz, sr]); } }
     }
   }
-  K.frogPad = { x: FROG[0], z: FROG[1], y: P.y + 0.06 };
+  K.frogPad = { x: FROG[0], z: FROG[1], y: P.y + 0.06 }; K.lilyPads = lilySpots;      // where the frog may hop, and the ducks keep clear of
   pad(FROG[0], FROG[1], 1.25, 0.9); lily(FROG[0] - 1.2, FROG[1] - 0.8, 1.1, true);
 
   // ---- Planting, in groups: rushes and long grass at the willow end and the back, iris by the bridge and the stones ----
@@ -281,7 +281,7 @@ export function buildPond(K) {
     K.rock(PAINT.stone, sx, 0.5, sz, 2.1, 0.95, 1.5, 0.5, 2); K.collide(sx - 1.5, sx + 1.5, sz - 1.2, sz + 1.2, 1.6);
     K.seat(sx, 1.25, sz, yaw, 'sit on the warm stone');
     const bz = spanAt(P.x - 9)[1] + 4.4;
-    K.model('painted_wooden_bench', P.x - 9, bz, Math.PI, { scale: 1.25, collide: true });
+    K.bench(P.x - 9, bz, Math.PI);
     K.seat(P.x - 9, 1.6, bz - 0.4, 0, 'sit by the pond');
     K.model('garden_gnome', P.x - 14, P.z - 11.2, 1.2, { scale: 0.8 });          // half lost in the ferns
     F.drift('fern', P.x - 14.5, P.z - 11.6, 1.5, 1.5, 3, 0.9);
@@ -350,36 +350,137 @@ export function pondLife(ctx, K) {
   interact.push({ x: P.x - 6, y: 0.4, z: P.z - 3, reach: 9, label: () => 'watch the koi', act: () => toast(WATCH[said++ % WATCH.length]) });
   window.__pond = { school: S, feed: feedKoi, get clock() { return clock; } };
 
-  // ---- Two mallards (village animal models), paddling round the willow end, each drawing a little wake ----
+  // ---- Two mallards (village animal models) about the willow end. They paddle from place to place, keep their
+  // distance from anyone close by, dabble, up-end and preen, and sleep by the reeds after dark; each draws a little
+  // wake. Live positions in window.__pond.ducks (the ducklings in creatures_more.js follow the brown one).
   const FT = 3.28084, loader = new GLTFLoader();
   const glb = id => new Promise((ok, bad) => loader.load(`assets/models/${id}/${id}.glb`, g => ok(g.scene), undefined, bad));
   const prep = (o, s, tint) => { o.scale.setScalar(FT * s); o.traverse(n => { if (n.isMesh) { n.castShadow = false; n.receiveShadow = true; if (tint) { n.material = n.material.clone(); n.material.color.multiply(new THREE.Color(tint)); } } }); return o; };
+  const awake = () => !freeze && scene.visible && Math.hypot(cam.x - P.x, cam.z - P.z) < 110;      // nothing moves while nobody is near the pond
+  const pads = () => K.lilyPads ?? [];
+  const turnTo = (a, b, k) => { const d = Math.atan2(Math.sin(b - a), Math.cos(b - a)); return Math.abs(d) <= k ? b : a + Math.sign(d) * k; };
+  const ducks = [{ x: P.x - 8, z: P.z - 2, yaw: 0.5, moving: false }, { x: P.x - 6, z: P.z + 1.5, yaw: 2.2, moving: false }];
+  window.__pond.ducks = ducks; K.ducks = ducks;
+  const duckWater = (x, z) => sAt(x, z) < 0.8 && x < BRIDGE.x - 3.2 && !BOULDERS.some(([bx, bz, br]) => Math.hypot(bx - x, bz - z) < br + 1.2) && !pads().some(([px, pz, pr]) => Math.hypot(px - x, pz - z) < pr + 0.8);
+  const qd = rng(77);
+  const spot = (avoidX, avoidZ) => {
+    let best = null, bd = -1;
+    for (let k = 0; k < 24; k++) { const a = qd() * 6.28, s = 0.2 + qd() * 0.6, [x, z] = at(a, s); if (!duckWater(x, z)) continue; const d = avoidX == null ? qd() : Math.hypot(x - avoidX, z - avoidZ); if (d > bd) { bd = d; best = [x, z]; } }
+    return best ?? [P.x - 7, P.z];
+  };
   glb('v_duck_mallard').then(src => {
-    const ducks = [prep(src.clone(true), 1.0), prep(src.clone(true), 0.95, 0xb8a58a)];
-    for (const d of ducks) scene.add(d);
-    const loop = new THREE.CatmullRomCurve3([[-8, -3.5], [-10.4, -0.4], [-9, 2.6], [-5.2, 2.3], [-4.4, -2]].map(([dx, dz]) => new THREE.Vector3(P.x + dx, 0, P.z + dz)), true);
-    const p = new THREE.Vector3(), tn = new THREE.Vector3(), wake = [0, 0.8];
-    const place = (d, i, c) => {
-      const s = ((c * 0.0042 + i * 0.075) % 1 + 1) % 1; loop.getPointAt(s, p); loop.getTangentAt(s, tn);
-      d.position.set(p.x, P.y - 0.2 + 0.012 * Math.sin(c * 1.7 + i * 2), p.z); d.rotation.set(0.03 * Math.sin(c * 1.3 + i), Math.atan2(tn.x, tn.z), 0.04 * Math.sin(c * 0.9 + i * 3), 'YXZ');     // the model faces +z
+    const objs = [prep(src.clone(true), 1.0), prep(src.clone(true), 0.95, 0xb8a58a)];
+    ducks.forEach((d, i) => Object.assign(d, { o: objs[i], tx: d.x, tz: d.z, v: 0, mode: 'drift', until: 0, wake: i * 0.8, pitch: 0, roll: 0, up: 0 }));
+    for (const o of objs) scene.add(o);
+    let next = 0;
+    const roost = i => at(2.86 + i * 0.16, 0.8);                                            // in the shelter of the rushes at the willow end
+    // Each duck floats with the water's surface a third of the way up its body (the model's feet are at 0, its legs reach
+    // 0.067 m and its body runs from there to about 0.27 m): it pivots about that waterline as it bobs, dabbles and up-ends,
+    // so its legs stay under water (up-ending, the tail and feet rightly come up).
+    const WL = [0.134 * FT * 1.0, 0.134 * FT * 0.95], wv = new THREE.Vector3();
+    const place = (d, i) => {
+      d.o.rotation.set(d.pitch + 0.03 * Math.sin(clock * 1.3 + i), d.yaw, d.roll + 0.04 * Math.sin(clock * 0.9 + i * 3), 'YXZ');     // the model faces +z
+      wv.set(0, WL[i], 0).applyEuler(d.o.rotation);
+      d.o.position.set(d.x - wv.x, P.y + 0.012 * Math.sin(clock * 1.7 + i * 2) - wv.y, d.z - wv.z);
     };
-    ducks.forEach((d, i) => place(d, i, clock));
-    animated.push(() => { if (freeze) return; ducks.forEach((d, i) => { place(d, i, clock); if (clock > wake[i]) { wake[i] = clock + 1.7; S.ring(d.position.x, d.position.z, clock, 0.3); } }); });
+    ducks.forEach(place);
+    animated.push((t, dt) => {
+      if (!awake()) return;
+      dt = Math.min(dt, 0.05);
+      if (clock >= next) {
+        next = clock + 0.25;
+        const night = (day?.night ?? 0) > 0.6;
+        ducks.forEach((d, i) => {
+          const dc = Math.hypot(cam.x - d.x, cam.z - d.z);
+          if (dc < 9 && d.mode !== 'away') { [d.tx, d.tz] = spot(cam.x, cam.z); d.v = 1.1; d.mode = 'away'; d.until = clock + 6; return; }
+          if (night && d.mode !== 'roost' && d.mode !== 'home') { [d.tx, d.tz] = roost(i); d.v = 0.45; d.mode = 'home'; return; }
+          if (!night && (d.mode === 'roost' || d.mode === 'home')) { d.mode = 'drift'; d.until = clock; }
+          const there = Math.hypot(d.tx - d.x, d.tz - d.z) < 0.3;
+          if (d.mode === 'home') { if (there) { d.mode = 'roost'; d.v = 0; } return; }
+          if (d.mode === 'roost' || clock < d.until || ((d.mode === 'paddle' || d.mode === 'away') && !there)) return;
+          const k = qd();
+          if (k < 0.42) { d.mode = 'paddle'; [d.tx, d.tz] = spot(); d.v = 0.35 + qd() * 0.3; d.until = clock + 30; }
+          else if (k < 0.62) { d.mode = 'drift'; d.v = 0; d.until = clock + 4 + qd() * 5; }
+          else if (k < 0.77) { d.mode = 'dabble'; d.v = 0; d.until = clock + 1.2 + qd() * 1.5; }
+          else if (k < 0.88) { d.mode = 'upend'; d.v = 0; d.until = clock + 2 + qd() * 1.5; S.ring(d.x, d.z, clock, 0.6); }
+          else { d.mode = 'preen'; d.v = 0; d.until = clock + 2.5 + qd() * 2; }
+        });
+      }
+      ducks.forEach((d, i) => {
+        const go = (d.mode === 'paddle' || d.mode === 'away' || d.mode === 'home') && Math.hypot(d.tx - d.x, d.tz - d.z) > 0.25;
+        if (go) {
+          const want = Math.atan2(d.tx - d.x, d.tz - d.z); d.yaw = turnTo(d.yaw, want, dt * 1.4);
+          const sp = d.v * Math.max(0.15, Math.cos(want - d.yaw)), nx = d.x + Math.sin(d.yaw) * sp * dt, nz = d.z + Math.cos(d.yaw) * sp * dt;
+          if (sAt(nx, nz) < 0.86) { d.x = nx; d.z = nz; }
+        } else if (d.mode === 'drift' || d.mode === 'roost') { d.yaw += dt * 0.05 * Math.sin(clock * 0.3 + i * 2); }
+        const o = ducks[1 - i], sep = Math.hypot(d.x - o.x, d.z - o.z);                      // never inside each other
+        if (sep < 1.3 && sep > 1e-3) { d.x += (d.x - o.x) / sep * (1.3 - sep) * 0.5; d.z += (d.z - o.z) / sep * (1.3 - sep) * 0.5; }
+        d.moving = go;
+        const pt = d.mode === 'dabble' ? 0.45 : d.mode === 'upend' ? 1.35 : d.mode === 'roost' ? 0.12 : 0, ut = 0;
+        d.pitch += (pt - d.pitch) * Math.min(1, dt * 4); d.up += (ut - d.up) * Math.min(1, dt * 4);
+        d.roll = d.mode === 'preen' ? 0.22 * Math.sin(clock * 2.3) : d.roll * (1 - Math.min(1, dt * 3));
+        if (d.mode === 'preen') d.yaw += dt * 0.6 * Math.sin(clock * 1.7);
+        place(d, i);
+        if (go && clock > d.wake) { d.wake = clock + 1.7; S.ring(d.x, d.z, clock, 0.3); }
+      });
+    });
   }).catch(() => {});
 
-  // ---- The frog on the big lily pad (village model): sits, and jumps in with a plop if you say hello ----
+  // ---- The frog (village model): sits on a lily pad facing you, blinks, its throat going; hops from pad to pad
+  // now and then, and plops into the water if you come close (or say hello), climbing out again later ----
   glb('v_frog').then(src => {
-    const fp = K.frogPad, g = prep(src.clone(true), 1.3); g.position.set(fp.x, fp.y, fp.z); g.rotation.y = Math.atan2(P.x - fp.x, P.z - fp.z) + Math.PI; scene.add(g);
-    let hop = -1;
-    interact.push({ x: fp.x, y: fp.y + 0.3, z: fp.z, reach: 12, label: () => (hop >= 0 ? 'the frog has gone for a swim' : 'say hello to the frog'), act: () => { if (hop < 0) hop = 0; } });
-    const dx = P.x - fp.x, dz = P.z - fp.z, dl = Math.hypot(dx, dz), ux = dx / dl, uz = dz / dl;
+    const fp = K.frogPad, g = prep(src.clone(true), 1.3), home = [fp.x, fp.z, 1.25], padY = fp.y;
+    // eyelids and the throat, in the model's own metres (its eyes are the bumps at x +-0.011, y 0.044, z 0.027)
+    const skin = new THREE.MeshStandardMaterial({ color: 0x6a8838, roughness: 0.55 }), throat = new THREE.MeshStandardMaterial({ color: 0xb8bc84, roughness: 0.5 });
+    const lidG = new THREE.SphereGeometry(0.0092, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2);
+    const lids = [-1, 1].map(s => { const m = new THREE.Mesh(lidG, skin); m.position.set(s * 0.011, 0.0438, 0.027); m.scale.setScalar(0.001); g.add(m); return m; });
+    const sac = new THREE.Mesh(new THREE.SphereGeometry(0.011, 10, 8), throat); sac.position.set(0, 0.01, 0.03); g.add(sac);
+    for (const m of [...lids, sac]) { m.castShadow = false; m.receiveShadow = true; }
+    g.position.set(fp.x, padY, fp.z); g.rotation.y = Math.atan2(P.x - fp.x, P.z - fp.z) + Math.PI; scene.add(g);
+    const qf = rng(91);
+    let pad = home, mode = 'sit', t0 = 0, turning = false, blinkAt = 2, croak = -9, nextHop = clock + 30, ax = fp.x, az = fp.z, bx = fp.x, bz = fp.z, by = padY, next = 0, greet = false;
+    const ent = { x: fp.x, y: fp.y + 0.3, z: fp.z, reach: 12, label: () => (mode === 'swim' || mode === 'plop' ? 'the frog has gone for a swim' : 'say hello to the frog'), act: () => { if (mode === 'sit') greet = true; } };
+    interact.push(ent); window.__pond.frog = g;
+    const allPads = () => [home, ...pads().filter(p => p[2] >= 0.5)];
+    const hopTo = (x, z, y, m) => { ax = g.position.x; az = g.position.z; bx = x; bz = z; by = y; t0 = clock; mode = m; g.rotation.y = Math.atan2(x - ax, z - az); };
     animated.push((t, dt) => {
-      if (hop < 0) { g.scale.y = FT * 1.3 * (1 + 0.04 * Math.max(0, Math.sin(t * 4)) * (Math.sin(t * 0.6) > 0.4 ? 1 : 0)); return; }
-      const was = hop; hop += dt;
-      if (hop < 0.55) { const u = hop / 0.55; g.visible = true; g.rotation.y = Math.atan2(ux, uz); g.position.set(fp.x + ux * u * 2.6, fp.y + Math.sin(Math.PI * u) * 1.0 - u * 0.4, fp.z + uz * u * 2.6); }
-      else if (hop < 8) { g.visible = false; if (was < 0.55) S.ring(fp.x + ux * 2.6, fp.z + uz * 2.6, clock, 1.2); }
-      else if (hop < 8.6) { const u = (hop - 8) / 0.6; g.visible = true; g.position.set(fp.x, fp.y - 0.3 * (1 - u), fp.z); g.rotation.y = Math.atan2(P.x - fp.x, P.z - fp.z) + Math.PI; }
-      else { hop = -1; g.position.set(fp.x, fp.y, fp.z); }
+      if (!awake()) return;
+      const dc = Math.hypot(cam.x - g.position.x, cam.z - g.position.z);
+      if (clock >= next) {
+        next = clock + 0.25;
+        if (mode === 'sit' && (dc < 5 || greet)) {                                         // plop: into open water, away from her
+          greet = false;
+          let wx = g.position.x, wz = g.position.z;
+          for (let k = 0; k < 16; k++) { const a = Math.atan2(g.position.z - cam.z, g.position.x - cam.x) + (qf() - 0.5) * 1.6, x = g.position.x + Math.cos(a) * 2.6, z = g.position.z + Math.sin(a) * 2.6; if (sAt(x, z) < 0.9 && !allPads().some(([px, pz, pr]) => Math.hypot(px - x, pz - z) < pr + 0.2)) { wx = x; wz = z; break; } }
+          hopTo(wx, wz, P.y - 0.4, 'plop');
+        } else if (mode === 'swim' && clock - t0 > 8 && dc > 8) {                          // climbing out, on the pad furthest from her
+          let best = home, bd = -1; for (const p of allPads()) { const d = Math.hypot(p[0] - cam.x, p[1] - cam.z); if (d > bd && Math.hypot(p[0] - g.position.x, p[1] - g.position.z) < 9) { bd = d; best = p; } }
+          pad = best; const a = qf() * 6.28; g.position.set(pad[0] + Math.cos(a) * pad[2] * 0.9, P.y - 0.3, pad[1] + Math.sin(a) * pad[2] * 0.9); g.visible = true; hopTo(pad[0], pad[1], padY, 'climb');
+        } else if (mode === 'sit' && clock > nextHop && dc > 7) {                          // off to another pad nearby
+          const near = allPads().filter(p => p !== pad && Math.hypot(p[0] - pad[0], p[1] - pad[1]) < 6 && Math.hypot(p[0] - cam.x, p[1] - cam.z) > 6);
+          if (near.length) { pad = near[Math.floor(qf() * near.length)]; hopTo(pad[0] + (qf() - 0.5) * pad[2] * 0.6, pad[1] + (qf() - 0.5) * pad[2] * 0.6, padY, 'hop'); }
+          nextHop = clock + 25 + qf() * 40;
+        } else if (mode === 'sit' && clock > croak + 6 && qf() < 0.04) croak = clock;
+      }
+      ent.x = g.position.x; ent.z = g.position.z;
+      const u = clock - t0;
+      if (mode === 'hop' || mode === 'plop' || mode === 'climb') {
+        const T = mode === 'climb' ? 0.7 : 0.5, k = Math.min(1, u / T);
+        g.position.set(ax + (bx - ax) * k, (mode === 'climb' ? P.y - 0.3 + (padY - P.y + 0.3) * k : padY + (by - padY) * k) + Math.sin(Math.PI * k) * (mode === 'climb' ? 0.15 : 0.7), az + (bz - az) * k);
+        if (k >= 1) { if (mode === 'plop') { mode = 'swim'; g.visible = false; S.ring(bx, bz, clock, 1.2); } else { mode = 'sit'; S.ring(bx, bz, clock, 0.25); } t0 = clock; }
+        return;
+      }
+      if (mode !== 'sit') return;
+      // facing her when she is about, otherwise the open water; turning in small shuffles
+      const want = dc < 25 ? Math.atan2(cam.x - g.position.x, cam.z - g.position.z) : Math.atan2(P.x - g.position.x, P.z - g.position.z);
+      const d = Math.atan2(Math.sin(want - g.rotation.y), Math.cos(want - g.rotation.y));
+      if (Math.abs(d) > 0.3) turning = true; else if (Math.abs(d) < 0.05) turning = false;
+      if (turning) g.rotation.y += Math.sign(d) * Math.min(Math.abs(d), dt * 3);
+      if (clock > blinkAt + 0.14) blinkAt = clock + 2.5 + qf() * 4.5;
+      const shut = clock > blinkAt ? 1 : 0; for (const l of lids) l.scale.setScalar(shut ? 1.05 : 0.001);
+      const c = clock - croak, puff = c >= 0 && c < 1.6 ? Math.max(0, Math.sin(c * 12)) * 0.9 : 0;
+      sac.scale.setScalar(0.42 + 0.07 * Math.sin(clock * 11) + puff * 0.7);                        // the throat going, and now and then a croak
+      g.scale.y = FT * 1.3 * (1 + 0.03 * Math.max(0, Math.sin(clock * 4)) * (Math.sin(clock * 0.6) > 0.4 ? 1 : 0));
     });
   }).catch(() => {});
 }

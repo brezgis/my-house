@@ -3,6 +3,7 @@
 // steam off a cup, koi, bees, the swing, sitting down.
 
 import * as THREE from 'three';
+import { makeFlames, NOISE } from './flame.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { shuffle } from './shuffle.js';
@@ -37,16 +38,26 @@ const DRAW = {
     for (let i = 0; i < 60; i++) { g.fillStyle = `rgba(255,255,255,${0.012 + r() * 0.02})`; g.beginPath(); g.ellipse(r() * w, r() * h, 60 + r() * 220, 20 + r() * 60, r() * 3, 0, 7); g.fill(); }
     const chalk = (c = '#f1efe6') => { g.strokeStyle = c; g.fillStyle = c; g.lineWidth = 3.2; g.lineCap = 'round'; };
     const hand = px => { g.font = `${px}px "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive`; };
-    chalk(); hand(44); g.fillText('colorless green ideas sleep furiously', 40, 70);
-    // a little syntax tree
-    const node = (t, x, y) => { hand(34); const m = g.measureText(t).width; g.fillText(t, x - m / 2, y); };
-    const edge = (a, b, c, d) => { g.beginPath(); g.moveTo(a, b + 8); g.lineTo(c, d - 30); g.stroke(); };
-    node('S', 250, 150); node('NP', 150, 240); node('VP', 350, 240); node('Det', 90, 330); node('N', 210, 330); node('V', 300, 330); node('AdvP', 420, 330);
-    edge(250, 150, 150, 240); edge(250, 150, 350, 240); edge(150, 240, 90, 330); edge(150, 240, 210, 330); edge(350, 240, 300, 330); edge(350, 240, 420, 330);
-    hand(30); chalk('#f2d16b'); node('the', 90, 395); node('house', 210, 395); node('sleeps', 300, 395); node('soundly', 420, 395);
-    chalk(); hand(38); g.fillText('⟦every⟧ = λP.λQ.∀x[P(x) → Q(x)]', 520, 170);
-    hand(34); g.fillText('/haʊs/   /hoʊm/', 560, 240);
-    chalk('#e58f9a'); hand(36); g.fillText('P(wᵢ | w₁ … wᵢ₋₁)', 560, 320); g.beginPath(); g.moveTo(555, 335); g.lineTo(880, 335); g.stroke();
+    // Left and middle: a computational linguist's working board (attention, a transformer block, subword
+    // tokens, the language-model loss, a training run that has started to overfit, results, the usual vows)
+    chalk(); hand(42); g.fillText('Attn(Q, K, V) = softmax(QKᵀ/ √d) · V', 40, 72);
+    const cell = (t, x, y, bw = 104) => { g.strokeRect(x, y, bw, 56); hand(30); const m = g.measureText(t).width; g.fillText(t, x + (bw - m) / 2, y + 38); };
+    const arrow = (a, b, c, d) => { const t = Math.atan2(d - b, c - a); g.beginPath(); g.moveTo(a, b); g.lineTo(c, d); g.moveTo(c - 13 * Math.cos(t - 0.45), d - 13 * Math.sin(t - 0.45)); g.lineTo(c, d); g.lineTo(c - 13 * Math.cos(t + 0.45), d - 13 * Math.sin(t + 0.45)); g.stroke(); };
+    ['tokens', 'embed', 'attn', 'MLP', 'logits'].forEach((t, i) => { cell(t, 40 + i * 132, 130); if (i < 4) arrow(146 + i * 132, 158, 170 + i * 132, 158); });
+    chalk('#f2d16b'); g.beginPath(); g.moveTo(300, 198); g.lineTo(300, 210); g.lineTo(544, 210); g.lineTo(544, 198); g.stroke(); hand(30); g.fillText('× N', 400, 244);
+    chalk(); hand(34); g.fillText('“unbelievable”  →  un · believ · able', 40, 310);
+    chalk('#f2d16b'); hand(28); g.fillText('tokens ≠ words!', 470, 352);
+    chalk('#e58f9a'); hand(36); g.fillText('L = − Σ log p(wᵢ | w₁ … wᵢ₋₁)', 40, 420); g.beginPath(); g.moveTo(36, 436); g.lineTo(520, 436); g.stroke();
+    // the run: train goes down and down, validation turns up again
+    chalk(); arrow(70, 720, 70, 480); arrow(70, 720, 470, 720); hand(26); g.fillText('loss', 20, 500); g.fillText('steps', 400, 752);
+    const curve = f => { g.beginPath(); for (let k = 0; k <= 40; k++) { const u = k / 40, x = 80 + u * 370, y = 705 - f(u) * 200 + (r() - 0.5) * 5; k ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); };
+    curve(u => 0.06 + 0.94 * Math.exp(-u * 5.5)); g.fillText('train', 462, 690);
+    chalk('#f2d16b'); curve(u => 0.24 + 0.78 * Math.exp(-u * 6) + 0.42 * Math.max(0, u - 0.42) ** 1.5); g.fillText('val', 462, 628);
+    chalk('#e58f9a'); hand(26); g.fillText('stop here', 196, 560); arrow(250, 570, 258, 640);
+    chalk(); hand(36); g.fillText('F1 = 2PR / (P + R)', 610, 462);
+    hand(32); g.fillText('baseline  71.2', 610, 524); g.fillText('ours        71.4', 610, 568); chalk('#e58f9a'); g.fillText('!!', 830, 568);
+    chalk(); hand(28); g.fillText('lr = 3e-4    seed = 42', 610, 622);
+    chalk('#f2d16b'); hand(32); g.fillText('TODO: ablations', 610, 684); g.beginPath(); g.moveTo(606, 696); g.lineTo(850, 696); g.stroke();
     chalk(); hand(32); ['☑ espresso', '☐ feed the koi', '☐ water the tomatoes', '☐ light a candle'].forEach((t, i) => g.fillText(t, 960, 150 + i * 52));
     chalk('#e58f9a'); g.beginPath(); g.moveTo(1150, 430); g.bezierCurveTo(1110, 380, 1060, 440, 1150, 500); g.bezierCurveTo(1240, 440, 1190, 380, 1150, 430); g.stroke();
     chalk(); hand(30); g.fillText('welcome home', 1040, 560);
@@ -233,6 +244,11 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
   // finish and drawn as one mesh each, instead of a texture and a draw call apiece.
   let chalk = null;
   const sheets = new Map(), art = new Map();
+  // A lit screen: black glass that shows its picture by its own light. The eye opens up after dark
+  // (lighting.js, exposure), which would bleach a white page, so the glow is held level on screen.
+  const screenMats = [];
+  function lit(mat, map, glow) { mat.emissiveMap = map; mat.emissive.set(0xffffff); mat.emissiveIntensity = glow; mat.color.set(0x111111); mat.roughness = 0.3; mat.userData.glow = glow; screenMats.push(mat); }
+  animated.push(() => { const k = Math.min(1, 1.7 / renderer.toneMappingExposure); for (const m of screenMats) m.emissiveIntensity = m.userData.glow * k; });
   for (const e of extras) {
     let map, mesh;
     if (e.draw && !e.glow && vis) {
@@ -257,7 +273,7 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
     if (e.draw) {
       map = canvas(e.cw, e.ch, e.draw);
       const mat = new THREE.MeshStandardMaterial({ map, roughness: e.rough ?? 0.7, envMapIntensity: 0.15 });
-      if (e.glow) { mat.emissiveMap = map; mat.emissive.set(0xffffff); mat.emissiveIntensity = e.glow; mat.color.set(0x111111); }
+      if (e.glow) lit(mat, map, e.glow);
       mesh = new THREE.Mesh(signGeo(e), mat);
       orientSign(mesh, e);
     } else if (e.rug) {
@@ -269,15 +285,16 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
       if (!e.canvas) map.colorSpace = THREE.SRGBColorSpace;
       const mat = new THREE.MeshStandardMaterial({ map, roughness: e.canvas === 'chalk' ? 0.95 : 0.6, envMapIntensity: 0.15 });
       e.map = map;      // kept so that a screen can be redrawn (hands.js)
-      if (e.glow && e.canvas !== 'chalk') { mat.emissiveMap = map; mat.emissive.set(0xffffff); mat.emissiveIntensity = e.glow; mat.color.set(0x111111); }
+      if (e.glow && e.canvas !== 'chalk') lit(mat, map, e.glow);
+      if (e.onModel) { e.mat = mat; continue; }      // shown on a model's own glass when the model arrives (place)
       mesh = new THREE.Mesh(new THREE.PlaneGeometry(e.w, e.h), mat);
       mesh.rotation.y = e.rotY;
     }
-    mesh.position.set(e.x, e.y, e.z); mesh.userData.cat = e.rug ? 'rugs' : 'extras'; scene.add(mesh);
+    mesh.position.set(e.x, e.y, e.z); if (e.out) mesh.translateZ(e.out); mesh.receiveShadow = true; mesh.userData.cat = e.rug ? 'rugs' : 'extras'; scene.add(mesh);
     track(mesh, zoneAt(e.x, e.y, e.z, Math.max(e.w ?? 0.5, e.h ?? 0, e.d ?? 0) / 2));
     if (e.canvas === 'chalk') {
       chalk = { mesh, tex: map, canvas: map.image, ctx: map.image.getContext('2d') };
-      try { const saved = localStorage.getItem('chalkboard'); if (saved) { const img = new Image(); img.onload = () => { chalk.ctx.drawImage(img, 0, 0); map.needsUpdate = true; }; img.src = saved; } } catch { /* private window */ }
+      try { const saved = localStorage.getItem('chalkboard2'); if (saved) { const img = new Image(); img.onload = () => { chalk.ctx.drawImage(img, 0, 0); map.needsUpdate = true; }; img.src = saved; } } catch { /* private window */ }
     }
   }
 
@@ -310,7 +327,7 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
     const [zone, kind, rough] = key.split('|');
     const { geo, tex } = packSheet(list);
     const mat = kind === 'rug' ? new THREE.MeshStandardMaterial({ map: tex, color: 0xb0aaa0, roughness: 1, envMapIntensity: 0.08 }) : new THREE.MeshStandardMaterial({ map: tex, roughness: Number(rough), envMapIntensity: 0.15, ...DECAL });
-    const mesh = new THREE.Mesh(geo, mat); mesh.receiveShadow = kind === 'rug';
+    const mesh = new THREE.Mesh(geo, mat); mesh.receiveShadow = true;      // or the sun and moon reach it through the roof (pale labels shone at night)
     mesh.userData.cat = kind === 'rug' ? 'rugs' : 'extras'; scene.add(mesh); track(mesh, zone);
     for (const it of list) if (it.rug) it.c.width = it.c.height = 0;      // the rugs' own canvases are no longer needed
     // A label whose picture arrives later (the family photographs, photos.js) is drawn again when it has
@@ -338,7 +355,7 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
         if (!g.length) continue;
         const { geo, tex } = packSheet(g);
         const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: tex, color: 0xd6d1c8, roughness: 0.95, envMapIntensity: 0.15, ...DECAL }));      // matt, and a little under white, so pale drawings do not glare in afternoon light
-        mesh.userData.cat = 'extras'; scene.add(mesh); track(mesh, zone);
+        mesh.receiveShadow = true; mesh.userData.cat = 'extras'; scene.add(mesh); track(mesh, zone);
       }
     });
   }
@@ -412,6 +429,13 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
     // Only furniture-sized pieces (and things outdoors) throw sunlight shadows; trinkets do not
     const shadow = !!m.outdoor || r > 1.6;
     o.traverse(n => { if (n.isMesh) { n.castShadow = shadow; n.receiveShadow = true; } });
+    if (m.screen?.mat) o.traverse(n => {                     // a computer's picture, on the glass the model came with
+      if (!n.isMesh || !/^screen/i.test(n.material.name)) return;
+      const g = n.geometry = n.geometry.clone(), p = g.attributes.position; g.computeBoundingBox();
+      const b = g.boundingBox, uv = new Float32Array(p.count * 2);      // the glass faces -x: across is z, up is y
+      for (let i = 0; i < p.count; i++) { uv[i * 2] = (p.getZ(i) - b.min.z) / (b.max.z - b.min.z); uv[i * 2 + 1] = (p.getY(i) - b.min.y) / (b.max.y - b.min.y); }
+      g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); n.material = m.screen.mat;
+    });
     o.userData.cat = 'model:' + m.id;
     await renderer.compileAsync(o, camera, scene);      // its shaders are compiled before it is shown, so its arrival does not stall a frame
     scene.add(o);
@@ -506,13 +530,31 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
   // ---- The fire ---------------------------------------------------------------------------------
   const fire = lamps.find(l => l.kind === 'fire');
   if (fire) {
-    const tex = canvas(64, 128, (g, w, h) => { const gr = g.createRadialGradient(w / 2, h * 0.78, 2, w / 2, h * 0.6, h * 0.62); gr.addColorStop(0, 'rgba(255,244,200,1)'); gr.addColorStop(0.35, 'rgba(255,170,60,.9)'); gr.addColorStop(0.75, 'rgba(220,70,20,.35)'); gr.addColorStop(1, 'rgba(120,20,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
-    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false });
+    // Flames: three sheets across the firebox (flame.js). (They used to be five plain rectangles with a
+    // gradient on, and the logs lay end-on.)
     const hearth = new THREE.Group(); hearth.position.set(fire.x + 1.0, fire.y - 1.0, fire.z); scene.add(hearth); track(hearth, zoneAt(fire.x + 1.0, fire.y - 0.5, fire.z, 0.4));
-    const logMat = new THREE.MeshStandardMaterial({ color: 0x2a1a12, roughness: 1 });
-    for (const [dz, dy, rot] of [[-0.45, 0.14, 0.2], [0.4, 0.14, -0.25], [0, 0.42, 0.05]]) { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 1.9, 8), logMat); l.rotation.set(Math.PI / 2, 0, 0); l.rotation.y = rot; l.position.set(0, dy, dz); hearth.add(l); }
-    const tongues = [0, 1, 2, 3, 4].map(i => { const f = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.5), mat); f.position.set((i % 2) * 0.15, 0.95, -0.7 + i * 0.35); f.rotation.y = Math.PI / 2 + (i - 2) * 0.25; hearth.add(f); return f; });
-    animated.push(t => tongues.forEach((f, i) => { const k = 0.8 + 0.25 * Math.sin(t * (7 + i) + i * 2) + 0.12 * Math.sin(t * 19 + i); f.scale.set(0.8 + 0.2 * Math.sin(t * 5 + i), k, 1); f.position.y = 0.25 + 0.72 * k; }));
+    const uT = { value: 0 };
+    const flames = makeFlames(THREE, mergeGeometries, uT, [[-Math.PI / 2, 0.0, 0, 2.3, 2.1, 0], [-Math.PI / 2, 0.22, -0.2, 2.0, 1.75, 3.7], [-Math.PI / 2, -0.2, 0.25, 1.7, 1.5, 8.1]]);
+    hearth.add(flames);
+    // Three split logs across the opening on a bed of embers that breathes
+    const logMat = new THREE.MeshStandardMaterial({ color: 0x241710, roughness: 1, emissive: 0x9a2c08, emissiveIntensity: 0.1 });
+    for (const [dx, dy, len, rot, rad] of [[0.3, 0.2, 2.2, 0.08, 0.19], [-0.25, 0.19, 2.0, -0.1, 0.17], [0.05, 0.5, 1.8, 0.05, 0.16]]) {
+      const l = new THREE.Mesh(new THREE.CylinderGeometry(rad, rad * 0.9, len, 9).rotateX(Math.PI / 2), logMat); l.rotation.y = rot; l.position.set(dx, dy, 0); l.receiveShadow = true; hearth.add(l);
+    }
+    const embers = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 2.4).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
+      uniforms: { uT }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+      vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: `uniform float uT; varying vec2 vUv;
+${NOISE}
+void main() {
+  vec2 d = (vUv - 0.5) * 2.0; float edge = 1.0 - smoothstep(0.45, 1.0, length(d));
+  float coals = smoothstep(0.42, 0.75, noise(vUv * vec2(9.0, 16.0))), breath = 0.55 + 0.45 * fbm(vUv * 4.0 + vec2(uT * 0.35, -uT * 0.2));
+  gl_FragColor = vec4(mix(vec3(0.9, 0.12, 0.01), vec3(1.0, 0.55, 0.12), coals * breath) * (0.25 + coals) * breath * edge, 1.0);
+}`,
+    }));
+    embers.position.set(0.05, 0.07, 0); hearth.add(embers);
+    hearth.traverse(n => { n.userData.cat = 'fire'; });
+    animated.push(t => { uT.value = t; logMat.emissiveIntensity = 0.1 + 0.04 * Math.sin(t * 6.3) + 0.025 * Math.sin(t * 14.1); });
   }
 
   // ---- Steam off a hot cup ----------------------------------------------------------------------
@@ -548,7 +590,9 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     outdoors.add(new THREE.Points(geo, new THREE.PointsMaterial({ color: 0x3a2a10, size: 0.14 })));
     animated.push(t => {
-      for (let i = 0; i < n; i++) { const h = garden.hives[i % garden.hives.length], a = t * (1.1 + (i % 5) * 0.3) + i * 2.4, r = 0.8 + ((i * 7) % 10) * 0.35; pos[i * 3] = h.x + Math.cos(a) * r; pos[i * 3 + 1] = h.y + 0.6 + Math.sin(a * 1.7 + i) * 0.9 + (i % 4) * 0.4; pos[i * 3 + 2] = h.z + 1 + Math.sin(a) * r * 0.8; }
+      for (let i = 0; i < n; i++) { const h = garden.hives[i % garden.hives.length], e = h.entrance, yw = h.yaw ?? 0, a = t * (1.1 + (i % 5) * 0.3) + i * 2.4, r = 0.5 + ((i * 7) % 10) * 0.22;      // a loose cloud in front of each hive's entrance (hives.js gives entrance and yaw)
+        const cx = e ? e.x + Math.sin(yw) * 0.9 : h.x, cy = e ? e.y + 0.35 : h.y + 0.6, cz = e ? e.z + Math.cos(yw) * 0.9 : h.z + 1;
+        pos[i * 3] = cx + Math.cos(a) * r; pos[i * 3 + 1] = cy + Math.sin(a * 1.7 + i) * 0.45 + (i % 4) * 0.25; pos[i * 3 + 2] = cz + Math.sin(a) * r * 0.8; }
       geo.attributes.position.needsUpdate = true;
     });
   }
@@ -621,7 +665,7 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
     for (let i = 0; i < 40; i++) { ctx.fillStyle = `rgba(255,255,255,${0.012 + Math.random() * 0.02})`; ctx.beginPath(); ctx.ellipse(Math.random() * c.width, Math.random() * c.height, 80 + Math.random() * 240, 20 + Math.random() * 60, Math.random() * 3, 0, 7); ctx.fill(); }
     tex.needsUpdate = true; chalkSave();
   }
-  function chalkSave() { try { localStorage.setItem('chalkboard', chalk.canvas.toDataURL('image/jpeg', 0.7)); } catch { /* too big or private */ } }
+  function chalkSave() { try { localStorage.setItem('chalkboard2', chalk.canvas.toDataURL('image/jpeg', 0.7)); } catch { /* too big or private */ } }
 
   return { update: (t, dt = 0.016) => { for (const f of animated) f(t, dt); }, cull: cullModels, track, zoneAt, pending: () => left, target, interact, animated, get chalk() { return chalk; }, chalkStroke, chalkWipe, chalkSave,
     // A fresh copy of a collected model, scaled to feet, for things that move (staff, pets)

@@ -113,7 +113,7 @@ function makeCard(id, title, inner) {
   wrap.addEventListener('keydown', e => {
     cardKey(e, card); e.stopPropagation();                           // the house does not hear keys meant for the card
     if (e.key !== 'Tab') return;                                     // keep Tab inside the card
-    const f = [...wrap.querySelectorAll('button, input, select, a[href]')].filter(x => !x.disabled && x.offsetParent);
+    const f = [...wrap.querySelectorAll('button, input, select, textarea, a[href]')].filter(x => !x.disabled && x.offsetParent);
     if (!f.length) return;
     if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f.at(-1).focus(); }
     else if (!e.shiftKey && document.activeElement === f.at(-1)) { e.preventDefault(); f[0].focus(); }
@@ -125,36 +125,21 @@ const row = (keys, what) => `<dt>${keys}</dt><dd>${what}</dd>`;
 const k = s => s.split(' ').map(x => `<kbd>${x}</kbd>`).join('');
 const help = makeCard('help', 'How to get about', `
   <div class="groups keys-only">
-    <section><h3>Walking</h3><dl>
-      ${row(k('W A S D'), 'walk; the arrow keys work too')}
-      ${row(k('W W'), 'tap twice and hold to run <small>(or hold Shift)</small>')}
+    <section><h3>Getting about</h3><dl>
+      ${row(k('W A S D'), 'walk <small>(arrow keys too; hold Shift to run)</small>')}
+      ${row('mouse', 'look around <small>(click once first; ' + k('Esc') + ' gives the pointer back)</small>')}
       ${row(k('Space'), 'jump')}
-      ${row(k('C'), 'crouch, while held')}
-      ${row(k('− ='), 'lower or raise your eyes')}
+      ${row(k('O'), 'the view from above, and back')}
     </dl></section>
-    <section><h3>Looking</h3><dl>
-      ${row('mouse', 'look around <small>(click once to let the house have the pointer)</small>')}
-      ${row(k('Esc'), 'have the pointer back')}
-      ${row(k('O'), 'step outside to the view from above, and back')}
-    </dl></section>
-    <section><h3>Using things</h3><dl>
-      ${row(k('E') + ' or click', 'open, sit, light, talk to the staff; upstairs, play chess, spin the globe, use the telescope')}
-      ${row(k('1 2 3'), 'choose what to say to a robot')}
-      ${row(k('1') + '…' + k('0'), 'play notes, sitting at the piano; ' + k('P') + ' plays a phrase')}
-      ${row(k('X'), 'wipe the chalkboard')}
-      ${row(k('Q'), 'sip your drink, or take a bite')}
-      ${row(k('E'), 'pick a thing up, set it down, take a book off the shelf; ' + k('R') + ' turns it over, ' + k('B') + ' takes a bite')}
-    </dl></section>
-    <section><h3>The house</h3><dl>
+    <section><h3>Doing things</h3><dl>
+      ${row(k('E') + ' or click', 'use whatever you are looking at <small>(a line on screen says what)</small>')}
+      ${row(k('1 2 3'), 'choose what to say')}
       ${row(k('F'), 'carry a lantern')}
-      ${row(k('N'), 'a new game, at the chess table')}
-      ${row(k('T'), 'turn the television off')}
-      ${row('telephone', 'in the hall: ring a friend round')}
-      ${row(k('[ ]'), 'turn the clock back or on, half an hour at a time')}
-      ${row(k('M'), 'sound on or off')}
-      ${row(k('I'), 'about this house and its sources')}
+      ${row(k('[ ]'), 'earlier or later in the day')}
+      ${row(k('M') + ' ' + k('I'), 'sound on or off; about this house')}
     </dl></section>
   </div>
+  <p class="more keys-only">Also: ${k('C')} crouch · ${k('−')} ${k('=')} eye height · ${k('Q')} sip or bite · ${k('R')} turn what you hold · ${k('X')} wipe the chalkboard · ${k('N')} new chess game · ${k('T')} television off · the telephone in the hall rings a friend round.</p>
   <div class="groups touch-only">
     <section><h3>Walking and looking</h3><dl>
       ${row('left thumb', 'press and slide to walk')}
@@ -308,4 +293,4 @@ if (Q.has('uihint')) { hint.classList.remove('faded'); }
 if (Q.has('uirecord')) body.append(el('div', { id: 'record-card', style: 'position:fixed;left:16px;bottom:64px;width:256px;height:144px;border-radius:3px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.5);z-index:5;background:#111 linear-gradient(135deg,#3a2a1d,#0b0b0d)' }));
 watch();
 
-window.houseUI = { toast, help, settings };
+window.houseUI = { toast, help, settings, makeCard };      // makeCard: other parts of the house build their own cards (guestbook.js)

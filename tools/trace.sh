@@ -1,4 +1,5 @@
 #!/bin/bash
+"$(dirname "$0")/clean_cache.sh"      # sweep up after earlier Chrome runs (see that file)
 # Real-time walk trace (see tools/trace.py). Holds the render lock, like tools/stats.sh.
 #   tools/trace.sh <out.json> <stair|ground|garden|'[[t,x,z,yaw,pitch],...]'> ["<query>"]
 [ -f "$(dirname "$0")/local.env" ] && . "$(dirname "$0")/local.env"

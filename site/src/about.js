@@ -57,7 +57,7 @@ export function makeAbout() {
     <h2 id="about-title">About this house</h2>
     <svg class="rule" aria-hidden="true"><use href="#cloudlift"/></svg>
     <p class="lede">This is an imagined home built on a real one: the house Charles and Henry Greene designed in Pasadena, California, in 1906 for Louise and John Bentz, with the sleeping porch they added in 1910. The walls, windows, stair and roof here were laid out from the architects' own drawings. The furnishing, the garden and everyone who lives here are invented. The real house is a private home; please admire it from here.</p>
-    <nav aria-label="Sources"><a href="#about-house">The house</a><a href="#about-plans">The drawings</a><a href="#about-art">Pictures</a><a href="#about-music">Music</a><a href="#about-things">Furniture and garden</a></nav>
+    <nav aria-label="Sources"><a href="#about-house">The house</a><a href="#about-plans">The drawings</a><a href="#about-art">Pictures</a><a href="#about-music">Music</a><a href="#about-things">Furniture and garden</a><a href="#about-chapel">The chapel</a></nav>
 
     <section id="about-house"><h3>The house</h3>
     <ul class="cite">
@@ -97,6 +97,21 @@ export function makeAbout() {
     <p>Carried over from the owner's village project, from <a href="https://poly.pizza" target="_blank" rel="noopener">Poly Pizza</a>.</p>
     <ul class="cite">${ANIMALS.map(([what, who, url, lic]) => `<li>${what}, by ${who}. <span class="src"><a href="${url}" target="_blank" rel="noopener">source</a>; ${lic === 'CC BY 3.0' ? `<a href="${CC_BY}" target="_blank" rel="noopener">Creative Commons Attribution 3.0</a>` : 'CC0 1.0, public domain'}</span></li>`).join('')}</ul>
     </section>
+
+    <section id="about-chapel"><h3>The chapel</h3>
+    <p>The little building at the south edge of the garden is a place to sit and think about minds and how things come to be. Its windows were drawn for it; the words in them, and the two cut in wood and stone, come from these. Where a church would have its cross it has a weathervane: four plain arms, every direction the same until the wind chooses one, which is broken symmetry you can watch, and a flock of copper starlings that comes together into a single bird at the point.</p>
+    <ul class="cite">
+      <li>P. W. Anderson, "More Is Different", <i>Science</i> 177 (1972). Over the door; round the edge of the round window above it ("at each level of complexity entirely new properties appear"); and in the window of roundels ("an entirely new and very beautiful symmetry").</li>
+      <li>A. M. Turing, "The Chemical Basis of Morphogenesis", <i>Philosophical Transactions of the Royal Society of London B</i> 237 (1952). In the window of the daisy and the coat.</li>
+      <li>H. von Foerster, "Objects: Tokens for (Eigen-)Behaviors" (1976), written for Jean Piaget's eightieth birthday. In the window of the hand and the ball.</li>
+      <li>J. Piaget, <i>The Construction of Reality in the Child</i> (1937), translated by Margaret Cook (1955). Cut in the edge of the table.</li>
+      <li>M. Gardner, "Mathematical Games", <i>Scientific American</i> (October 1970), on John Conway's game of Life. The window that moves plays it.</li>
+      <li>A. N. Whitehead, <i>Process and Reality</i> (1929), for the word ingression.</li>
+      <li>M. Levin, on ingressing minds, after whom the great window is named.</li>
+      <li>S. Ramón y Cajal, <i>Recuerdos de mi vida: Historia de mi labor científica</i> (Madrid, 1917). In the window of the neuron: "las misteriosas mariposas del alma".</li>
+      <li>D. R. Hofstadter, <i>I Am a Strange Loop</i> (2007), whose title is in the window of the stair that comes back to where it began, and <i>Gödel, Escher, Bach</i> (1979).</li>
+      <li>K. Gödel, "Über formal unentscheidbare Sätze der Principia Mathematica und verwandter Systeme I", <i>Monatshefte für Mathematik und Physik</i> 38 (1931). His sentence that speaks of itself is on that window's tablet, and his numbering on its steps, coded as in E. Nagel and J. R. Newman, <i>Gödel's Proof</i> (1958).</li>
+    </ul></section>
 
     <p class="colophon">Set in Sorts Mill Goudy, Barry Schwartz's revival of Frederic Goudy's Oldstyle of 1915, under the SIL Open Font License.</p>
   </article>`;

@@ -1,4 +1,5 @@
 #!/bin/bash
+"$(dirname "$0")/clean_cache.sh"      # sweep up after earlier Chrome runs (see that file)
 # Numbers for the test viewpoints (site/src/perf.js), from headless Chrome on the GPU, in real time.
 #   tools/stats.sh <out.json> ["<query>"]       e.g. tools/stats.sh /tmp/s.json "statsdump=hall,kitchen&hours=13"
 # Visits every named viewpoint (or those listed) by day and at night and prints, for each,

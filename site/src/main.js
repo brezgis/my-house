@@ -1,3 +1,4 @@
+import './canvas2d.js';      // first: keeps painted textures in ordinary memory (see that file)
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -6,7 +7,7 @@ import { makeMaterials } from './materials.js';
 import { buildHouse } from './house.js';
 import { furnish } from './furnish.js';
 import * as gardenModule from './garden.js';
-const { plantGarden, TREES } = gardenModule;
+const { plantGarden, TREES, CHAPEL } = gardenModule;
 import { makeTrees } from './trees.js';
 import { bringToLife } from './life.js';
 import { Walker, eyeHeight, setEyeHeight } from './walk.js';
@@ -17,8 +18,10 @@ import { namedView, statsDump, VIEWS } from './perf.js';
 import { makeVisibility } from './visibility.js';
 import { chooseQuality, rememberSlow, QUALITY_OPTIONS, storedChoice, chooseTier } from './quality.js';
 import { setTextureTier } from './materials.js';
-import { installHouseLight, setHourLight, makeLampPool, makeExposure, makeWindowGlow, makeVignette, makeHalos } from './lighting.js';
+import { HL, installHouseLight, setHourLight, makeLampPool, makeExposure, makeWindowGlow, makeVignette, makeHalos } from './lighting.js';
 import { makeWarmer } from './warm.js';
+import { makeShade } from './shade.js';
+import { buildIsland } from './island.js';
 
 const Q = new URLSearchParams(location.search);
 const $ = id => document.getElementById(id);
@@ -82,40 +85,18 @@ const outdoors = new THREE.Group(); outdoors.name = 'outdoors'; scene.add(outdoo
 if (Q.get('trees') !== '0') makeTrees(outdoors, materials, builder.colliders, TREES);
 mark('trees');
 
-// The ground: a floating island. Lawn on top, a rounded meadow rim, and a rocky
-// underside hanging in the clouds. Nothing lies beyond it but sky.
+// The ground: a floating island. Lawn on top, a soft shoulder of rough grass rolling over a ragged
+// lip of sod, and a rocky underside hanging in the clouds (island.js). Nothing lies beyond it but sky.
 const ISLAND = gardenModule.ISLAND ?? { x: -5, z: -30, r: 250 };
 function outlineAt(a) {                                 // smooth radius from ISLAND.outline at angle a
   const o = ISLAND.outline, n = o.length, t = ((a / (Math.PI * 2)) % 1 + 1) % 1 * n, i = Math.floor(t), f = t - i;
   const p0 = o[(i - 1 + n) % n], p1 = o[i % n], p2 = o[(i + 1) % n], p3 = o[(i + 2) % n];
   return 0.5 * ((2 * p1) + (-p0 + p2) * f + (2 * p0 - 5 * p1 + 4 * p2 - p3) * f * f + (-p0 + 3 * p1 - 3 * p2 + p3) * f * f * f);
 }
-{
-  // The island need not be round. garden.js may give ISLAND.outline: radii in feet at equal
-  // angles round the centre (angle = atan2(z - centre.z, x - centre.x), starting at 0), which
-  // are smoothly joined; otherwise it is a wobbly circle of radius r.
-  const N = 160, wob = a => 1 + 0.03 * Math.sin(a * 7 + 2.3) + 0.018 * Math.sin(a * 13 + 0.7);
-  const rimR = a => ISLAND.outline ? outlineAt(a) * 1.08 * wob(a) : ISLAND.r * 1.1 * wob(a) * (1 + 0.05 * Math.sin(a * 3 + 1));
-  const ring = (scale, y, wob = 0) => Array.from({ length: N }, (_, i) => { const a = (i / N) * Math.PI * 2, r = rimR(a) * scale * (1 + wob * Math.sin(a * 5 + y)); return [ISLAND.x + Math.cos(a) * r, y, ISLAND.z + Math.sin(a) * r]; });
-  const strip = (r0, r1, uvScale, vOf) => {                       // a band of triangles between two rings
-    const pos = [], uv = [], idx = [];
-    for (let i = 0; i < N; i++) { pos.push(...r0[i], ...r1[i]); uv.push(...vOf(r0[i], i, 0, uvScale), ...vOf(r1[i], i, 1, uvScale)); const a = i * 2, b = ((i + 1) % N) * 2; idx.push(a, b, a + 1, b, b + 1, a + 1); }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); return g;
-  };
-  const flatUV = p => [p[0], p[2]], wallUV = (p, i, k, sc) => [(i / N) * 90 * 6.6 / sc, -p[1] * 6.6 / (sc * 1.2)];
-  // Top: lawn out to nine-tenths, then long grass rolling over the edge
-  const centre = Array.from({ length: N }, () => [ISLAND.x, 0.03, ISLAND.z]);
-  const lawn = new THREE.Mesh(strip(centre, ring(0.9, 0.03), 1, flatUV), materials.grass);
-  const rim = new THREE.Mesh(strip(ring(0.9, 0.03), ring(1.0, -1.2), 1, flatUV), materials.meadow);
-  const lip = new THREE.Mesh(strip(ring(1.0, -1.2), ring(1.015, -9), 6, wallUV), materials.meadow);
-  for (const m of [lawn, rim, lip]) { m.receiveShadow = true; m.userData.cat = 'island'; outdoors.add(m); }
-  // Underside: rock narrowing to a hanging point
-  const rock = materials.flagstone.clone(); rock.color.set(0x8a8478); rock.roughnessMap = null; rock.roughness = 1; rock.normalScale.set(2.2, 2.2);
-  const levels = [[1.015, -9, 0], [0.96, -38, 0.03], [0.82, -82, 0.05], [0.62, -128, 0.07], [0.4, -172, 0.09], [0.2, -214, 0.1], [0.04, -250, 0]];
-  const under = []; for (let k = 0; k < levels.length - 1; k++) { const [s0, y0, w0] = levels[k], [s1, y1, w1] = levels[k + 1]; under.push(strip(ring(s0, y0, w0), ring(s1, y1, w1), 14, wallUV)); }
-  const rockMesh = new THREE.Mesh(mergeGeometries(under), rock); rockMesh.userData.cat = 'island'; outdoors.add(rockMesh);      // one draw for the whole underside
-  const soil = new THREE.Mesh(strip(ring(1.012, -3), ring(1.015, -9), 6, wallUV), materials.soilbed); soil.scale.set(1.001, 1, 1.001); soil.userData.cat = 'island'; outdoors.add(soil);
-}
+// The island need not be round. garden.js may give ISLAND.outline: radii in feet at equal angles
+// round the centre (angle = atan2(z - centre.z, x - centre.x), starting at 0), which are smoothly
+// joined; otherwise it is a circle of radius r.
+buildIsland({ ISLAND, outlineAt, materials, outdoors });
 
 mark('island');
 const life = bringToLife({ scene, outdoors, vis, quality: QUALITY, renderer, camera, items, garden, materials, doors: house.doors, colliders: builder.colliders, onChange: () => { sun.shadow.needsUpdate = true; } });
@@ -143,6 +124,7 @@ const lampPool = makeLampPool({ scene, lamps, vis, size: QUALITY.lamps, day, cam
 const winGlow = makeWindowGlow({ scene: outdoors, materials, windows: house.windows ?? [], rooms });
 const vignette = makeVignette();
 const halos = makeHalos({ scene, lamps, day });
+const shade = Q.get('shade') === '0' ? null : makeShade({ scene, rooms, colliders: builder.colliders, lampPool, camera });      // soft shade on the floor under the furniture (shade.js)
 const exposure = makeExposure(Q);
 const warmer = makeWarmer({ renderer, scene, camera, range: 60 });      // textures and shaders made ready a little ahead of the visitor (warm.js)
 
@@ -217,20 +199,7 @@ for (const sp of items.spots ?? []) {
     const lbl = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.022, 24), new THREE.MeshStandardMaterial({ color: 0xb8452e, roughness: 0.7 }));
     disc.add(lbl); disc.position.set(sp.x, sp.y, sp.z); scene.add(disc); platters.push(disc); disc.userData.cat = 'record'; life.track(disc, life.zoneAt(sp.x, sp.y, sp.z, 0.5));
     // The sleeve of the record that is always on first, propped against the wall beside the player
-    const c = document.createElement('canvas'); c.width = c.height = 512; const g = c.getContext('2d');
-    g.fillStyle = '#0b0b0d'; g.fillRect(0, 0, 512, 512);
-    const gold = g.createLinearGradient(0, 120, 0, 420); gold.addColorStop(0, '#fff3b0'); gold.addColorStop(0.45, '#d4a52a'); gold.addColorStop(0.55, '#8a5f10'); gold.addColorStop(1, '#f0cf6a');
-    for (let i = 0; i < 70; i++) { g.fillStyle = `rgba(255,255,255,${Math.random() * 0.5})`; const x = Math.random() * 512, y = Math.random() * 512, r = Math.random() * 1.6; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }
-    g.fillStyle = gold; g.strokeStyle = '#3a2a08'; g.lineWidth = 6;                                  // the house, in gold
-    g.beginPath(); g.moveTo(96, 300); g.lineTo(256, 168); g.lineTo(416, 300); g.lineTo(384, 300); g.lineTo(384, 420); g.lineTo(128, 420); g.lineTo(128, 300); g.closePath(); g.fill(); g.stroke();
-    g.fillStyle = '#0b0b0d'; g.fillRect(228, 340, 56, 80); for (const x of [156, 316]) g.fillRect(x, 320, 44, 44);
-    g.strokeStyle = gold; g.lineWidth = 9; g.beginPath(); g.arc(256, 150, 150, Math.PI * 0.12, Math.PI * 0.88); g.stroke();      // a chain
-    g.font = '900 96px Impact, "Arial Black", sans-serif'; g.textAlign = 'center'; g.lineWidth = 8; g.strokeStyle = '#000'; g.fillStyle = gold;
-    g.strokeText('MY HOUSE', 256, 112); g.fillText('MY HOUSE', 256, 112);
-    g.font = 'italic 700 34px Georgia, serif'; g.fillStyle = '#f4ead8'; g.fillText("Anna's House Records", 256, 470);
-    g.fillStyle = '#fff'; g.fillRect(360, 424, 132, 70); g.fillStyle = '#000'; g.fillRect(364, 428, 124, 62); g.fillStyle = '#fff'; g.font = '900 15px Arial, sans-serif';
-    g.fillText('AUNTIE', 426, 446); g.fillText('ADVISORY', 426, 464); g.font = '700 10px Arial, sans-serif'; g.fillText('EXPLICIT COZINESS', 426, 481);
-    const cover = new THREE.CanvasTexture(c); cover.colorSpace = THREE.SRGBColorSpace; cover.anisotropy = 8;
+    const cover = new THREE.TextureLoader().load('assets/art/house_album.jpg'); cover.colorSpace = THREE.SRGBColorSpace; cover.anisotropy = 8;      // Anna's own artwork (CREDITS.md)
     // the sleeve: cover on one face, black card on the other five (two draws rather than six)
     const sg = new THREE.BoxGeometry(1.03, 1.03, 0.025); sg.clearGroups(); sg.addGroup(0, 24, 0); sg.addGroup(24, 6, 1); sg.addGroup(30, 6, 0);
     const sleeve = new THREE.Mesh(sg, [new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.6 }), new THREE.MeshStandardMaterial({ map: cover, roughness: 0.5, envMapIntensity: 0.2 })]);
@@ -280,6 +249,7 @@ else if (Q.has('view')) {
   walk(false); walker.place(x, y, z, yaw, pitch);
 }
 if (Q.has('view') && Q.has('open')) for (const d of house.doors) if (!d.fixed) { d.isOpen = true; d.stop.off = true; }
+if (!Q.has('view') && /^(town|vesper)$/.test(Q.get('from') ?? '')) walk(false);      // off the airship from Vesper Street: no welcome card; the ride in sets you down at the stop (garden/airstop.js)
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
@@ -339,9 +309,10 @@ renderer.setAnimationLoop(() => {
     walker.update(dt);
     const p = walker.pos;
     const r = rooms.find(r => p.x >= r.x0 && p.x <= r.x1 && p.z >= r.z0 && p.z <= r.z1 && p.y >= r.y0 && p.y <= r.y1);
-    const name = r ? r.name : 'Garden';
+    const ch = !r && CHAPEL?.inside, inChapel = ch && p.x > ch.x0 && p.x < ch.x1 && p.z > ch.z0 && p.z < ch.z1 && p.y < ch.y1;      // the chapel in the garden (garden/chapel.js)
+    const name = r ? r.name : inChapel ? 'The chapel' : 'Garden';
     if (name !== caption && !fpsBox) { caption = name; $('room').textContent = name; }
-    where = !r || OUTDOORS.has(name) ? 'out' : HALF.has(name) ? 'half' : 'in';
+    where = inChapel ? 'in' : !r || OUTDOORS.has(name) ? 'out' : HALF.has(name) ? 'half' : 'in';
     aimed = walker.seated ? null : life.target(camera);
     chalking();
     const atPiano = walker.seated?.label?.includes('piano');
@@ -355,6 +326,7 @@ renderer.setAnimationLoop(() => {
   winGlow.update(day.night, where === 'out', 1 - THREE.MathUtils.smoothstep(day.light, 0.42, 0.97));      // third: how far the lamps are on (as lighting.js lampOn)
   vignette.set(day.night);
   halos.update(t);
+  shade?.update(1 - THREE.MathUtils.smoothstep(day.light, 0.42, 0.97), dt);      // as lighting.js lampOn
   life.update(t, dt);
   if (sound.nowPlaying()) for (const d of platters) d.rotation.y -= dt * 3.49;      // 33 1/3 rpm
   sound.update(dt, { where, light: day.light, near: { fire: camera.position.distanceTo(FIRE_AT), clock: camera.position.distanceTo(CLOCK_AT) } });
@@ -397,7 +369,7 @@ let loading = 0;
 THREE.DefaultLoadingManager.onStart = () => { loading++; };
 THREE.DefaultLoadingManager.onProgress = (url, done, total) => { loading = total - done; };
 const perf = { quality: QUALITY.name, gpu: QUALITY.gpu, stages: STAGE, visTime: () => vis.visMs(), resetVisTime: () => vis.resetMs(), vis, frames: 0, items, renderer, scene, camera, setView, setHour: h => setHour(h), pending: () => loading + life.pending() };
-window.__house = perf;
+window.__house = perf; perf.light = { HL, lampPool, sun, exposure };      // for looking at one light at a time (tools/evaljs.sh)
 // Which lamps the pool would light at each test viewpoint, for checking its choices (?statsdump's eval=)
 perf.lampChoice = (names = Object.keys(VIEWS), h) => { if (h !== undefined) setHour(h); const out = {}; for (const n of names) { setView(VIEWS[n]); camera.updateMatrixWorld(); vis.update(camera); out[n] = (vis.state.here.join('+') || 'out').replace(/r:/g, '') + ' -> ' + lampPool.choose(camera.position, QUALITY.lamps).map(lampPool.describe).join(', '); } return out; };
 if (Q.has('statsdump')) statsDump(perf, Q.get('statsdump') || null, (Q.get('hours') ?? '13,22').split(',').map(Number));

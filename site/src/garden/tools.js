@@ -97,6 +97,30 @@ export function makeKit(B, items, TREES) {
       g.scale(sx, sy, sz); g.rotateY(rot); g.translate(x, y, z); g.computeVertexNormals(); g = g.toNonIndexed();
       if (mat === PAINT.stone || mat === PAINT.stoneDark || mat === PAINT.moss) K.G.mesh(mat === PAINT.stone ? 'rock' : mat === PAINT.moss ? 'rockMoss' : 'rockDark', g); else put(mat, g);
     },
+    // A garden bench in weathered teak: slatted seat and back, flat arms. Built here (about 150 boxes in
+    // the shared painted mesh, no draw call of its own). It stands at (x, z) with its feet at y and faces
+    // +z turned by yaw, as a model does; the seat is 1.4 ft up and 5 ft wide. (The benches used to be a
+    // scaled-up hall bench with a boot shelf: too tall to sit on, and not a thing to leave in the rain.)
+    bench(x, z, yaw = 0, o = {}) {
+      const y = o.y ?? 0, W = o.w ?? 5, T = o.mat ?? 'c#b0966c/0.9', T2 = 'c#987c56/0.9', m = new THREE.Matrix4().makeRotationY(yaw).setPosition(x, y, z);
+      const b = (mat, x0, x1, y0, y1, z0, z1, lean = 0) => { const g = new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0); if (lean) g.rotateX(lean); g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); g.applyMatrix4(m); P.add(mat, g); };
+      const h = W / 2, LEAN = -0.14;
+      for (const s of [-1, 1]) {
+        b(T2, s * h - 0.11, s * h + 0.11, 0, 2.05, 0.62, 0.84);                    // front leg, up to the arm
+        b(T2, s * h - 0.11, s * h + 0.11, 0, 1.4, -0.84, -0.62);                   // back leg
+        b(T2, s * h - 0.1, s * h + 0.1, 1.3, 2.95, -0.86, -0.66, LEAN);            // and its post, leaning back
+        b(T, s * h - 0.17, s * h + 0.17, 2.05, 2.13, -0.92, 1.0);                  // arm
+        b(T2, s * h - 0.07, s * h + 0.07, 1.12, 1.33, -0.62, 0.62);                // side rail
+        b(T2, s * h - 0.06, s * h + 0.06, 0.38, 0.52, -0.62, 0.62);                // stretcher
+      }
+      b(T2, -h + 0.11, h - 0.11, 1.12, 1.33, 0.66, 0.8); b(T2, -h + 0.11, h - 0.11, 1.12, 1.33, -0.8, -0.66);      // seat rails
+      for (let i = 0; i < 6; i++) b(T, -h + 0.11, h - 0.11, 1.33, 1.4, -0.68 + i * 0.27, -0.68 + i * 0.27 + 0.22);    // seat slats
+      b(T, -h + 0.1, h - 0.1, 2.72, 2.98, -0.98, -0.86, LEAN); b(T2, -h + 0.1, h - 0.1, 1.62, 1.78, -0.82, -0.72, LEAN);   // top and bottom rails of the back
+      const n = Math.round((W - 0.5) / 0.36);
+      for (let i = 0; i < n; i++) { const c = -h + 0.3 + (i + 0.5) * (W - 0.6) / n; b(T, c - 0.11, c + 0.11, 1.74, 2.76, -0.9, -0.84, LEAN); }      // back slats
+      const c = Math.abs(Math.cos(yaw)), s = Math.abs(Math.sin(yaw)), ex = (h + 0.2) * c + 1.0 * s, ez = (h + 0.2) * s + 1.0 * c;
+      K.collide(x - ex, x + ex, z - ez, z + ez, y + 2.9, y);
+    },
     // A terracotta pot, with the plants in it. Returns the height of its rim.
     pot(x, y, z, size = 1, plants = [], o = {}) {
       const mat = o.mat ?? (r() < 0.5 ? PAINT.terracotta : PAINT.terracottaOld), s = size;

@@ -1,8 +1,11 @@
 // What can be picked up, and what the house has to say about each. One entry per kind of model
 // (ids as in assets/models/CATALOG.md): n the name used in prompts, l a line said the first time
-// it is handled, eat: 'whole' (three bites and it is gone) or a list of lines for things one only
-// tastes. Anything not listed here stays where it is: furniture, lamps that are lit, the chess
-// set, the telephone, and the three foods staff.js already offers (croissant, bread, cake stand).
+// it is handled, eat: 'whole' (bites: 3 unless said, and it is gone) or a list of lines, one a bite,
+// and the last bite finishes it (taste: true for things one only tastes and never finishes: a lemon).
+// take + portion: a plate, a stand or a bunch you take one from, which stays where it is: portion
+// { n, model (a model id) or shape ('slice', 'cake', 'round', 'long'), color, top, bites }.
+// This is the one list of food in the house; what the staff serve is in staff/drinks.js.
+// Anything not listed here stays where it is: furniture, lamps that are lit, the chess set, the telephone.
 
 export const THINGS = {
   // trinkets and instruments
@@ -78,36 +81,40 @@ export const THINGS = {
   // things to eat (the croissants, the bread and the cake stand are the butlers' to offer)
   food_apple_01: { n: 'apple', l: 'A red apple, cold from the bowl.', eat: 'whole', done: 'You finish the apple, core and all, as nobody is looking.' },
   st_apple_red: { n: 'apple', l: 'A red apple with one leaf still on.', eat: 'whole', done: 'You finish the apple. It was a good one.' },
-  food_pears_asian_01: { n: 'pears', l: 'Three round pears, crisp as apples.', eat: 'whole', done: 'The pears are gone. They were mostly water and entirely delicious.' },
+  food_pears_asian_01: { n: 'pears', l: 'Three round pears, crisp as apples.', take: 'take a pear', portion: { n: 'round pear', shape: 'round', color: 0xd8c27a }, eat: 'whole', done: 'You finish the pear. It was mostly water and entirely delicious.' },
   st_pear: { n: 'pear', l: 'A pear, ripe today and only today.', eat: 'whole', done: 'You finish the pear, over the sink in spirit.' },
   st_peach: { n: 'peach', l: 'A peach, warm on one side from the window.', eat: 'whole', done: 'You finish the peach. Your sleeve will remember it.' },
   st_mandarin: { n: 'mandarin', l: 'A mandarin. The peel comes away in one piece if you are patient.', eat: 'whole', done: 'You finish the mandarin, segment by segment.' },
   food_pomegranate_01: { n: 'pomegranate', l: 'A pomegranate, heavy for its size. Mind the seeds; mind the old story about them.', eat: 'whole', done: 'You finish the pomegranate. By the old rules you now owe the house six months.' },
-  lemon: { n: 'lemon', l: 'A lemon. There are always six; the shopping list sees to that.', eat: ['You bite the lemon. The lemon wins.', 'Still a lemon.'] },
-  yellow_onion: { n: 'onion', l: 'A yellow onion, papery and blameless.', eat: ['You consider it, and think better.'] },
-  bananas: { n: 'bananas', l: 'Bananas, at the stage A. calls “leopard”.', eat: ['You have a banana. There are several, and no one is counting.', 'Another banana. Still no one is counting.'] },
+  lemon: { n: 'lemon', l: 'A lemon. There are always six; the shopping list sees to that.', eat: ['You bite the lemon. The lemon wins.', 'Still a lemon.'], taste: true },
+  yellow_onion: { n: 'onion', l: 'A yellow onion, papery and blameless.', eat: ['You consider it, and think better.'], taste: true },
+  bananas: { n: 'bananas', l: 'Bananas, at the stage A. calls “leopard”.', take: 'take a banana', portion: { n: 'banana', shape: 'long', color: 0xe8c547 }, eat: 'whole', done: 'You finish the banana. There are several more, and no one is counting.' },
   st_jam_tart: { n: 'jam tart', l: 'A jam tart, raspberry, from the batch that was supposed to be for Saturday.', eat: 'whole', done: 'You finish the jam tart. Saturday will manage.' },
   st_pastry_1: { n: 'turnover', l: 'An apple turnover, still a little warm in the middle.', eat: 'whole', done: 'You finish the turnover. There are flakes on your collar.' },
-  hamburger_buns: { n: 'bread rolls', l: 'Three soft rolls, baked this morning.', eat: ['You tear off a piece of roll. Soft, a little sweet.', 'A second piece. It would be rude not to.'] },
+  hamburger_buns: { n: 'bread rolls', l: 'Three soft rolls, baked this morning.', take: 'take a bread roll', portion: { n: 'bread roll', shape: 'round', color: 0xc98a4a, flat: 0.7 }, eat: ['You tear off a piece of roll. Soft, a little sweet.', 'A second piece. It would be rude not to.', 'The last of the roll.'], done: 'You finish the roll.' },
   st_bread_2: { n: 'heel of bread', l: 'The heel of the loaf: the best part.', eat: 'whole', done: 'You finish the bread. Good crust.' },
-  carrot_cake: { n: 'carrot cake', l: 'Carrot cake with cream-cheese icing. Bartholomew pipes the little carrots himself.', eat: ['You steal a corner of the icing. Nobody will know.', 'A second corner. Somebody will know.', 'The cake is beginning to look asymmetrical.'] },
-  strawberry_chocolate_cake: { n: 'chocolate cake', l: 'Chocolate cake under sliced strawberries, made for no occasion at all.', eat: ['You take a strawberry off the top. It was the best one.', 'Another strawberry. The cake pretends not to notice.', 'You run a finger round the edge. Dark, not too sweet.'] },
+  carrot_cake: { n: 'carrot cake', l: 'Carrot cake with cream-cheese icing. Bartholomew pipes the little carrots himself.', take: 'take a slice of carrot cake', portion: { n: 'slice of carrot cake', shape: 'slice', color: 0xc9894a, top: 0xf4ecdc }, eat: ['The icing first. Nobody will know.', 'The middle. Somebody will know.', 'The last of the slice, and the crumbs off the plate.'], done: 'You finish the slice. The cake looks only a little asymmetrical.' },
+  strawberry_chocolate_cake: { n: 'chocolate cake', l: 'Chocolate cake under sliced strawberries, made for no occasion at all.', take: 'take a slice of chocolate cake', portion: { n: 'slice of chocolate cake', shape: 'slice', color: 0x4a2a1c, top: 0xc8202a }, eat: ['The strawberry on top first. It was the best one.', 'Dark, not too sweet.', 'The last forkful, by hand.'], done: 'You finish the slice. The cake pretends not to notice.' },
+  // what the staff used to offer from their own list (staff.js): one each, there are always more
+  croissant: { n: 'croissants', l: 'Croissants from the coffee bar, still faintly warm.', take: 'take a croissant', portion: { n: 'croissant', model: 'croissant' }, eat: 'whole', done: 'You finish the croissant. Flaky, buttery, gone.' },
+  st_bread_1: { n: 'loaf', l: 'A round loaf, already started.', take: 'take a piece of bread', portion: { n: 'piece of bread', model: 'st_bread_2' }, eat: 'whole', done: 'You finish the bread. Good crust.' },
+  st_cake_stand: { n: 'cake stand', l: 'Little iced cakes on a stand, lemon, each with a sugar violet.', take: 'take a little iced cake', portion: { n: 'little iced cake', shape: 'cake', color: 0xf3e3a8, top: 0x7a5aa8, bites: 2 }, eat: 'whole', done: 'You finish the little cake. Lemon, with a sugar violet.' },
 };
 
 // Snacks the rooms draw as packets (kitchen.js, coffee_bar.js). The key is the name of the
 // function that draws the label; the label is re-drawn on the little one you take.
 export const SNACKS = {
-  cheezit: { n: 'box of Cheez-Its', take: 'take some Cheez-Its', eat: ['A handful of Cheez-Its. Salty, orange, correct.', 'Another handful.', 'The box is noticeably lighter. Good.'] },
-  pretzels: { n: 'bag of pretzels', take: 'take some pretzels', eat: ['A pretzel. Then, inevitably, three more.', 'More pretzels.'] },
+  cheezit: { n: 'box of Cheez-Its', take: 'take some Cheez-Its', eat: ['A handful of Cheez-Its. Salty, orange, correct.', 'Another handful.', 'The box is noticeably lighter. Good.'], done: 'That is enough Cheez-Its. (It is never enough Cheez-Its.)' },
+  pretzels: { n: 'bag of pretzels', take: 'take some pretzels', eat: ['A pretzel. Then, inevitably, three more.', 'More pretzels.'], done: 'You fold the bag over. For later. (There is no later.)' },
   ghirardelli: { n: 'bar of dark chocolate', take: 'take a bar of chocolate', eat: 'whole', done: 'The chocolate is gone. The wrapper folds very small.' },
   lindor: { n: 'chocolate truffle', take: 'take a truffle', eat: 'whole', bites: 1, done: 'The truffle melts from the middle outwards. There are more in the bag.' },
   pbcups: { n: 'peanut butter cup', take: 'take a peanut butter cup', eat: 'whole', bites: 2, done: 'Two bites. A. gets through a box a fortnight and denies it.' },
   tjPB: { n: 'peanut butter cup', take: 'take a peanut butter cup', eat: 'whole', bites: 2, done: 'Two bites, and it is as if it never was.' },
-  popcorn: { n: 'bag of popcorn', take: 'take some popcorn', eat: ['A handful of popcorn. A piece escapes; the roomba will find it.', 'More popcorn.'] },
+  popcorn: { n: 'bag of popcorn', take: 'take some popcorn', eat: ['A handful of popcorn. A piece escapes; the roomba will find it.', 'More popcorn.'], done: 'The popcorn is gone, bar one piece Reginald will deal with.' },
   stringCheese: { n: 'string cheese', take: 'take a string cheese', eat: 'whole', done: 'You finish the string cheese, peeled in strings, as is proper.' },
-  pepperoni: { n: 'packet of pepperoni', take: 'take some pepperoni', eat: ['A slice of pepperoni, straight from the packet.', 'Two more slices, folded together.'] },
-  martinelli: { n: 'little bottle of apple juice', take: 'take an apple juice', eat: ['A cold swallow of apple juice.', 'Another. It tastes of being nine.', 'The last of it.'] },
-  yogurt: { n: 'pot of yogurt', take: 'take a yogurt', eat: ['A spoonful of yogurt. (You had a spoon. Do not ask.)', 'Another spoonful.'] },
-  hummus: { n: 'tub of hummus', take: 'take the hummus', eat: ['You run a finger through the hummus. Nobody saw.'] },
-  joesOs: { n: 'box of cereal', take: "take the Joe's O's", eat: ["A dry handful of O's, the way they are best."] },
+  pepperoni: { n: 'packet of pepperoni', take: 'take some pepperoni', eat: ['A slice of pepperoni, straight from the packet.', 'Two more slices, folded together.'], done: 'You finish the pepperoni.' },
+  martinelli: { n: 'little bottle of apple juice', take: 'take an apple juice', eat: ['A cold swallow of apple juice.', 'Another. It tastes of being nine.', 'The last of it.'], done: 'The little bottle is empty.' },
+  yogurt: { n: 'pot of yogurt', take: 'take a yogurt', eat: ['A spoonful of yogurt. (You had a spoon. Do not ask.)', 'Another spoonful.'], done: 'You scrape the pot clean.' },
+  hummus: { n: 'tub of hummus', take: 'take the hummus', eat: ['You run a finger through the hummus. Nobody saw.', 'Another finger. Somebody saw.'], done: 'You put the lid back on the hummus, with dignity.' },
+  joesOs: { n: 'box of cereal', take: "take the Joe's O's", eat: ["A dry handful of O's, the way they are best.", 'Another handful.'], done: "Enough O's." },
 };

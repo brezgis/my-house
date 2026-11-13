@@ -5,7 +5,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { LINEN, OAT, SAGE, RUST, NAVY, MUSTARD, CREAM, ROSE, ENAMEL, BRASS, STEEL, BLACK, GREEN, MARBLE, DARK, WHITE, G, DIRS } from '../kit.js';
 import { wx, wz } from '../builder.js';
 import { F1, F2 } from '../house.js';
-import { photoDraw, nextPhoto } from '../photos.js';
+import { photoDraw, nextPhoto, PHOTOS, photosReady } from '../photos.js';
 
 // A private random source, so these props never disturb the kit's shared sequence.
 const rand = seed => { let s = seed >>> 0 || 1; return () => (s = (s * 16807) % 2147483647) / 2147483647; };
@@ -68,9 +68,9 @@ export const DRAWN = {
   paper: (title, seed) => (g, w, h) => {
     const r = rand(seed);
     g.fillStyle = '#f7f4ec'; g.fillRect(0, 0, w, h);
-    g.fillStyle = '#1d1a17'; g.font = `bold ${h * 0.035}px ${SERIF}`; g.textAlign = 'center';
-    title.split('\n').forEach((t, i) => g.fillText(t, w / 2, h * (0.09 + i * 0.04)));
-    g.font = `${h * 0.02}px ${SERIF}`; g.fillText('Abstract', w / 2, h * 0.2);
+    g.fillStyle = '#1d1a17'; g.font = `bold ${h * 0.043}px ${SERIF}`; g.textAlign = 'center';
+    title.split('\n').forEach((t, i) => g.fillText(t, w / 2, h * (0.09 + i * 0.052)));
+    g.font = `${h * 0.02}px ${SERIF}`; g.fillText('Abstract', w / 2, h * 0.205);
     g.fillStyle = '#4a4540';
     for (let c = 0; c < 2; c++) for (let i = 0; i < 34; i++) { if (c === 0 && i < 4) continue; g.fillRect(w * (0.08 + c * 0.45), h * (0.23 + i * 0.021), w * (0.36 + (i % 7 === 6 ? -0.15 : 0)), h * 0.006); }
     g.strokeStyle = '#e0b030'; g.globalAlpha = 0.45; g.lineWidth = h * 0.012; g.beginPath(); g.moveTo(w * 0.08, h * (0.3 + r() * 0.2)); g.lineTo(w * 0.4, h * 0.36); g.stroke(); g.globalAlpha = 1;
@@ -80,20 +80,6 @@ export const DRAWN = {
     g.fillStyle = colour; g.fillRect(0, 0, w, h); g.fillStyle = 'rgba(0,0,0,0.06)'; g.fillRect(0, 0, w, h * 0.12);
     g.fillStyle = '#2a2a3a'; hand(g, h * 0.2); g.textAlign = 'center';
     text.split('\n').forEach((t, i) => g.fillText(t, w / 2, h * (0.42 + i * 0.26)));
-  },
-  // a jigsaw, half done: the finished part shows a landscape, the rest is loose pieces
-  jigsaw: seed => (g, w, h) => {
-    const r = rand(seed);
-    g.fillStyle = '#2b2622'; g.fillRect(0, 0, w, h);                 // the table shows through as dark
-    const cols = 16, rows = 10, pw = w / cols, ph = h / rows;
-    const scene = (x, y) => { const t = y / h; return t < 0.45 ? `hsl(${205 + x / w * 20},${35 + t * 40}%,${70 - t * 30}%)` : t < 0.62 ? `hsl(${100 + x / w * 30},28%,${40 + r() * 8}%)` : `hsl(${40 + r() * 15},45%,${48 + r() * 10}%)`; };
-    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
-      const done = (i < 3 || j < 2 || j > 7 || i > 13) || (i < 7 && j < 6);       // the frame and one corner
-      if (!done) continue;
-      g.fillStyle = scene(i * pw, j * ph); g.fillRect(i * pw + 1, j * ph + 1, pw - 1.5, ph - 1.5);
-    }
-    g.strokeStyle = 'rgba(0,0,0,0.25)'; g.lineWidth = 1;
-    for (let k = 0; k < 26; k++) { const x = w * (0.3 + r() * 0.55), y = h * (0.3 + r() * 0.45); g.save(); g.translate(x, y); g.rotate(r() * 6); g.fillStyle = scene(r() * w, r() * h); g.fillRect(-pw / 2, -ph / 2, pw * 0.9, ph * 0.9); g.strokeRect(-pw / 2, -ph / 2, pw * 0.9, ph * 0.9); g.restore(); }
   },
   // a laptop screen: a notebook of code and a chat window
   laptop: (g, w, h) => {
@@ -114,13 +100,27 @@ export const DRAWN = {
     const pin = (x, y) => { g.fillStyle = ['#c0392b', '#2f6a8a', '#e0b030', '#3d7a4a'][Math.floor(r() * 4)]; g.beginPath(); g.arc(x, y, w * 0.008, 0, 7); g.fill(); };
     const card = (x, y, cw, ch, rot, fill, fn) => { g.save(); g.translate(x, y); g.rotate(rot); g.fillStyle = 'rgba(0,0,0,0.2)'; g.fillRect(-cw / 2 + 3, -ch / 2 + 4, cw, ch); g.fillStyle = fill; g.fillRect(-cw / 2, -ch / 2, cw, ch); fn?.(cw, ch); g.restore(); pin(x, y - ch / 2 + 8); };
     const text = (lines, px, col = '#2a2a3a') => (cw, ch) => { g.fillStyle = col; hand(g, px); g.textAlign = 'center'; lines.forEach((t, i) => g.fillText(t, 0, -ch / 2 + px * 1.6 + i * px * 1.2)); };
-    card(w * 0.16, h * 0.25, w * 0.2, h * 0.26, -0.05, '#fff59a', text(['ACL ddl', 'Feb 15!!'], h * 0.06));
-    card(w * 0.42, h * 0.3, w * 0.24, h * 0.42, 0.03, '#f7f4ec', (cw, ch) => { g.fillStyle = '#333'; g.font = `bold ${h * 0.035}px ${SANS}`; g.textAlign = 'center'; g.fillText('attention heads, layer 6', 0, -ch / 2 + h * 0.05); for (let i = 0; i < 6; i++) for (let j = 0; j < 6; j++) { g.fillStyle = `hsl(210,60%,${92 - (i === j ? 50 : r() * 35)}%)`; g.fillRect(-cw * 0.36 + i * cw * 0.12, -ch * 0.3 + j * ch * 0.12, cw * 0.11, ch * 0.11); } });
-    card(w * 0.72, h * 0.24, w * 0.24, h * 0.3, 0.06, '#f4efe4', (cw, ch) => { const d = DRAWN.photo(5, 'people'); g.save(); g.translate(-cw / 2, -ch / 2); g.scale(cw / 256, ch / 256); d(g, 256, 256); g.restore(); });
-    card(w * 0.86, h * 0.68, w * 0.18, h * 0.24, -0.08, '#a8d8ea', text(['tokenise', 'Ukr. corpus'], h * 0.045));
-    card(w * 0.2, h * 0.7, w * 0.26, h * 0.34, 0.04, '#e9dcc8', (cw, ch) => { g.fillStyle = '#6a8aa0'; g.fillRect(-cw * 0.45, -ch * 0.42, cw * 0.9, ch * 0.55); g.fillStyle = '#f0e6d0'; g.font = `italic ${h * 0.04}px ${SERIF}`; g.textAlign = 'center'; g.fillText('Greetings from Lviv', 0, ch * 0.32); });
-    card(w * 0.52, h * 0.78, w * 0.2, h * 0.22, -0.03, '#ffd1dc', text(['call mom', 'sun 11am'], h * 0.05));
-    card(w * 0.66, h * 0.62, w * 0.12, h * 0.15, 0.1, '#c8f0c0', text(['BLEU', 'is not', 'enough'], h * 0.035));
+    // a snapshot: one of Anna's own photographs (photos.js) on white card, cropped to fill
+    const snap = k => (cw, ch) => { const im = PHOTOS[k], b = cw * 0.07, W = cw - 2 * b, H = ch - b - ch * 0.2; g.fillStyle = '#7f95a3'; g.fillRect(-cw / 2 + b, -ch / 2 + b, W, H);
+      if (im) { const sc = Math.max(W / im.width, H / im.height), sw = W / sc, sh = H / sc; g.drawImage(im, (im.width - sw) / 2, Math.max(0, (im.height - sh) * 0.35), sw, sh, -cw / 2 + b, -ch / 2 + b, W, H); } };
+    const title = (t, ch, px = h * 0.032) => { g.fillStyle = '#333'; g.font = `bold ${px}px ${SANS}`; g.textAlign = 'center'; g.fillText(t, 0, -ch / 2 + px * 1.5); };
+    // top row: a deadline, a similarity matrix off the printer, two snapshots
+    card(w * 0.115, h * 0.22, w * 0.17, h * 0.26, -0.05, '#fff59a', text(['ablations', 'by Friday!'], h * 0.05));
+    card(w * 0.335, h * 0.29, w * 0.22, h * 0.44, 0.025, '#f7f4ec', (cw, ch) => { title('similarity', ch); const n = 8, c = cw * 0.1, x0 = -n * c / 2, y0 = -ch / 2 + h * 0.075;
+      for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) { const same = Math.floor(a / 3) === Math.floor(b / 3), v = a === b ? 1 : same ? 0.55 + r() * 0.25 : r() * 0.3; g.fillStyle = `hsl(${250 - v * 200},65%,${88 - v * 48}%)`; g.fillRect(x0 + a * c, y0 + b * c, c - 1, c - 1); } });
+    card(w * 0.585, h * 0.25, w * 0.2, h * 0.36, -0.04, '#fbf9f3', snap(3));
+    card(w * 0.83, h * 0.3, w * 0.19, h * 0.45, 0.05, '#fbf9f3', snap(5));
+    // bottom row: the list, a training run, two notes, a little drawing of the house
+    card(w * 0.14, h * 0.7, w * 0.2, h * 0.42, 0.03, '#f4efe4', (cw, ch) => { g.fillStyle = '#c0392b'; g.fillRect(-cw / 2, -ch / 2 + ch * 0.16, cw, 1.5); g.fillStyle = '#2a2a3a'; hand(g, h * 0.04); g.textAlign = 'left';
+      ['☑ baseline', '☑ error analysis', '☐ write §4', '☐ sleep'].forEach((t, k) => g.fillText(t, -cw * 0.4, -ch / 2 + ch * 0.32 + k * ch * 0.17)); });
+    card(w * 0.4, h * 0.77, w * 0.24, h * 0.32, -0.03, '#f7f4ec', (cw, ch) => { title('run 14', ch, h * 0.028); g.strokeStyle = '#555'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-cw * 0.4, -ch * 0.22); g.lineTo(-cw * 0.4, ch * 0.38); g.lineTo(cw * 0.42, ch * 0.38); g.stroke();
+      for (const [col, f] of [['#2f6a8a', u => Math.exp(-u * 5)], ['#c0392b', u => 0.18 + 0.8 * Math.exp(-u * 6) + 0.25 * Math.max(0, u - 0.5)]]) { g.strokeStyle = col; g.lineWidth = 2; g.beginPath(); for (let k = 0; k <= 30; k++) { const u = k / 30, x = -cw * 0.38 + u * cw * 0.78, y = ch * 0.36 - f(u) * ch * 0.52 + (r() - 0.5) * 3; k ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); } });
+    card(w * 0.615, h * 0.63, w * 0.14, h * 0.2, 0.08, '#c8f0c0', text(['more is', 'different'], h * 0.04));
+    card(w * 0.64, h * 0.87, w * 0.15, h * 0.17, -0.06, '#ffd1dc', text(['call mom', 'sun 11am'], h * 0.038));
+    card(w * 0.86, h * 0.76, w * 0.2, h * 0.3, -0.05, '#f1ead8', (cw, ch) => { g.strokeStyle = '#3a4a5a'; g.lineWidth = 2; g.lineJoin = 'round'; const X = cw * 0.34, Y = ch * 0.3;      // the house, in pen
+      g.beginPath(); g.moveTo(-X, Y); g.lineTo(-X, -Y * 0.1); g.lineTo(0, -Y * 0.95); g.lineTo(X, -Y * 0.1); g.lineTo(X, Y); g.closePath(); g.moveTo(-X * 1.25, -Y * 0.02); g.lineTo(0, -Y * 1.1); g.lineTo(X * 1.25, -Y * 0.02); g.stroke();
+      g.strokeRect(-X * 0.16, Y * 0.3, X * 0.32, Y * 0.7); for (const sx of [-0.62, 0.38]) g.strokeRect(X * sx, Y * 0.2, X * 0.26, Y * 0.36);
+      g.fillStyle = '#b8452e'; g.beginPath(); g.arc(X * 0.8, -Y * 1.05, 3, 0, 7); g.fill(); });
   },
   // a clock face
   dial: (g, w, h) => {
@@ -132,6 +132,7 @@ export const DRAWN = {
     g.lineWidth = w * 0.015; g.beginPath(); g.moveTo(w / 2, h / 2); g.lineTo(w / 2 - w * 0.05, h / 2 - h * 0.34); g.stroke();
   },
 };
+DRAWN.pinboard.late = photosReady;      // it carries two of the family's photographs: drawn again when they have arrived (life.js)
 
 // ---- Built props -----------------------------------------------------------------------------
 export function props(kit) {

@@ -4,7 +4,7 @@
 // house is built. Everything here is optional to the rest of the house.
 //
 // URL parameters (for testing):
-//   ?staffdemo=1|robots|drinks|reggie|garden   stage the cast in front of the camera (use with view=)
+//   ?staffdemo=1|robots|drinks|reggie|treat|garden   stage the cast in front of the camera (use with view=)
 //   ?stafftime=N                        run the household N seconds before the first frame
 //   ?staffseed=N                        fix the dice
 //
@@ -43,7 +43,7 @@ export function hireStaff(ctx) {
   const H = {
     ctx, nav, group, THREE, now: 0, dt: 1 / 60, rnd: rngFrom(seed), day: ctx.day,
     bubbles: makeBubbles(THREE, camera, headless),
-    visitor: { present: false, since: 0, outside: false, outSince: 0, x: 0, y: 0, z: 0, f: 0, fx: 0, fz: -1, room: null, roomSince: 0, poi: null, poiSince: 0, aimed: null, holding: null },
+    visitor: { present: false, since: 0, outside: false, outSince: 0, x: 0, y: 0, z: 0, f: 0, fx: 0, fz: -1, speed: 0, dx: 0, dz: -1, px: 0, pz: 0, room: null, roomSince: 0, poi: null, poiSince: 0, aimed: null, holding: null },
     // what the household remembers about this visit
     mem: { greeted: false, met: new Set(), asked: new Set(), rooms: new Set(), drinks: [], lastDrink: null, finished: false, lastSip: -1e9, toldDark: false },
     robots: [], gardeners: [], cats: [], roomba: null, out, spots: {}, empties: [],
@@ -68,7 +68,24 @@ export function hireStaff(ctx) {
   H.see = (a, b) => (a.f ?? 0) === (b.f ?? 0) && nav.see(a.f ?? 0, a.x, a.z, b.x, b.z);
   H.near = (a, d) => { const v = H.visitor; return v.present && v.f === a.f && Math.hypot(v.x - a.x, v.z - a.z) < d && (a.outdoor ? out.see(0, v.x, v.z, a.x, a.z) : nav.see(v.f, v.x, v.z, a.x, a.z)); };      // the indoor plan ends at the walls: the garden has its own
   H.busyTalking = () => { const v = H.visitor; return [...H.robots, ...H.gardeners].some(r => r.bubble.talking(H.now) && Math.hypot(r.x - v.x, r.z - v.z) < 20); };
-  H.nearDoor = (f, x, z, r) => nav.doors.some(d => d.staffFloor === f && Math.hypot(d.cx - x, d.cz - z) < r);
+  // Doorways: the doors, the narrower cased openings, and the foot and head of the stair (as the friends count them)
+  H.nearDoor = (f, x, z, r) => {
+    for (const d of nav.doors) if (d.staffFloor === f && Math.hypot(d.cx - x, d.cz - z) < r) return true;
+    const y = nav.FLOORS[f], pad = r - 0.4;
+    for (const p of nav.passages) { if (Math.abs(p.y - y) > 1) continue; if (p.alongX ? (x > p.x0 - 0.3 && x < p.x1 + 0.3 && z > p.z0 - pad && z < p.z1 + pad) : (z > p.z0 - 0.3 && z < p.z1 + 0.3 && x > p.x0 - pad && x < p.x1 + pad)) return true; }
+    const st = nav.stair; if (st) { const c = f ? st.hi : st.lo; if (Math.hypot(nav.cx(c) - x, nav.cz(c) - z) < r + 0.6) return true; }
+    return false;
+  };
+  // The visiting friends (friends/party.js), when there are any: people too
+  const party = () => (typeof window !== 'undefined' ? window.__friends?.P : null) ?? ctx.party?.P ?? null;
+  H.guests = () => party()?.guests ?? [];
+  const guestIn = g => g.state === 'here' && !g.out;
+  // Is anybody else standing at (or bound for) (x, z)? For choosing a place to wait.
+  H.taken = (self, f, x, z, r) => {
+    for (const o of H.robots) if (o !== self && o.f === f && (Math.hypot(o.x - x, o.z - z) < r || (o.m.goal && o.m.path && o.m.goal.f === f && Math.hypot(o.m.goal.x - x, o.m.goal.z - z) < r) || (o.aside?.phase && Math.hypot(o.aside.x - x, o.aside.z - z) < r))) return true;
+    for (const g of H.guests()) if (guestIn(g) && g.m.f === f && Math.hypot(g.m.x - x, g.m.z - z) < r) return true;
+    return false;
+  };
   H.anyoneNear = (x, z, r) => {
     const v = H.visitor;
     if (v.present && Math.hypot(v.x - x, v.z - z) < r) return true;
@@ -76,13 +93,18 @@ export function hireStaff(ctx) {
   };
   // Is someone standing at (x, z), from the point of view of `self`? Robots give the guest a wide berth
   // unless they are the one attending her.
+  // Stepping away from somebody is always allowed: pressed up against them, that is the only way out.
   H.blocked = (self, x, z, r) => {
-    const v = H.visitor;
+    const v = H.visitor, sx = self.x, sz = self.z;
     if (v.present && v.f === self.f) {
-      const attending = self === H.host || self.carrying;
-      if (Math.hypot(v.x - x, v.z - z) < r + (self instanceof Robot && !attending ? 2.2 : 0.35)) return true;
+      const attending = self === H.host || self.carrying, d = Math.hypot(v.x - x, v.z - z);
+      if (d < r + (self instanceof Robot && !attending ? 2.2 : 0.35) && d < Math.hypot(v.x - sx, v.z - sz) + 0.05) return true;
     }
-    if (self instanceof Robot) return [...H.robots, ...H.gardeners].some(o => o !== self && o.f === self.f && Math.hypot(o.x - x, o.z - z) < r + 0.3);
+    if (self instanceof Robot) {
+      for (const o of H.robots) if (o !== self && o.f === self.f) { const d = Math.hypot(o.x - x, o.z - z); if (d < r + 0.3 && d < Math.hypot(o.x - sx, o.z - sz) + 0.05) return true; }
+      for (const o of H.gardeners) if (o !== self && o.f === self.f && Math.hypot(o.x - x, o.z - z) < r + 0.3) return true;
+      if (!self.outdoor) for (const g of H.guests()) if (guestIn(g) && g.m.f === self.f) { const d = Math.hypot(g.m.x - x, g.m.z - z); if (d < r + 0.5 && d < Math.hypot(g.m.x - sx, g.m.z - sz) + 0.05) return true; }
+    }
     return false;
   };
   // Sound: little chirps, quieter with distance
@@ -102,14 +124,65 @@ export function hireStaff(ctx) {
   // ---- Drinks: made on trays, held in the hand, set down, cleared -------------------------------
   H.makeDrink = d => buildDrink(d);
   H.fill = (g, f, t = H.now) => { g.userData.fill = f; setFill(g, f, t); };
-  let held = null;
-  H.hold = (d, g) => {
-    if (held) group.remove(held.g);
-    g = g ?? H.makeDrink(d); g.removeFromParent(); group.add(g); if (!d.food) H.fill(g, 1);
-    held = { d, g, since: H.now, s0: g.scale.x, bites: 0 };
-    H.visitor.holding = d; H.mem.drinks.push(d.id); H.mem.lastDrink = d; H.mem.finished = false;
+  let held = null, heldAt = 0;
+  // o: { fill, bites, again } when she picks up one she set down earlier
+  H.hold = (d, g, o = {}) => {
+    const v = H.visitor;
+    if (held || emptyInHand()) { const s = surfaceNear(v) ?? feetOf(v); putDown(s, H.rnd() * 6); }      // a new one: the old one goes down beside her, not into thin air
+    g = g ?? H.makeDrink(d); g.removeFromParent(); group.add(g);
+    const fill = o.fill ?? 1; if (!d.food) H.fill(g, fill);
+    held = { d, g, since: H.now - (d.gift ? 0 : (1 - fill) * (d.last ?? 75)), s0: o.s0 ?? g.scale.x, bites: o.bites ?? 0, from: o.from ?? null, at: H.now }; heldAt = performance.now();
+    v.holding = d;
+    if (o.again) { H.bubbles.toast(`You pick up the ${d.name} again.`, H.now, 2.5); return; }
+    H.mem.drinks.push(d.id); H.mem.lastDrink = d; H.mem.finished = false;
     H.bubbles.toast(`You take the ${d.name}.${H.mem.toldSip ? '' : d.food || d.gift ? ' Press Q to eat.' : ' Press Q to sip.'}`, H.now, 4); H.mem.toldSip = true;
   };
+  // ---- The other hand: what the staff gave her can be set down anywhere and picked up again ------
+  // hands/carry.js finds the place (the same care as for anything else held) and calls place();
+  // the glass stays with what is left in it. An empty one is for the staff to clear (robots.js).
+  const VESSEL = { teacup: 'teacup', demitasse: 'espresso cup', latte: 'glass', phin: 'glass', tumbler: 'tumbler', highball: 'glass', wine: 'wine glass', rocks: 'tumbler', mug: 'mug' };
+  const vesselOf = d => VESSEL[d.vessel] ?? 'glass';
+  H.vesselOf = vesselOf;
+  const emptyInHand = () => H.empties.find(e => e.inHand);
+  const feetOf = v => ({ x: v.x + v.fx * 1.2, y: nav.floorY(v.f, v.x + v.fx * 1.2, v.z + v.fz * 1.2), z: v.z + v.fz * 1.2 });
+  H.drinksDown = [];
+  ctx.otherHand = {
+    name: () => (held ? held.d.name : emptyInHand() ? `empty ${vesselOf(emptyInHand().d)}` : null),
+    size: () => { const d = held?.d ?? emptyInHand()?.d; return d?.food || d?.gift ? { w: 0.3, h: 0.24, d: 0.3 } : d?.vessel === 'wine' || d?.vessel === 'highball' ? { w: 0.26, h: 0.6, d: 0.26 } : { w: 0.34, h: 0.4, d: 0.34 }; },
+    at: () => heldAt,
+    place: (s, yaw) => putDown(s, yaw),
+  };
+  function putDown(s, yaw) {
+    const v = H.visitor; let rec;
+    if (held) {
+      const d = held.d, g = held.g;
+      rec = { g, d, fill: d.food || d.gift ? 1 : Math.max(0.06, 1 - (H.now - held.since) / (d.last ?? 75)), bites: held.bites, s0: held.s0 };
+      held = null; v.holding = null; H.mem.lastSip = H.now;
+    } else {
+      const e = emptyInHand(); if (!e) return false;
+      H.empties.splice(H.empties.indexOf(e), 1); rec = { g: e.g, d: e.d, fill: 0, empty: true };
+    }
+    rec.g.position.set(s.x, s.y, s.z); rec.g.rotation.set(0, yaw, 0); rec.g.visible = true;
+    if (rec.d.food && held === null) rec.g.scale.setScalar(rec.s0 * (1 - 0.27 * Math.min(rec.bites ?? 0, 3)));
+    Object.assign(rec, { x: s.x, y: s.y, z: s.z, f: v.f, outside: v.outside, t: H.now });
+    leaveDown(rec); H.events.putDown = (H.events.putDown ?? 0) + 1;
+    return true;
+  }
+  function leaveDown(rec) {
+    rec.ent = { x: rec.x, y: rec.y + 0.25, z: rec.z, reach: 5.5, size: 0.5, label: () => (held || emptyInHand() ? '' : `pick up the ${rec.empty ? 'empty ' + vesselOf(rec.d) : rec.d.name}`), act: () => pickUpDown(rec) };
+    ctx.interact.push(rec.ent);
+    (rec.empty ? H.empties : H.drinksDown).push(rec);
+  }
+  H.forgetDown = rec => { const i = ctx.interact.indexOf(rec.ent); if (i >= 0) ctx.interact.splice(i, 1); for (const L of [H.empties, H.drinksDown]) { const j = L.indexOf(rec); if (j >= 0) L.splice(j, 1); } };
+  function pickUpDown(rec) {
+    if (held || emptyInHand()) return;
+    H.forgetDown(rec); rec.claimed = null;
+    if (rec.empty) { H.empties.push({ g: rec.g, d: rec.d, inHand: true, x: rec.x, y: rec.y, z: rec.z, f: rec.f, outside: rec.outside, t: H.now }); heldAt = performance.now(); return; }
+    H.hold(rec.d, rec.g, { fill: rec.fill, bites: rec.bites, s0: rec.s0, again: true });
+  }
+  H.putDownHeld = (s, yaw = 0) => putDown(s, yaw);      // (for the test page)
+  H.menuItem = id => MENU.find(m => m.id === id);
+  H.otherFill = () => (held && !held.d.gift ? Math.max(0.06, 1 - (H.now - held.since) / (held.d.last ?? 75)) : held ? 1 : 0);
   // Sipping and eating: Q, or E / a tap with nothing in front of you. A drink goes down a sixth at a
   // sip (it also goes down slowly by itself); food goes in three bites; a strawberry in one.
   let sipAt = -1e9;
@@ -124,23 +197,9 @@ export function hireStaff(ctx) {
     return true;
   };
   ctx.sip = H.sip;
-  addEventListener('keydown', e => { if (e.code === 'KeyQ' && !e.repeat && !/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName ?? '')) H.sip(); });
-  // Things to eat that are lying about the house: take one (there are always more)
-  const FOOD = {
-    croissant: { id: 'croissant', name: 'croissant', model: 'croissant', done: 'You finish the croissant. Flaky, buttery, gone.' },
-    st_bread_1: { id: 'bread', name: 'piece of bread', model: 'st_bread_2', done: 'You finish the bread. Good crust.' },
-    st_cake_stand: { id: 'cake', name: 'little iced cake', done: 'You finish the little cake. Lemon, with a sugar violet.' },
-  };
-  for (const m of ctx.items.models ?? []) {
-    const f = FOOD[m.id]; if (!f) continue;
-    const d = { ...f, food: true, gift: true, vessel: 'food', last: 900, from: 'here', note: '' };
-    ctx.interact.push({ x: m.x, y: m.y + (m.id === 'st_cake_stand' ? 0.6 : 0.1), z: m.z, reach: 5.5, label: () => `have a ${d.name}`, act: async () => {
-      let g;
-      if (d.model) { try { g = await ctx.loadModel(d.model); g.traverse(n => { if (n.isMesh) n.castShadow = false; }); } catch { return; } }
-      else { g = new THREE.Group(); const cake = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.095, 0.11, 14), new THREE.MeshStandardMaterial({ color: 0xf3e3a8, roughness: 0.6 })); cake.position.y = 0.055; const top = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 6), new THREE.MeshStandardMaterial({ color: 0x7a5aa8, roughness: 0.5 })); top.position.y = 0.118; g.add(cake, top); }
-      g.userData.drink = d; H.hold(d, g);
-    } });
-  }
+  // Q eats or sips, whichever hand it is in (hands/carry.js joins in through ctx.sip); B is the same key, for those used to it
+  addEventListener('keydown', e => { if ((e.code === 'KeyQ' || e.code === 'KeyB') && !e.repeat && ctx.mode === 'walk' && !/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName ?? '')) (ctx.sip ?? H.sip)(); });
+  // (The croissants, the bread and the cake stand are on the one list of food, hands/things.js: E takes one, Q eats it.)
   // A surface near the guest to put an empty on: a table, a counter, a sideboard
   function surfaceNear(v) {
     const F = nav.FLOORS[v.f]; let best = null, bd = 7;
@@ -163,18 +222,35 @@ export function hireStaff(ctx) {
       // finished: set it down nearby, or keep holding the empty until someone takes it
       held = null; v.holding = null; H.mem.finished = true; H.mem.lastSip = H.now;
       const s = v.present ? surfaceNear(v) : null;
-      if (s) { g.position.set(s.x, s.y, s.z); g.rotation.set(0, H.rnd() * 6, 0); H.empties.push({ g, d: g.userData.drink, x: s.x, y: s.y, z: s.z, f: v.f, outside: v.outside }); H.events.setDown++; H.bubbles.toast(`You set the empty ${g.userData.drink.name.replace(/^(cup|glass) of /, '')} down.`, H.now, 3.5); }
-      else if (v.present) { H.empties.push({ g, d: g.userData.drink, inHand: true, x: v.x, y: v.y, z: v.z, f: v.f, outside: v.outside }); H.bubbles.toast(`You finish the ${g.userData.drink.name}.`, H.now, 3.5); }
+      if (s) { g.position.set(s.x, s.y, s.z); g.rotation.set(0, H.rnd() * 6, 0); leaveDown({ g, d: g.userData.drink, fill: 0, empty: true, x: s.x, y: s.y, z: s.z, f: v.f, outside: v.outside, t: H.now }); H.events.setDown++; H.bubbles.toast(`You set the empty ${g.userData.drink.name.replace(/^(cup|glass) of /, '')} down.`, H.now, 3.5); }
+      else if (v.present) { H.empties.push({ g, d: g.userData.drink, inHand: true, x: v.x, y: v.y, z: v.z, f: v.f, outside: v.outside, t: H.now }); H.bubbles.toast(`You finish the ${g.userData.drink.name}.`, H.now, 3.5); }
       else group.remove(g);
       return;
     }
     if (headless) return;
     camera.getWorldDirection(tmpV); tmpR.set(-tmpV.z, 0, tmpV.x).normalize();
     g.position.copy(camera.position).addScaledVector(tmpV, 0.95 - 0.42 * bell).addScaledVector(tmpR, 0.4 - 0.33 * bell); g.position.y -= 0.6 - 0.34 * bell - Math.sin(H.now * 1.3) * 0.006;
+    if (held.from) { const k = Math.min(1, (H.now - held.at) / 0.45), e = k * k * (3 - 2 * k); g.position.lerpVectors(held.from, g.position, e); if (k >= 1) held.from = null; }      // from the tray to her hand
     g.rotation.order = 'YXZ'; g.rotation.set(0.75 * bell, Math.atan2(-tmpV.x, -tmpV.z) + 0.5, 0);
     if (held.d.food) g.scale.setScalar(held.s0 * (1 - 0.27 * Math.min(held.bites, 3) * (sk > 0.5 || held.bites === 0 ? 1 : (held.bites - 1) / held.bites)));
   }
+  // Empty cups the guests have set down (window.__friends.cups(), friends.js): on the list for clearing like
+  // hers, never one in a guest's hand. Looked at twice a second; one that has gone (drunk again, taken) drops off.
+  let cupsAt = 0;
+  function guestCups() {
+    if (H.now < cupsAt) return; cupsAt = H.now + 0.5;
+    let cups = null; try { cups = typeof window !== 'undefined' ? window.__friends?.cups?.() : null; } catch { cups = null; }
+    const live = new Set();
+    if (Array.isArray(cups)) for (const c of cups) {
+      if (c.held || !c.empty) continue;
+      live.add(c.obj ?? c);
+      if (H.empties.some(e => e.guest && e.key === (c.obj ?? c))) continue;
+      H.empties.push({ guest: true, key: c.obj ?? c, cup: c, g: null, d: { name: 'cup', vessel: 'teacup' }, x: c.x, y: c.y, z: c.z, f: c.outside ? 0 : nav.floorOf(c.y + 0.5), outside: !!c.outside, t: H.now });
+    }
+    for (let i = H.empties.length - 1; i >= 0; i--) { const e = H.empties[i]; if (e.guest && !live.has(e.key) && !e.claimed) H.empties.splice(i, 1); }
+  }
   function emptiesUpdate() {
+    guestCups();
     const v = H.visitor;
     for (const e of H.empties) if (e.inHand) {
       if (!v.present) { group.remove(e.g); H.empties.splice(H.empties.indexOf(e), 1); return; }
@@ -183,7 +259,12 @@ export function hireStaff(ctx) {
     }
   }
   H.takeEmpty = (e, robot) => {
-    const i = H.empties.indexOf(e); if (i >= 0) H.empties.splice(i, 1);
+    H.forgetDown(e);
+    if (e.guest) {      // a guest's cup: friends.js lets it go at the moment the hand reaches it, or says no
+      let ok = false; try { ok = !!window.__friends?.takeCup?.(e.key) || !!window.__friends?.takeCup?.(e.cup); } catch { ok = false; }
+      if (!ok) return false;
+      e.g = H.makeDrink(MENU.find(m => m.id === 'tea')); H.fill(e.g, 0); H.events.guestCups = (H.events.guestCups ?? 0) + 1;
+    }
     e.g.removeFromParent(); e.g.position.set(0, 0, 0); e.g.rotation.set(0, 0, 0);
     robot.body.slot.add(e.g); robot.body.tray.visible = true; H.events.cleared++;
     if (e.inHand) H.bubbles.toast(`${robot.name} takes the empty from you.`, H.now, 3);
@@ -198,10 +279,13 @@ export function hireStaff(ctx) {
       if (lc >= 0) S.lookouts.push({ f, x: pt(0)[0], z: pt(0)[1], ax: nav.cx(lc), az: nav.cz(lc) });
     }
     const snap = (f, X, Y, need = 2, r = 4) => { const c = nav.nearest(f, wx(X), wz(Y), need, r, true); return c < 0 ? null : { f, x: nav.cx(c), z: nav.cz(c) }; };
+    // a place to wait a while: in a room, off the ways through
+    const post = (f, X, Y, r = 4) => { const c = nav.nearest(f, wx(X), wz(Y), 3, r, true, c => !nav.floors[f].lane[c]); return c < 0 ? null : { f, x: nav.cx(c), z: nav.cz(c) }; };
     const bar = snap(0, 36.6, 19.6); if (bar) S.bar = { ...bar, fx: wx(36.6), fz: wz(17.6) };
     const kit = snap(0, 34.6, 24.6); if (kit) S.kitchen = { ...kit, fx: wx(32.4), fz: wz(24.4) };
-    S.rest = { barty: snap(0, 14.9, 17.8, 2, 3) ?? snap(0, 10, 8), mort: snap(0, 39.5, 26.5) ?? snap(0, 36, 25), fig: snap(1, 22.2, 3.5) ?? snap(1, 24, 19) };
-    S.dock = snap(0, 20.7, 21.4, 2, 3) ?? snap(0, 21, 15);
+    S.rest = { barty: post(0, 14.9, 17.8, 3) ?? post(0, 10, 8), mort: post(0, 39.5, 26.5) ?? post(0, 40, 12), fig: post(1, 6, 26) ?? post(1, 10, 8) };      // (Fig's used to be the upstairs hall)
+    // Reginald's dock: against a wall in the living room (it was in front of the office door)
+    { const c = nav.nearest(0, wx(17.6), wz(27.6), 2, 3, false, c => !nav.floors[0].lane[c]); S.dock = c >= 0 ? { f: 0, x: nav.cx(c), z: nav.cz(c) } : snap(0, 20.7, 21.4, 2, 3); }
     H.spots = S;
   }
   findSpots();
@@ -216,7 +300,7 @@ export function hireStaff(ctx) {
   const place = (a, f, X, Y, need) => { const c = nav.nearest(f, wx(X), wz(Y), need, 8); if (c >= 0) a.m.place(nav.cx(c), nav.cz(c), f); else { const s = nav.randomSpot(f, need, H.rnd); if (s) a.m.place(s.x, s.z, f); } };
   place(H.robots[0], 0, 33.0, 19.6, 2);          // Barty at the coffee bar
   place(H.robots[1], 0, 36.0, 25.0, 2);          // Mort in the kitchen
-  place(H.robots[2], 1, 23.0, 4.0, 2);           // Fig upstairs
+  place(H.robots[2], 1, 8.0, 22.0, 2);           // Fig upstairs, in the library
   place(H.roomba, 0, 34.0, 6.0, 2);              // Reginald in the dining room
   H.robots.forEach((r, i) => { r.m.yaw = i * 2; });
 
@@ -239,7 +323,7 @@ export function hireStaff(ctx) {
       if (!v.present || Math.abs(v.y - y) > 3) continue;
       const dx = m.x - v.x, dz = m.z - v.z, d = Math.hypot(dx, dz), want = r + 0.72 + 0.4;
       if (d >= want || d < 1e-3) continue;
-      const nv = a.outdoor ? out : nav, need = a.outdoor ? 1.2 : 2;
+      const nv = a.outdoor ? out : nav, need = a.outdoor ? 1.2 : a === H.roomba ? 1 : 2;      // (Reginald is small enough to tuck in by a door frame)
       const step = Math.min(want - d, dt * 2.5);
       for (const turn of [0, 0.8, -0.8, 1.6, -1.6]) {
         const c = Math.cos(turn), s2 = Math.sin(turn), ux = (dx * c - dz * s2) / d, uz = (dx * s2 + dz * c) / d;
@@ -262,6 +346,8 @@ export function hireStaff(ctx) {
     if (!present) { v.room = null; return; }
     v.x = w.pos.x; v.y = w.pos.y; v.z = w.pos.z; v.f = nav.floorOf(w.pos.y + 0.5);
     v.fx = -Math.sin(w.yaw); v.fz = -Math.cos(w.yaw); v.seated = w.seated;
+    // how fast, and which way, she is actually walking (smoothed; the way she faces may differ)
+    { const ddx = v.x - v.px, ddz = v.z - v.pz, L = Math.hypot(ddx, ddz), sp = L > 6 ? 0 : L / Math.max(H.dt, 1e-3); v.speed = v.speed * 0.8 + sp * 0.2; if (L > 1e-4 && sp > 0.4) { v.dx = v.dx * 0.6 + (ddx / L) * 0.4; v.dz = v.dz * 0.6 + (ddz / L) * 0.4; const k = Math.hypot(v.dx, v.dz) || 1; v.dx /= k; v.dz /= k; } v.px = v.x; v.pz = v.z; }
     const room = nav.roomAt(v.x, v.y + 0.5, v.z)?.name ?? null;
     const outside = !room || /terrace|front porch/i.test(room);
     if (outside && !v.outside) v.outSince = H.now;
@@ -356,8 +442,44 @@ export function hireStaff(ctx) {
       sayR(b, "A strawberry, love? Sun-warm. Or lemonade, I'll knock on the kitchen door.", 'happy');
       sayR(t, 'Thistle. Gardener. The other one.', 'neutral');
       t.pushing = true; t.anim = 'push'; t.update(0.016, H.now, true);
+    } else if (kind === 'hands') {
+      // one robot at one job, for close-ups of its hands: &who=barty|mort|fig &act=tray|offer|make|dust|picture|reach|talk [&side] [&expr=]
+      const QS = new URLSearchParams(location.search), who = QS.get('who') ?? 'barty', act = QS.get('act') ?? 'tray';
+      const r = H.robots.find(x => x.key === who) ?? H.robots[0];
+      at(r, Number(QS.get('dist') ?? 4.6), 0); if (QS.has('side')) r.m.yaw += Math.PI / 2;
+      const fx = Math.sin(r.m.yaw), fz = Math.cos(r.m.yaw), ahead = (d, y) => ({ x: r.m.x + fx * d, y: F + y, z: r.m.z + fz * d });
+      const mat = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.7 });
+      const table = (p, top) => { const t = new THREE.Mesh(new THREE.BoxGeometry(1.3, top - F, 1.1), mat(0x6b4a2e)); t.position.set(p.x + fx * 0.45, (F + top) / 2, p.z + fz * 0.45); t.rotation.y = r.m.yaw; group.add(t); };
+      if (act === 'tray' || act === 'offer') { tray(r, 'latte'); if (act === 'offer') { r.handing = { t0: H.now - 0.25, hold: true }; H.visitor.present = true; } }      // (held mid-hand-over)
+      if (act === 'make') { tray(r, 'phin'); r.carrying = null; r.forGuest = false; r.anim = 'make'; }
+      if (act === 'dust') { const p = ahead(1.35, 2.5); table(p, p.y); r.workAt = p; r.anim = 'dust'; }
+      if (act === 'picture') { const p = ahead(1.75, 5.2); const fr = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.85, 0.07), mat(0x8a6a3a)); fr.position.set(p.x + fx * 0.05, p.y, p.z + fz * 0.05); fr.rotation.y = r.m.yaw; group.add(fr); r.picY = p.y; r.workAt = p; r.anim = 'adjust'; }
+      if (act === 'reach') { const p = ahead(1.35, 2.5); table(p, p.y); const g = H.makeDrink(MENU.find(m => m.id === 'tea')); H.fill(g, 0); g.position.set(p.x, p.y, p.z); group.add(g); r.reachTo = { x: p.x, y: p.y, z: p.z }; r.anim = 'reach'; }
+      if (act === 'talk') sayR(r, QS.get('line') ?? 'Welcome, darling. Do come in.', QS.get('expr') ?? 'happy');
+    } else if (kind === 'drinkdown' || kind === 'collect') {
+      // a tea left on the table she is looking at (half drunk), or an empty there with Mort reaching for it
+      const v = H.visitor, ahead = { x: cam.x + ux * 2.6, z: cam.z + uz * 2.6, f, fx: ux, fz: uz };
+      const s = surfaceNear(ahead) ?? surfaceNear({ ...ahead, x: cam.x, z: cam.z }); if (!s) return;
+      const d = MENU.find(m => m.id === (kind === 'collect' ? 'latte' : 'tea')), g = H.makeDrink(d); group.add(g);
+      const full = kind === 'collect' ? 0 : 0.55; H.fill(g, full);
+      g.position.set(s.x, s.y, s.z); g.rotation.set(0, 0.6, 0);
+      const rec = { g, d, fill: full, empty: !full, x: s.x, y: s.y, z: s.z, f, outside: false, t: H.now }; leaveDown(rec);
+      v.present = true; v.x = cam.x; v.z = cam.z; v.f = f;
+      if (kind === 'collect') {
+        const mo = H.robots[1];
+        let c = -1; for (const [a, b] of [[-1.5, -0.3], [1.5, -0.3], [-1.9, -0.6], [1.9, -0.6], [-1.5, -1]]) { const x = s.x + rx * a + ux * b, z = s.z + rz * a + uz * b; if (nav.freeAt(f, x, z, 2, false)) { c = nav.cellOf(x, z); break; } }      // beside the glass, on her side of the table
+        if (c >= 0) { mo.m.place(nav.cx(c), nav.cz(c), f); mo.m.y = F; mo.m.yaw = Math.atan2(s.x - mo.m.x, s.z - mo.m.z); }
+        mo.anim = 'reach'; mo.reachTo = rec; sayR(mo, 'Rings on the wood. We have discussed this, the house and I.', 'sass');
+      }
     } else if (kind === 'reggie') {
       at(H.roomba, 4.5, 0.4); H.roomba.bubble.say('*beep boop*', 1e6, H.now);
+    } else if (kind === 'treat') {
+      // mid-treat: crumbs on the floor in front of her, half of them gone, Reginald on them
+      const rb = H.roomba, v = H.visitor; v.x = cam.x; v.z = cam.z; v.fx = ux; v.fz = uz;
+      const sp = rb.crumbSpot() ?? { x: cam.x + ux * 3, z: cam.z + uz * 3 }, cx = sp.x, cz = sp.z;      // (on clear floor, as in the real thing)
+      rb.scatter(cx, cz); for (let i = 0; i < 4; i++) rb.eat(i);
+      rb.m.place(cx + rx * 0.75 + ux * 0.2, cz + rz * 0.75 + uz * 0.2, f); rb.m.yaw = Math.atan2(cx - rb.m.x, cz - rb.m.z); rb.mode = 'treat';
+      rb.bubble.say('*ecstatic hoovering*', 1e6, H.now);
     } else {
       const [b] = H.robots;
       at(b, 6.5, 0.8); tray(b, 'latte');
@@ -377,7 +499,7 @@ export function hireStaff(ctx) {
       if (fastForward > 0) { const n = Math.ceil(fastForward * 15); for (let i = 0; i < n; i++) step(1 / 15, false); }
       if (wantDemo) stage(wantDemo);
     }
-    if (demo) { H.dt = Math.min(dt, 0.05); for (const r of [...H.robots, ...H.gardeners]) r.update(H.dt, H.now += H.dt, true); placeBubbles(); return; }
+    if (demo) { H.dt = Math.min(dt, 0.05); for (const r of [...H.robots, ...H.gardeners]) r.update(H.dt, H.now += H.dt, true); H.roomba.update(H.dt, H.now); placeBubbles(); return; }
     step(Math.min(dt, 0.05), !headless);
     if (!headless) placeBubbles();
   }

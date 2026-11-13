@@ -11,7 +11,7 @@ export function buildPlay(K) {
   const { G } = K, { x: X, z: Z, deck: D } = PLAY;
   const cedar = PAINT.cedar, G0 = { grain: 'long' };
   const x0 = X - 2.5, x1 = X + 2.5, z0 = Z - 2.5, z1 = Z + 2.5;
-  G.blob('soil', X - 11.6, Z, 2.4, 6.5, { wobble: 0.3, y: 0.06 }); G.blob('soil', X - 6.4, Z, 2.2, 6, { wobble: 0.3, y: 0.06 }); G.blob('soil', X, Z - 13.6, 2, 1.6, { wobble: 0.3, y: 0.06 });   // worn bare under the swings and the slide
+  G.blob('soil', X - 11.6, Z, 2.4, 6.5, { wobble: 0.3, y: 0.06 }); G.blob('soil', X - 6.4, Z, 2.2, 6, { wobble: 0.3, y: 0.06 }); G.blob('soil', X, Z - 15.2, 2, 1.6, { wobble: 0.3, y: 0.06 });   // worn bare under the swings and the slide
 
   // Tower: posts, deck, rails, and the roof
   for (const [px, pz] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1]]) K.box(cedar, px - 0.18, px + 0.18, 0, 10.2, pz - 0.18, pz + 0.18, G0);
@@ -56,23 +56,28 @@ export function buildPlay(K) {
   }
 
   // The slide, down the back
-  const sl = { x: X, top: z0, bottom: z0 - 10, w: 1.1 };
+  // One continuous chute: steep off the deck, easing out level to a low lip (it used to be straight
+  // boards with a separate flat end piece a step lower, and side boards that twisted from one length
+  // to the next). Bed, both sides and their top edges are strips cut from the same curve.
+  const sl = { x: X, top: z0, bottom: z0 - 11.2, w: 1.1 };
   {
-    const N = 20, h = t => D * (1 - t) + 0.75 * t - 0.12 * Math.sin(Math.PI * t);
+    const N = 28, LIP = 0.62, h = t => LIP + (D - LIP) * (1 - t) * (1 - t) * (1 + 0.6 * t), zOf = t => sl.top - (sl.top - sl.bottom) * t;
+    const bed = [], bedUnder = [], side = [], quad = (list, a, b, c, d) => list.push(...a, ...b, ...c, ...a, ...c, ...d, ...a, ...c, ...b, ...a, ...d, ...c);      // both faces
     for (let i = 0; i < N; i++) {
-      const t0 = i / N, t1 = (i + 1) / N, za = sl.top - (sl.top - sl.bottom) * t0, zb = sl.top - (sl.top - sl.bottom) * t1;
-      for (const s of [-1, 1]) K.beam('c#a89a62/0.5', [X + s * sl.w, h(t0) + 0.35, za], [X + s * sl.w, h(t1) + 0.35, zb], 0.12, 0.75);
-      const g = new THREE.BufferGeometry(), y0 = h(t0), y1 = h(t1);
-      const pos = [X - sl.w, y0, za, X + sl.w, y0, za, X + sl.w, y1, zb, X - sl.w, y0, za, X + sl.w, y1, zb, X - sl.w, y1, zb];
-      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(new Array(12).fill(0), 2)); g.computeVertexNormals();
-      K.put('c#b8aa72/0.4', g);
-      const u = g.clone(); u.translate(0, -0.08, 0); const a = Array.from(u.attributes.position.array), f = []; for (let k = 0; k < a.length; k += 9) f.push(...a.slice(k, k + 3), ...a.slice(k + 6, k + 9), ...a.slice(k + 3, k + 6));
-      u.setAttribute('position', new THREE.Float32BufferAttribute(f, 3)); u.computeVertexNormals(); K.put('c#8f8456/0.6', u);
+      const t0 = i / N, t1 = (i + 1) / N, za = zOf(t0), zb = zOf(t1), ya = h(t0), yb = h(t1), W = sl.w, TH = 0.07, UP = 0.62;
+      quad(bed, [X - W, ya, za], [X + W, ya, za], [X + W, yb, zb], [X - W, yb, zb]);
+      quad(bedUnder, [X - W, ya - 0.08, za], [X + W, ya - 0.08, za], [X + W, yb - 0.08, zb], [X - W, yb - 0.08, zb]);
+      for (const s of [-1, 1]) {
+        const xi = X + s * W, xo = X + s * (W + TH);
+        quad(side, [xi, ya - 0.08, za], [xi, ya + UP, za], [xi, yb + UP, zb], [xi, yb - 0.08, zb]);        // inner face
+        quad(side, [xo, ya - 0.08, za], [xo, ya + UP, za], [xo, yb + UP, zb], [xo, yb - 0.08, zb]);        // outer face
+        quad(side, [xi, ya + UP, za], [xo, ya + UP, za], [xo, yb + UP, zb], [xi, yb + UP, zb]);            // top edge
+        if (i === N - 1) quad(side, [xi, yb - 0.08, zb], [xo, yb - 0.08, zb], [xo, yb + UP, zb], [xi, yb + UP, zb]);      // end
+      }
     }
-    K.box('c#b8aa72/0.4', X - sl.w, X + sl.w, 0.55, 0.65, sl.bottom - 1.2, sl.bottom);
-    for (const s of [-1, 1]) { K.box(cedar, X + s * 0.9 - 0.12, X + s * 0.9 + 0.12, 0, 0.6, sl.bottom - 1.1, sl.bottom - 0.9); K.collide(X + s * (sl.w + 0.05) - 0.12, X + s * (sl.w + 0.05) + 0.12, sl.bottom - 0.4, sl.top, 7.5); }
-    for (let k = 0; k < 8; k++) { const za = sl.top - ((sl.top - sl.bottom) * k) / 8, zb = sl.top - ((sl.top - sl.bottom) * (k + 1)) / 8; K.surface(X - sl.w + 0.05, X + sl.w - 0.05, zb, za, h(k / 8) + 0.02, h((k + 1) / 8) + 0.02); }
-    K.surface(X - sl.w, X + sl.w, sl.bottom - 1.2, sl.bottom, 0.65);
+    for (const [mat, list] of [['c#b8aa72/0.4', bed], ['c#8f8456/0.6', bedUnder], ['c#a89a62/0.5', side]]) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(list, 3)); g.computeVertexNormals(); K.put(mat, g); }
+    for (const s of [-1, 1]) { K.box(cedar, X + s * 0.9 - 0.12, X + s * 0.9 + 0.12, 0, LIP - 0.08, sl.bottom + 0.2, sl.bottom + 0.4); K.collide(X + s * (sl.w + 0.05) - 0.12, X + s * (sl.w + 0.05) + 0.12, sl.bottom, sl.top, 7.5); }
+    for (let k = 0; k < 10; k++) K.surface(X - sl.w + 0.05, X + sl.w - 0.05, zOf((k + 1) / 10), zOf(k / 10), h(k / 10) + 0.02, h((k + 1) / 10) + 0.02);
     K.slide = { ...sl, h };
   }
 
@@ -141,7 +146,7 @@ export function playLife(ctx, K) {
     const w = ctx.walker; if (!w) return;
     if (ride >= 0) {
       ride += dt; const T = 1.9, u = Math.min(1, ride / T), e = u * u;
-      const z = sl.top - 0.4 - (sl.top - sl.bottom + 1.0) * e, tt = THREE.MathUtils.clamp((sl.top - z) / (sl.top - sl.bottom), 0, 1);
+      const z = sl.top - 0.4 - (sl.top - sl.bottom - 0.6) * e, tt = THREE.MathUtils.clamp((sl.top - z) / (sl.top - sl.bottom), 0, 1);
       w.pos.set(sl.x, sl.h(tt) + 0.1, z); w.yaw = 0; w.pitch = THREE.MathUtils.lerp(-0.45, -0.1, u); w.grounded = true; w.vy = 0; w.seated = null; w.apply();
       if (u >= 1) { ride = -1; w.pos.z = sl.bottom - 2.2; w.pos.y = 0; w.apply(); }
     }

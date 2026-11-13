@@ -1,4 +1,5 @@
 #!/bin/bash
+"$(dirname "$0")/clean_cache.sh"      # sweep up after earlier Chrome runs (see that file)
 # Before a push: load the tree that is about to be published (the git index), not the working
 # folder, and report page errors. Serves it for a moment on a spare port.
 #   tools/precheck.sh [extra "query" ...]

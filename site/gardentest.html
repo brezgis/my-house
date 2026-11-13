@@ -45,7 +45,12 @@ const day = { light: 1, night: 0, hour: Number(Q.get('hour') ?? 14) };
 if (Q.has('night')) { day.hour = 22.5; day.light = 0.1; day.night = 0.9; }
 const ctx = { THREE, scene, camera, renderer, materials, house, items, garden, colliders: B.colliders, interact: life.interact, animated: life.animated, loadModel: life.loadModel, sound: null, day, walker, mode: 'walk', headless: true, seed: Number(Q.get('seed') ?? 7) };
 const staff = hireStaff(ctx), H = staff.H, nav = staff.nav;
-const T = Number(Q.get('mins') ?? 8) * 60, DT = 1 / 20, TALK = Q.get('talk') !== '0';
+const BARROWTEST = Q.has('barrow');      // ?barrow=1 (&kinds=weed,mulch,sweep): Thistle's wheelbarrow and the gardeners' tools (see the end)
+const CHAPELTEST = Q.has('chapel');      // ?chapel=1 (&night=1): Moth, the chapel's keeper, instead of the gardeners (see the end)
+const CREATURETEST = Q.has('creatures');      // ?creatures=1: the garden's animals instead of the gardeners (see the end)
+const AIRTEST = Q.has('airtest');      // ?airtest=1: the airship (garden/airstop.js, airship/): ring, ride, get off, early and late (see the end)
+const TREEHOUSETEST = Q.has('treehouse');      // ?treehouse=1: the treehouse (garden/treehouse.js): walk all of it, push at every rail, every seat (see the end)
+const T = CHAPELTEST || CREATURETEST || BARROWTEST || AIRTEST || TREEHOUSETEST ? 0 : Number(Q.get('mins') ?? 8) * 60, DT = 1 / 20, TALK = Q.get('talk') !== '0';
 const rnd = (() => { let s = 99 + Number(Q.get('seed') ?? 7); return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
 
 // The visitor: 20 s indoors, then out. Routes are world feet.
@@ -177,12 +182,319 @@ for (const a of G) {
   const s = stats.get(a), tasks = [...s.tasks].sort((p, q) => q[1] - p[1]).map(([k, v]) => `${k} ${Math.round(v)}s`).join(', ');
   L.push(`${a.name.padEnd(8)} at (${a.x.toFixed(0)}, ${a.z.toFixed(0)}) now: ${a.taskName}; moved ${Math.round(s.dist)} ft; within 34 ft of her ${pct(s.near34, M.outFrames)}, 60 ft ${pct(s.near60, M.outFrames)}; longest stand-still ${s.longestStill.toFixed(0)} s (${s.stillTask} at ${s.stillAt})\n         time by task: ${tasks}\n         recent: ${a.history.slice(-16).map(h => h.join(':')).join(' ')}`);
 }
-if (G[1].barrow) L.push(`barrow at (${G[1].barrow.position.x.toFixed(1)}, ${G[1].barrow.position.z.toFixed(1)}) free there: ${H.out.freeAt(0, G[1].barrow.position.x, G[1].barrow.position.z, 0.5)}`);
+if (G[1].barrow) { const b = G[1].barrow; L.push(`barrow at (${b.x.toFixed(1)}, ${b.z.toFixed(1)}), ${b.held ? 'in his hands' : 'set down'}, load '${b.B.load}'`); }
 L.push(''); L.push('CONVERSATIONS (the card she saw, >> what she chose, then the reply):'); L.push(...cards);
 L.push(''); L.push('EVERYTHING SAID (time, distance to her, task):');
 for (const s of said) L.push(`  ${s.t.toFixed(0).padStart(4)}s ${s.who.padEnd(8)} ${(s.d < 1e9 ? s.d.toFixed(0) + 'ft' : '-').padStart(6)} ${s.task.padEnd(9)} ${s.text}`);
 L.push(`  (${said.length} lines; distinct ${new Set(said.map(s => s.text)).size})`);
 L.push(''); L.push(errors.length ? 'ERRORS:\n' + [...new Set(errors)].slice(0, Q.has('trace') ? 400 : 20).join('\n') : 'no errors');
+// ---- Moth, the chapel's keeper (garden/chaplain.js): she walks in, stands about, crowds it by the candles,
+// talks to it, and walks out again. It must stay in the chapel, never be in the doorway while she is
+// within 6 ft of it, never inside the table or the window seats, and never between her and the great window.
+if (CHAPELTEST) {
+  L.length = 0;
+  const { chaplain } = await import('./src/garden/chaplain.js'), { CHAPEL } = await import('./src/garden/chapel.js');
+  const mo = chaplain(ctx, null), I = CHAPEL.inside, ix0 = I.x0 + 0.5, ix1 = I.x1 - 0.5, iz0 = I.z0 + 0.5, iz1 = I.z1 - 0.5, TB = mo.table;
+  const seat = (x, z) => z > iz0 + 4.4 - 0.3 && z < iz1 - 0.8 + 0.3 && (x < ix0 + 1.55 + 0.3 || x > ix1 - 1.55 - 0.3);
+  const said2 = []; window.__said = said2;
+  const legs = [[-104, 12, 0], [-104, -7.6, 0.5], [-104, -11.5, 1], [-104, -19, 1, 30], [-108.4, -23.8, 1, 12], [-101.0, -23.6, 1, 6], [-100.2, -25.2, 1, 'talk'], [-104, -15, 1, 8], [-104, -7.6, 0.5], [-104, 30, 0, 20]];
+  let leg = 0, wait = 0, talkAt = -1, chose = 0;
+  const C = { n: 0, outside: 0, doorway: 0, inTable: 0, inSeat: 0, between: 0, minD: 1e9, near3: 0 }, bad = [], tasks = new Map();
+  walker.pos.set(-104, 0, 40);
+  for (let t = 0; t < 240 && leg < legs.length; t += DT) {
+    const [x, z, y, hold] = legs[leg], dx = x - walker.pos.x, dz = z - walker.pos.z, Lg = Math.hypot(dx, dz), st = 3.2 * DT;
+    if (Lg > st) { walker.pos.x += dx / Lg * st; walker.pos.z += dz / Lg * st; walker.yaw = Math.atan2(-dx, -dz); walker.pos.y = y; }
+    else if (hold === 'talk') {
+      if (talkAt < 0) { talkAt = t; walker.yaw = Math.atan2(-(mo.state().x - walker.pos.x), -(mo.state().z - walker.pos.z)); const it = ctx.interact.find(i => /talk to Moth/.test(i.label?.() ?? '')); it?.act(); said2.push(`  [t=${t.toFixed(0)} she presses E on Moth: ${it ? 'card ' + (H.talk.robot?.name ?? 'none') : 'no Moth to talk to'}]`); }
+      else if (H.talk.robot && t - talkAt > 3 + chose * 4) { const o = H.talk.options; said2.push(`  [card: ${o.map(q => q.text).join(' | ')}; she says "${o[0].text}"]`); H.talk.choose(0); chose++; }
+      else if (!H.talk.robot && t - talkAt > 4) { leg++; }
+    } else if (typeof hold === 'number' && wait < hold) { wait += DT; walker.yaw = -walker.yaw * 0 + Math.sin(t * 0.3) * 0.6; }
+    else { leg++; wait = 0; }
+    look(); staff.step(DT); mo.step(DT);
+    const s = mo.state(), v = s.her; C.n++;
+    tasks.set(s.task, (tasks.get(s.task) ?? 0) + DT);
+    const flag = (k, why) => { C[k]++; if (bad.length < 12) bad.push(`t=${t.toFixed(1)} ${why} at (${s.x.toFixed(1)},${s.z.toFixed(1)}) task ${s.task}; she (${v.x.toFixed(1)},${v.z.toFixed(1)})`); };
+    if (!s.inside) flag('outside', 'outside the chapel');
+    if (s.doorway && v.dDoor < 6) flag('doorway', 'in the doorway');
+    if (s.x > TB.x0 - 0.3 && s.x < TB.x1 + 0.3 && s.z > TB.z0 - 0.3 && s.z < TB.z1 + 0.3) flag('inTable', 'in the table');
+    if (seat(s.x, s.z)) flag('inSeat', 'in a window seat');
+    if (s.between && !H.talk.robot) flag('between', 'between her and the great window');
+    if (v.present && v.inside) { C.minD = Math.min(C.minD, v.d); if (v.d < 2.4) C.near3++; }
+  }
+  const lit = mo.candles.filter(c => c.lit).length;
+  L.push(`MOTH, the chapel's keeper: ${C.n} steps (${(C.n * DT).toFixed(0)} s) of her visit, hour ${day.hour}${Q.has('night') ? ' (night)' : ''}`);
+  L.push(`outside the chapel ${C.outside}; in the doorway with her within 6 ft ${C.doorway}; in the table ${C.inTable}; in a window seat ${C.inSeat}; between her and the great window ${C.between}`);
+  L.push(`nearest it came to her ${C.minD.toFixed(1)} ft; steps within 2.4 ft ${C.near3}; card open at the end: ${!!H.talk.robot}; candles lit ${lit} of ${mo.candles.length}`);
+  L.push(`time by task: ${[...tasks].sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v.toFixed(0)}s`).join(', ')}`);
+  for (const b of bad) L.push('  ' + b);
+  L.push('', 'SAID:', ...said2);
+  L.push(C.outside + C.doorway + C.inTable + C.inSeat + C.between === 0 ? 'CHAPLAIN OK' : 'CHAPLAIN PROBLEMS');
+  L.push(errors.length ? 'ERRORS:\n' + [...new Set(errors)].slice(0, 20).join('\n') : 'no errors');
+}
+// ---- The garden's animals (garden/creatures.js, creatures_more.js): at each hour, she walks up to every
+// animal that is out and stands over it, then walks away. Every quarter-second each visible animal must be
+// on the ground or on its perch (not floating, not sunk), and nothing on the ground may stand in the
+// footprint of something she bumps into (a bed, a bench, a pot); after fleeing it must end somewhere legal.
+if (CREATURETEST) {
+  L.length = 0;
+  ctx.camera.position.set(0, 300, 0);
+  garden.setup(ctx);
+  for (let i = 0, n = -1, same = 0; i < 400 && same < 25; i++) { for (const f of ctx.animated) f(i * DT, DT); await sleep(20); const m = window.__creatureKit?.crew.length ?? 0; same = m === n && m > 0 ? same + 1 : 0; n = m; }      // creatures_more.js arrives by import()
+  await sleep(500); for (const f of ctx.animated) f(0, DT);
+  const kit = window.__creatureKit, crew = kit.crew, cam = ctx.camera.position;
+  await Promise.all(crew.map(c => c.loaded || c.loading ? null : (c.loading = true, c.init().then(() => { c.loaded = true; }).catch(e => errors.push(c.name + ': ' + e.message)))));
+  for (let i = 0; i < 100 && crew.some(c => !c.loaded); i++) await sleep(100);
+  const HOURS = [[7, 0.38], [13, 1], [17.2, 0.3], [21, 0], [23.5, 0]], R = new Map(), stepAll = t => { for (const f of ctx.animated) f(t, DT); };
+  const inBox = (x, z) => B.colliders.some(c => c.y0 < 1 && !c.staff && x > c.x0 && x < c.x1 && z > c.z0 && z < c.z1);
+  // the true lowest point of the animal: every vertex of the creature meshes standing within 1.5 ft of where it says it is
+  // (skinned meshes posed by their bones, instanced ones per instance; wings, and a tail hanging off a perch, are left out),
+  // measured against the surface under the animal's middle
+  const Mw = new THREE.Matrix4(), Mi = new THREE.Matrix4(), V = new THREE.Vector3(), Vo = new THREE.Vector3();
+  const shown = n => { for (let p = n; p; p = p.parent) if (!p.visible) return false; return true; };
+  const lowest = (x, z) => {
+    let best = null; scene.updateMatrixWorld();
+    scene.traverse(n => {
+      if (!n.isMesh || !n.userData.creature || n.userData.wing || !shown(n)) return;
+      if (n.isSkinnedMesh) n.skeleton.update();
+      const pos = n.geometry.attributes.position, cnt = n.isInstancedMesh ? n.count : 1;
+      for (let k = 0; k < cnt; k++) {
+        Mw.copy(n.matrixWorld); if (n.isInstancedMesh) { n.getMatrixAt(k, Mi); Mw.multiply(Mi); if (Mi.elements[0] === 0 && Mi.elements[5] === 0) continue; }
+        Vo.setFromMatrixPosition(Mw); if (Math.hypot(Vo.x - x, Vo.z - z) > 1.5) continue;
+        for (let i = 0; i < pos.count; i++) { if (!n.isSkinnedMesh && !kit.central(n.geometry, i)) continue; if (n.isSkinnedMesh) n.getVertexPosition(i, V); else V.fromBufferAttribute(pos, i); V.applyMatrix4(Mw); if (!best || V.y < best.y) { best = V.clone(); best.ox = Vo.x; best.oz = Vo.z; } }
+      }
+    });
+    return best;
+  };
+  const GROUNDED = new Set(['ground', 'seat', 'spade', 'bath rim', 'limb', 'oak limb', 'soil', 'bed edge', 'pond shallows', 'lily pad']);
+  let t = 0;
+  for (const [h, light] of HOURS) {
+    day.hour = h; day.light = light; day.night = 1 - light;
+    for (const c of crew) {
+      if (!c.loaded || !(c.when ? c.when() : true)) continue;
+      const s = R.get(c.name) ?? { n: 0, bad: [], hours: new Set(), moved: 0, gaps: [] }; R.set(c.name, s); s.hours.add(h);
+      const p0 = c.check(), hx = p0.x, hz = p0.z;
+      for (let k = 0; k < 24 * 20; k++, t += DT) {                     // 24 s: far, coming up, standing over it, walking away
+        const u = k * DT, d = u < 4 ? 80 : u < 10 ? 80 - (u - 4) / 6 * 78.5 : u < 14 ? 1.5 : 1.5 + (u - 14) / 6 * 60;
+        cam.set(hx + d * 0.6, 5, hz + d * 0.8);
+        stepAll(t);
+        if (k % 5 || !c.on) continue;
+        const q = c.check(), pts = q.all ?? [q];
+        for (const p of pts) {
+          if (p.hidden || q.hidden) continue; s.n++;
+          let why = '';
+          if (q.err > 0.15) why = 'off its ' + q.perch + ' by ' + q.err.toFixed(2);
+          if (GROUNDED.has(q.perch) && !q.air && !p.air) {
+            const lo = lowest(p.x, p.z);
+            if (lo) { const g = kit.ground(lo.ox, lo.oz, lo.y + 0.4, 0.03), gap = lo.y - g; s.gaps.push(gap); if (Math.abs(gap) > 0.035) why += ` feet ${gap > 0 ? 'above' : 'below'} the ${q.perch} by ${Math.abs(gap).toFixed(3)} ft`; }
+          }
+          if (q.perch === 'ground' && inBox(p.x, p.z)) why += ' in a collider';
+          if (why && s.bad.length < 3) s.bad.push(`h${h} t+${u.toFixed(1)} (${p.x.toFixed(1)}, ${p.y.toFixed(2)}, ${p.z.toFixed(1)})${q.state ? ' ' + q.state : ''} ${why}`);
+          if (why) s.badN = (s.badN ?? 0) + 1;
+        }
+        if (Math.hypot(q.x - hx, q.z - hz) > 2) s.moved = 1;
+      }
+    }
+  }
+  let probs = 0;
+  for (const c of crew) {
+    const s = R.get(c.name);
+    if (!s) { L.push(`${c.name.padEnd(12)} not out at any test hour${c.loaded ? '' : ' (DID NOT LOAD)'}`); if (!c.loaded) probs++; continue; }
+    probs += s.badN ?? 0;
+    const g = s.gaps.sort((a, b) => a - b), gs = g.length ? `feet-to-surface gap min ${g[0].toFixed(3)} median ${g[g.length >> 1].toFixed(3)} max ${g[g.length - 1].toFixed(3)} ft (${g.length})` : 'no grounded samples';
+    L.push(`${c.name.padEnd(12)} hours ${[...s.hours].join(',')}; samples ${s.n}; problems ${s.badN ?? 0}; ${gs}; moved when approached: ${s.moved ? 'yes' : 'no'}`);
+    for (const b of s.bad) L.push('    ' + b);
+  }
+  L.push(probs ? 'CREATURE PROBLEMS' : 'CREATURES OK');
+  L.push(errors.length ? 'ERRORS:\n' + [...new Set(errors)].slice(0, 20).join('\n') : 'no errors');
+}
+// ---- ?barrow=1: the gardeners' hands and tools, and Thistle's wheelbarrow (gardeners.js) ----
+// Thistle does barrow rounds (weeding, a load from the compost dug in, sweeping), Bramble and Thistle their
+// other jobs, with nobody about. Hands are placed as if she were watching (pose()). Checks, while pushing:
+// both hands on the grips, the wheel on the ground and the legs clear of it, the wheel's turn matching the
+// distance rolled; always: no part of the barrow in a bed, a collider or off the plan; set down off the
+// ways through and out of the gates; tipped out at the compost with the load gone; back home at the end;
+// the tool's working end at the work (can's rose over the plants, secateurs at the head, trowel in the
+// soil, smoker at the hive).
+if (BARROWTEST) {
+  L.length = 0;
+  const { BARROW } = await import('./src/staff/models.js'), GM = await import('./src/staff/gardeners.js');
+  const [BR, TH] = H.gardeners, bw = TH.barrow, out2 = H.out, V3 = THREE.Vector3, S = H.gspots;
+  H.visitor.present = false; walker.pos.set(house.spawn.x, 0, house.spawn.z);
+  const pv = new V3(), gv = new V3(), hv = new V3(), tv = new V3();
+  const R = { steps: 0, held: 0, gripMax: 0, gripBad: 0, legLow: 0, wheelOff: 0, spinErr: 0, rolled: 0, spun: 0, inside: 0, insideAt: [], parks: [], tips: 0, tipsLoaded: 0, rounds: [], tools: {} };
+  const tool = (g, k, d) => { const t = R.tools[k] ??= { n: 0, max: 0, sum: 0 }; t.n++; t.sum += d; t.max = Math.max(t.max, d); };
+  let lastSpin = bw.spin, lastX = bw.x, lastZ = bw.z, wasHeld = false, lastLoad = '';
+  const watch = () => {
+    for (const g of H.gardeners) g.pose(DT, H.now);
+    bw.root.updateMatrixWorld(true);
+    if (bw.held && TH.grip >= 1) {
+      R.held++;
+      for (const i of [0, 1]) { bw.grip(i, gv); TH.body.hands[i].getWorldPosition(hv); const d = hv.distanceTo(gv); R.gripMax = Math.max(R.gripMax, d); if (d > 0.15) R.gripBad++; }
+      bw.B.pivot.localToWorld(pv.set(0, 0, 0)); if (Math.abs(pv.y - BARROW.wheelR - 0.05) > 0.06) R.wheelOff++;
+      if (bw.a >= 0.3) for (const l of BARROW.legs) { bw.B.pivot.localToWorld(pv.set(...l)); if (pv.y < 0.3) R.legLow++; }
+    }
+    // the wheel turns by the distance rolled
+    const ds = (bw.x - lastX) * bw.ux + (bw.z - lastZ) * bw.uz;
+    R.rolled += Math.abs(ds); R.spun += Math.abs(bw.spin - lastSpin) * BARROW.wheelR; R.spinErr = Math.max(R.spinErr, Math.abs((bw.spin - lastSpin) * BARROW.wheelR - ds));
+    lastSpin = bw.spin; lastX = bw.x; lastZ = bw.z;
+    // the barrow's footprint: never in a bed, a collider, off the plan (the cells it marks are its own)
+    const marks = new Set(bw.marked.map(m => m[0])), walk = out2.floors[0].walk;
+    const atBays = Math.abs(bw.z - GM.COMPOST_Z) < 1.6 && bw.x > 60 && bw.x < 68.5;          // (tipping, its front is over the bay's lip)
+    for (const s of [0.2, 0.9, 1.7, 2.5]) for (const l of [-0.4, 0, 0.4]) { if (atBays && s < 1.2) continue;
+      const x = bw.x - bw.ux * s + bw.uz * l, z = bw.z - bw.uz * s - bw.ux * l, c = out2.cellOf(x, z);
+      const hit = ctx.colliders.find(b => !b.off && !b.staff && b.y0 < 1.0 && b.y1 > 0.3 && x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1);
+      if (hit || (c >= 0 && !walk[c] && !marks.has(c))) { R.inside++; if (R.insideAt.length < 6) R.insideAt.push(`t=${H.now.toFixed(0)} (${x.toFixed(1)},${z.toFixed(1)}) ${TH.taskName} ${hit ? 'collider' : 'off the plan'}`); }
+    }
+    if (wasHeld && !bw.held && !(Math.abs(bw.z - GM.COMPOST_Z) < 1.6 && bw.x > 60 && bw.x < 68.5)) R.parks.push({ x: bw.x, z: bw.z, onWay: GM.barrowOnWay(bw.x - bw.ux * 1.2, bw.z - bw.uz * 1.2), task: TH.taskName, home: Math.hypot(bw.x - GM.BARROW_HOME.x, bw.z - GM.BARROW_HOME.z) < 1.5 });
+    if (lastLoad && !bw.B.load && bw.held && bw.a > 0.8) { R.tips++; if (bw.z > -112 && bw.z < -105 && bw.x > 55 && bw.x < 68) R.tipsLoaded++; }
+    wasHeld = bw.held; lastLoad = bw.B.load;
+    // the tools at the work
+    for (const g of H.gardeners) {
+      const w = g.work, h = g.body.hands, k = w.kind; if (!k) continue;
+      if (k === 'water' && (w.pourNow ?? 0) > 0.6) { h[1].getWorldPosition(hv); h[1].localToWorld(tv.fromArray(GM.TIPS.can)); tool(g, 'can rose over the plants (ft, sideways)', Math.hypot(tv.x - w.T.x, tv.z - w.T.z)); }
+      if (k === 'snip' && H.now - w.t0 > 1) { h[0].localToWorld(tv.fromArray(GM.TIPS.secateurs)); tool(g, 'secateurs to the head', tv.distanceTo(w.T)); }
+      if (k === 'dig' && H.now - w.t0 > 1) { h[0].localToWorld(tv.fromArray(GM.TIPS.trowel)); tool(g, 'trowel to the soil', Math.hypot(tv.x - w.T.x, tv.z - w.T.z)); }
+      if (k === 'smoke' && H.now - w.t0 > 1) { h[0].localToWorld(tv.fromArray(GM.TIPS.smoker)); tool(g, 'smoker to the entrance', tv.distanceTo(w.T)); }
+    }
+    R.steps++;
+  };
+  const run = (g, name, gen, secs) => { g.run(name, gen, false); for (let t = 0; t < secs && g.task; t += DT) { staff.step(DT); watch(); } return !g.task; };
+  // somewhere out of the way for the one not being watched
+  const park = g => { g.run('demo', (function* () { for (;;) yield; })(), false); };
+  park(BR);
+  const kinds = (Q.get('kinds') ?? 'weed,mulch,sweep,weed').split(',');
+  const sites = [...S.beds, ...S.borders.slice(0, 4)];
+  for (let r = 0; r < kinds.length; r++) {
+    const k = kinds[r], site = k === 'sweep' ? S.sweeps[r % S.sweeps.length] : sites[(r * 5 + 2) % sites.length];
+    TH.forceKind = k === 'sweep' ? null : k;
+    const t0 = H.now, loads = new Set(), lt = { v: '' };
+    const done = run(TH, 'cart', (function* () { yield* TH.cart(site); })(), 360);
+    R.rounds.push(`${k} at (${site.x.toFixed(0)},${site.z.toFixed(0)}): ${done ? 'done' : 'TIMED OUT'} in ${(H.now - t0).toFixed(0)} s; barrow home ${Math.hypot(bw.x - GM.BARROW_HOME.x, bw.z - GM.BARROW_HOME.z).toFixed(1)} ft away, load '${bw.B.load}', rolled ${bw.rolled.toFixed(0)} ft so far; ${(TH.cartLog ?? []).join(' | ')} ${JSON.stringify(TH.parkWhy ?? {})}`);
+  }
+  TH.forceKind = null;
+  const jobs = [[BR, 'water', S.beds[0]], [BR, 'deadhead', S.borders[1]], [BR, 'koi', S.pond[0]], [TH, 'deadhead', S.borders[2]], [TH, 'hives', S.hives[0]], [TH, 'koi', S.pond[2]], [BR, 'water', S.beds[5]]];
+  for (const [g, k, s] of jobs) { park(g === BR ? TH : BR); if (s) run(g, k, g[k](s), 90); }
+  L.push(`BARROW AND TOOLS: ${R.steps} steps (${(R.steps * DT).toFixed(0)} s)`);
+  L.push(...R.rounds.map(s => '  round: ' + s));
+  L.push(`pushing ${(R.held * DT).toFixed(0)} s: hands off the grips by up to ${R.gripMax.toFixed(3)} ft (frames over 0.15 ft: ${R.gripBad}); wheel off the ground ${R.wheelOff}; legs under 0.3 ft while carried ${R.legLow}`);
+  L.push(`wheel: rolled ${R.rolled.toFixed(1)} ft, turned ${R.spun.toFixed(1)} ft of tyre (largest step mismatch ${R.spinErr.toFixed(4)} ft)`);
+  L.push(`barrow in a bed/collider/off the plan: ${R.inside} samples ${R.insideAt.join('; ')}`);
+  L.push(`set down ${R.parks.length} times: ${R.parks.map(p => `(${p.x.toFixed(1)},${p.z.toFixed(1)})${p.onWay ? ' ON A WAY' : ''}${p.home ? ' home' : ''}`).join(' ')}`);
+  L.push(`tipped ${R.tips} loads, ${R.tipsLoaded} at the compost bays`);
+  for (const [k, t] of Object.entries(R.tools)) L.push(`  ${k}: mean ${(t.sum / t.n).toFixed(2)} ft, worst ${t.max.toFixed(2)} ft over ${t.n} frames`);
+  L.push(`history: Thistle ${TH.history.slice(-30).map(h => h.join(':')).join(' ')}`);
+  const bad = R.rounds.filter(r => !/done/.test(r) || !/home 0\.\d ft|home 1\.\d ft/.test(r)).length + R.gripBad + R.wheelOff + R.legLow + R.inside + R.parks.filter(p => p.onWay).length;
+  L.push(bad === 0 ? 'BARROW OK' : 'BARROW PROBLEMS');
+  L.push(errors.length ? 'ERRORS:\n' + [...new Set(errors)].slice(0, 20).join('\n') : 'no errors');
+}
+// ---- The airship (garden/airstop.js, airship/ride.js): ring the bell, board, the whole flight round the
+// island and back; then getting off early at points all along it (once, and twice for "at once"), getting off
+// before it leaves the brink, and arriving from the town. Every run must end with her standing on the lawn by
+// the stop's post (AIRSTOP.alight), not seated; whenever she stops being aboard she must be there, never in the air.
+if (AIRTEST) {
+  L.length = 0;
+  walker.place = (x, y, z, yaw) => { walker.pos.set(x, y, z); walker.yaw = yaw; };
+  walker.pos.set(1, 0, 90); ctx.camera.position.set(1, 5, 90);
+  garden.setup(ctx);
+  const air = window.__airship, { AIRSTOP: A } = await import('./src/garden/airstop.js'), D = 0.1;
+  let tt = 0, ok = 0, runs = 0, wasAboard = false; const bad = [];
+  const onStage = () => !walker.seated && Math.hypot(walker.pos.x - A.alight.x, walker.pos.z - A.alight.z) < 0.3 && Math.abs(walker.pos.y - A.alight.y) < 0.05;
+  const run = (secs, until) => { for (let t = 0; t < secs; t += D) { tt += D; for (const f of ctx.animated) f(tt, D); if (wasAboard && !air.aboard && !onStage()) bad.push(`t=${tt.toFixed(1)} set down away from the post at (${walker.pos.x.toFixed(1)},${walker.pos.y.toFixed(1)},${walker.pos.z.toFixed(1)}) state ${air.state}`); wasAboard = air.aboard; if (until?.()) return true; } return false; };
+  const done = () => air.state === 'docked' && !air.aboard;
+  const check = (what, t0) => { runs++; const good = onStage() && done(); if (good) ok++; L.push(`${good ? 'ok  ' : 'BAD '} ${what}: ${(tt - t0).toFixed(0)} s, ends ${air.state}, seated ${!!walker.seated}, at (${walker.pos.x.toFixed(1)}, ${walker.pos.y.toFixed(2)}, ${walker.pos.z.toFixed(1)})`); };
+  const bell = ctx.interact.find(i => /ring for the airship/.test(i.label?.() ?? ''));
+  let t0 = tt; bell.act(); const came = run(90, () => air.canBoard); run(0.3);
+  L.push(`rung: docked, door open after ${(tt - t0).toFixed(0)} s (${came}); a board-the-airship target at the door: ${!!ctx.interact.find(i => /board the airship/.test(i.label?.() ?? '') && i.y > 0)}`);
+  t0 = tt; air.board(); run(240, done); check('the whole flight round the island', t0);
+  t0 = tt; run(2, () => air.canBoard); air.board(); run(1); walker.seated = null; run(20, done); check('off again before it leaves', t0);
+  for (const k of [0.03, 0.2, 0.45, 0.7, 0.93]) {
+    t0 = tt; air.stage('tour', k); wasAboard = true; run(0.5); walker.seated = null; run(60, done); check(`off early at ${k} of the flight`, t0);
+    t0 = tt; air.stage('tour', k); wasAboard = true; run(0.5); walker.seated = null; run(2); walker.seated = null; run(10, done); check(`off early at ${k}, and again at once`, t0);
+  }
+  t0 = tt; air.arrive(); wasAboard = true; run(90, done); check('arriving from the town', t0);
+  t0 = tt; air.arrive(); wasAboard = true; run(5); walker.seated = null; run(10, done); check('arriving from the town, off at once', t0);
+  L.unshift(`AIRSHIP: ${ok} of ${runs} runs end standing on the lawn by the post`);
+  for (const b of bad.slice(0, 10)) L.push('  ' + b);
+  L.push(ok === runs && !bad.length ? 'AIRSHIP OK' : 'AIRSHIP PROBLEMS');
+  L.push(errors.length ? 'ERRORS:\n' + [...new Set(errors)].slice(0, 20).join('\n') : 'no errors');
+}
+// ---- The treehouse (garden/treehouse.js): she walks all of it with the house's own walker (walk.js, with the island's
+// rim as main.js sets it): up the ship's stair, across the porch, through the cabin, out onto the balcony and back, and
+// down; then she runs hard into every rail from every floor, jumping, and wanders about at random. She must get
+// everywhere, and never end up under a floor or beyond the rim below the floors; the stair must take a climber's time.
+// The oak's limbs as treehouse_bits.js grows them again must be where trees.js drew them. Then every seat and thing.
+if (TREEHOUSETEST) {
+  L.length = 0;
+  const { TREEHOUSE } = await import('./src/garden/treehouse.js'), { oakBones } = await import('./src/garden/treehouse_bits.js'), { Walker } = await import('./src/walk.js'), GM = await import('./src/garden.js');
+  const K = TREEHOUSE.kit, TH = K?.treehouse, TX = TREEHOUSE.x, TZ = TREEHOUSE.z, D = TREEHOUSE.deck;
+  let bad = 0; const fail = s => { bad++; L.push('  PROBLEM ' + s); };
+  if (!TH) fail('the treehouse was not built');
+  else {
+    garden.setup(ctx);
+    // the limbs
+    const oak = TREES.find(t => t.kind === 'oak' && t.seed === 17), bones = oakBones(oak).limbs.filter(l => l.depth <= 2), verts = [];
+    scene.traverse(o => { if (o.name !== 'tree wood') return; const p = o.geometry.attributes.position; for (let i = 0; i < p.count; i++) if (Math.hypot(p.getX(i) - TX, p.getZ(i) - TZ) < 40) verts.push([p.getX(i), p.getY(i), p.getZ(i)]); });
+    let worst = 0; for (const l of bones) { let b = 1e9; for (const [x, y, z] of verts) { const d = Math.hypot(x - l.b.x, y - l.b.y, z - l.b.z); if (d < l.r1 + 1) b = Math.min(b, Math.abs(d - l.r1)); } worst = Math.max(worst, b); }
+    L.push(`limbs: ${bones.length} regrown, worst ring ${worst.toFixed(4)} ft from trees.js's wood`); if (!(worst < 0.01)) fail('the limbs do not match the tree');
+    // the walker, as main.js makes it
+    const I = GM.ISLAND, outlineAt = a => { const o = I.outline, n = o.length, t = ((a / (Math.PI * 2)) % 1 + 1) % 1 * n, i = Math.floor(t), f = t - i; const p0 = o[(i - 1 + n) % n], p1 = o[i % n], p2 = o[(i + 1) % n], p3 = o[(i + 2) % n]; return 0.5 * ((2 * p1) + (-p0 + p2) * f + (2 * p0 - 5 * p1 + 4 * p2 - p3) * f * f + (-p0 + 3 * p1 - 3 * p2 + p3) * f * f * f); };
+    const w = new Walker(camera, document.createElement('div'), { colliders: B.colliders, surfaces: house.surfaces });
+    w.rim = { x: I.x, z: I.z, r: I.r * 0.965, at: a => outlineAt(a) * 0.965 }; w.enabled = true; ctx.walker = w;
+    const floors = [[-4, 1.6, -8.6, -1.6, D, 'porch'], [1.6, 6.8, -8.4, -3.0, D, 'cabin'], [6.8, 10.8, -9.2, -4.0, D, 'balcony']];
+    const wrong = () => {
+      const lx = w.pos.x - TX, lz = w.pos.z - TZ, y = w.pos.y;
+      for (const f of floors) if (w.vy < -2 && lx > f[0] + 0.05 && lx < f[1] - 0.05 && lz > f[2] + 0.05 && lz < f[3] - 0.05 && y < f[4] - 0.5 && y > f[4] - 6) return `under the ${f[5]} at (${lx.toFixed(1)}, ${y.toFixed(1)}, ${lz.toFixed(1)})`;
+      if (Math.hypot(w.pos.x - I.x, w.pos.z - I.z) > outlineAt(Math.atan2(w.pos.z - I.z, w.pos.x - I.x)) * 0.965 + 0.5 && y < D - 1) return `beyond the rim below the decks at (${lx.toFixed(1)}, ${y.toFixed(1)}, ${lz.toFixed(1)})`;
+      return '';
+    };
+    const go = (lx, lz, ey) => {
+      const x = TX + lx, z = TZ + lz; let t = 0; w.keys.add('KeyW');
+      while (t < 25 && Math.hypot(x - w.pos.x, z - w.pos.z) > 0.35) { w.yaw = Math.atan2(-(x - w.pos.x), -(z - w.pos.z)); w.update(1 / 60); t += 1 / 60; }
+      w.keys.delete('KeyW'); for (let i = 0; i < 30; i++) w.update(1 / 60);
+      const ok = Math.hypot(x - w.pos.x, z - w.pos.z) < 0.7 && (ey === undefined || Math.abs(w.pos.y - ey) < 0.3);
+      if (!ok) fail(`could not get to (${lx}, ${lz})${ey === undefined ? '' : ' at ' + ey}: stopped at (${(w.pos.x - TX).toFixed(2)}, ${w.pos.y.toFixed(2)}, ${(w.pos.z - TZ).toFixed(2)})`);
+    };
+    const route = [[-2.8, -21, 0], [-2.8, -14], [-2.8, -9.4], [-2.6, -7.2, D], [0.4, -5.3, D], [2.2, -5.3, D], [3.6, -5.3, D], [5.6, -5.3, D], [7.4, -5.3, D], [8.6, -5.8, D], [10, -8.6, D], [10, -4.8, D], [8, -5.4, D],
+      [5.6, -5.3, D], [2.6, -4, D], [2.6, -6, D], [0.4, -5.3, D], [-3.2, -6, D], [-3.2, -8, D], [-0.3, -7.8, D], [-2.8, -8, D], [-2.8, -12], [-2.8, -21, 0], [-2.8, -24, 0]];
+    w.pos.set(TX - 2.8, 0, TZ - 24); const b0 = bad;
+    for (const [x, z, y] of route) go(x, z, y);
+    L.push(`the route: ${route.length} legs, up the stair, across the porch, through the cabin, out on the balcony and down: ${bad === b0 ? 'all reached' : (bad - b0) + ' not'}`);
+    // into every rail, hard, jumping; then wandering at random
+    const places = [[-2.5, -7.5, D], [0.5, -6.8, D], [4.2, -5.3, D], [5.8, -5.0, D], [8.8, -5.7, D], [10.2, -6.8, D], [-2.8, -14, 7.6], [-2.8, -10, 13]];
+    let runs = 0, seconds = 0; const b1 = bad;
+    const rnd2 = (() => { let s = 12345; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+    for (const [px, pz, py] of places) for (let k = 0; k < 8; k++) {
+      w.pos.set(TX + px, py, TZ + pz); w.grounded = true; w.vy = 0; w.yaw = k * Math.PI / 4; w.keys.clear(); w.keys.add('KeyW'); w.keys.add('ShiftLeft'); runs++;
+      let why = ''; for (let i = 0; i < 180; i++) { if (i % 25 === 12 && w.grounded) { w.vy = 10.5; w.grounded = false; } w.update(1 / 60); why ||= wrong(); } seconds += 3;
+      if (why) fail(`pushed from (${px}, ${pz}) heading ${k}: ${why}`);
+    }
+    for (let run = 0; run < 24; run++) {
+      const [px, pz, py] = places[run % places.length]; w.pos.set(TX + px, py, TZ + pz); w.grounded = true; w.vy = 0; w.yaw = rnd2() * 6.28; w.keys.clear(); w.keys.add('KeyW'); if (rnd2() < 0.6) w.keys.add('ShiftLeft'); runs++;
+      let why = ''; for (let i = 0; i < 1500; i++) { if (rnd2() < 0.03) w.yaw += (rnd2() - 0.5) * 3; if (rnd2() < 0.04 && w.grounded) { w.vy = 10.5; w.grounded = false; } w.update(1 / 60); why ||= wrong(); } seconds += 25;
+      if (why) fail(`wandering from (${px}, ${pz}): ${why}`);
+    }
+    w.keys.clear();
+    L.push(`pushing and wandering: ${runs} runs, ${seconds} s: ${bad === b1 ? 'never under a floor, never off the edge' : (bad - b1) + ' went wrong'}`);
+    // the rides and the seats, run with the garden's own clock
+    let clock = 0; const run = secs => { for (let i = 0; i < secs * 60; i++) { clock += 1 / 60; w.update(1 / 60); for (const f of ctx.animated) f(clock, 1 / 60); } };
+    const find = re => ctx.interact.find(it => re.test(typeof it.label === 'function' ? it.label() : it.label ?? ''));
+    const at = (lx, y, lz) => { w.pos.set(TX + lx, y, TZ + lz); w.grounded = true; w.vy = 0; w.seated = null; w.apply(); run(0.2); };
+    const near = (lx, y, lz, tol = 1.5) => Math.hypot(w.pos.x - TX - lx, w.pos.y - y, w.pos.z - TZ - lz) < tol;
+    // the stair at a climber's pace (treehouseLife holds the walker to it)
+    { w.pos.set(TX - 2.8, 0, TZ - 21); w.grounded = true; w.vy = 0; w.seated = null; w.yaw = Math.PI; w.keys.add('KeyW'); let tt = 0; while (tt < 30 && w.pos.y < D - 0.05) { clock += 1 / 60; tt += 1 / 60; w.update(1 / 60); for (const f of ctx.animated) f(clock, 1 / 60); } w.keys.clear(); run(0.3);
+      const ok = Math.abs(w.pos.y - D) < 0.1 && tt > 6 && tt < 15; L.push(`the ship's stair climbed in ${tt.toFixed(1)} s (a climb, not a glide: 6 to 15 s): ${ok ? 'yes' : 'NO'}`); if (!ok) fail('the stair\'s pace'); }
+    const fov0 = camera.fov; at(3.6, D, -5.6); const scope = find(/look through the telescope/); if (scope) { w.sit(scope.seat); run(2); } const zoomed = camera.fov < 15; w.seated = null; run(0.5);
+    L.push(`telescope: the view closes in ${zoomed ? 'yes' : 'NO'}, and opens again ${camera.fov === fov0 ? 'yes' : 'NO'}`); if (!zoomed || camera.fov !== fov0) fail('the telescope');
+    for (const [re, lx, lz, y] of [[/lie in the net/, 9.0, -5.0, D], [/sit on the rope swing/, -14.8, 6, 0], [/sit in the window seat/, 4.6, -5.6, D], [/take a book/, 3.6, -5.8, D], [/have a biscuit/, 4.2, -5.8, D], [/look at the map/, 3.2, -4.4, D]]) {
+      at(lx, y, lz); const it = find(re) ?? ctx.interact.find(i => re.test(i.label?.() ?? '')) ?? (items.seats.find(s => re.test(s.label)) ? { seat: items.seats.find(s => re.test(s.label)) } : null);
+      if (!it) { fail('nothing to ' + re.source); continue; }
+      if (it.seat) { w.sit(it.seat); run(2); } else it.act?.();
+      const cam = camera.position; L.push(`  ${re.source.replace(/\\/g, '')}: ${it.seat ? `seated, eye at (${(cam.x - TX).toFixed(1)}, ${cam.y.toFixed(1)}, ${(cam.z - TZ).toFixed(1)})` : 'done'}`); w.seated = null; run(0.3);
+    }
+  }
+  L.push(bad === 0 ? 'TREEHOUSE OK' : `TREEHOUSE PROBLEMS (${bad})`);
+  L.push(errors.length ? 'ERRORS:\n' + [...new Set(errors)].slice(0, 20).join('\n') : 'no errors');
+}
 out.textContent = L.join('\n');
 document.title = 'gardener test done';
 } catch (err) { out.textContent = 'FAILED: ' + (err?.stack ?? err) + '\n' + errors.join('\n'); }

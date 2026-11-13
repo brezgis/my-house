@@ -10,6 +10,7 @@ import { F1, F2 } from '../house.js';
 
 export const CELL = 0.5;
 const X0 = -23.5, Z0 = -42.0, NX = 94, NZ = 88, N = NX * NZ;
+const NB8 = [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, 1.414], [1, -1, 1.414], [-1, 1, 1.414], [-1, -1, 1.414]];
 const FLOORS = [F1, F2];
 const BAND_LO = 0.15, BAND_HI = 4.6;          // anything in this band above the floor is in the way
 
@@ -17,7 +18,10 @@ export function makeNav(ctx) {
   const { house, colliders, scene, THREE } = ctx;
   const doors = house.doors.filter(d => !d.fixed);
   const stops = new Set(house.doors.map(d => d.stop));
-  const floors = FLOORS.map(y => ({ y, walk: new Uint8Array(N), clear: new Float32Array(N), wall: new Uint8Array(N), door: new Int16Array(N).fill(-1), cells: [] }));
+  const floors = FLOORS.map(y => ({ y, walk: new Uint8Array(N), clear: new Float32Array(N), wall: new Uint8Array(N), door: new Int16Array(N).fill(-1), lane: new Uint8Array(N), cells: [] }));
+  // The narrower openings (cased openings and door frames under 6.5 ft): somewhere to pass through, not to stand
+  const passages = (house.portals ?? []).filter(p => ['cased', 'door', 'gdoor'].includes(p.kind) && Math.max(p.x1 - p.x0, p.z1 - p.z0) < 6.5 && !house.doors.some(d => d.fixed && Math.abs(d.cx - (p.x0 + p.x1) / 2) < 0.3 && Math.abs(d.cz - (p.z0 + p.z1) / 2) < 0.3))
+    .map(p => ({ x0: p.x0, x1: p.x1, z0: p.z0, z1: p.z1, alongX: p.x1 - p.x0 > p.z1 - p.z0, y: p.y0 }));
   const ramp = house.surfaces.find(s => s.ramp && Math.abs(s.h - F1) < 0.05 && Math.abs(s.h2 - F2) < 0.05);
   let version = 0, stair = null;
 
@@ -102,8 +106,46 @@ export function makeNav(ctx) {
       const lo = nearest(0, x, ramp.z1 + 0.8, 2, 3), hi = nearest(1, x, ramp.z0 - 0.9, 2, 3);
       if (lo >= 0 && hi >= 0) stair = { lo, hi, x, zLo: ramp.z1, zHi: ramp.z0 };
     }
+    // Lanes: where people pass, so nobody should stand about. 1 a hall, 2 a doorway or narrow opening,
+    // 3 the foot or head of the stair. (Passing through is fine; this is for choosing where to wait.)
+    for (const [fi, F] of floors.entries()) {
+      const { lane, walk } = F, y = F.y;
+      lane.fill(0);
+      for (const c of F.cells) {
+        const x = cx(c), z = cz(c);
+        if (stair && (Math.hypot(x - cx(fi ? stair.hi : stair.lo), z - cz(fi ? stair.hi : stair.lo)) < 3.6 || (Math.abs(x - stair.x) < 2.6 && z > stair.zHi - 3 && z < stair.zLo + 3))) { lane[c] = 3; continue; }
+        let k = 0;
+        for (const d of doors) if (d.staffFloor === fi && Math.hypot(d.cx - x, d.cz - z) < 2.6) { k = 2; break; }
+        if (!k) for (const p of passages) if (Math.abs(p.y - y) < 1 && (p.alongX ? x > p.x0 - 0.3 && x < p.x1 + 0.3 && z > p.z0 - 2.2 && z < p.z1 + 2.2 : z > p.z0 - 0.3 && z < p.z1 + 0.3 && x > p.x0 - 2.2 && x < p.x1 + 2.2)) { k = 2; break; }
+        if (!k && walk[c] && /hall/i.test(roomAt(x, y + 1, z)?.name ?? '')) k = 1;
+        lane[c] = k;
+      }
+      // 4: a galley, an aisle, the gap between a sofa and its table: open floor under 5.5 ft across
+      const NR = 11;
+      for (let k = 0; k < NZ; k++) for (let i = 0; i < NX;) {
+        if (!walk[k * NX + i]) { i++; continue; }
+        let j = i; while (j < NX && walk[k * NX + j]) j++;
+        if (j - i < NR) for (let q = i; q < j; q++) if (!lane[k * NX + q]) lane[k * NX + q] = 4;
+        i = j;
+      }
+      for (let i = 0; i < NX; i++) for (let k = 0; k < NZ;) {
+        if (!walk[k * NX + i]) { k++; continue; }
+        let j = k; while (j < NZ && walk[j * NX + i]) j++;
+        if (j - k < NR) for (let q = k; q < j; q++) if (!lane[q * NX + i]) lane[q * NX + i] = 4;
+        k = j;
+      }
+      // ...and the corners where two such aisles meet (round a kitchen island): tight, and between aisles
+      for (let pass = 0; pass < 3; pass++) for (const c of F.cells) {
+        if (lane[c] || F.clear[c] >= 3.5) continue;
+        const i = c % NX; let n = 0;
+        for (const [di, dk] of NB8) { const ii = i + di, m = c + di + dk * NX; if (ii >= 0 && ii < NX && m >= 0 && m < N && lane[m] === 4) n++; }
+        if (n >= 2) lane[c] = 4;
+      }
+    }
     version++;
   }
+  // Is this a place people pass through (a hall, a doorway, the stair)? 0 if not, else the kind (see rebuild)
+  const laneAt = (f, x, z) => { const c = cellOf(x, z); return c < 0 ? 0 : floors[f].lane[c]; };
 
   // Can an agent needing `need` cells of clearance stand here?
   function free(f, c, need, opener) {
@@ -114,6 +156,26 @@ export function makeNav(ctx) {
     return F.clear[c] >= need;
   }
   const freeAt = (f, x, z, need, opener) => free(f, cellOf(x, z), need, opener);
+
+  // ---- How far it is to walk from (x, z) to the cells around, with someone's body (bx, bz, br) in the
+  // way: so a robot can tell a spot it can reach without squeezing past her. reachD(c): feet, or Infinity.
+  const fd = new Float32Array(N), fgen = new Uint32Array(N), fq = new Int32Array(N); let fg = 0;
+  function flood(f, x, z, need, maxD, bx = 0, bz = 0, br = 0) {
+    fg++; const c0 = cellOf(x, z); if (c0 < 0) return;
+    const R = maxD / CELL, br2 = br * br; let h = 0, t = 0;
+    fd[c0] = 0; fgen[c0] = fg; fq[t++] = c0;
+    while (h < t) {
+      const c = fq[h++], d = fd[c]; if (d >= R) continue;
+      const i = c % NX, k = (c - i) / NX;
+      for (const [di, dk, w] of NB8) {
+        const ii = i + di, kk = k + dk; if (ii < 0 || kk < 0 || ii >= NX || kk >= NZ) continue;
+        const n = kk * NX + ii; if (fgen[n] === fg || !free(f, n, need, false)) continue;
+        if (br && (cx(n) - bx) ** 2 + (cz(n) - bz) ** 2 < br2) continue;
+        fgen[n] = fg; fd[n] = d + w; fq[t++] = n;
+      }
+    }
+  }
+  const reachD = c => (c >= 0 && fgen[c] === fg ? fd[c] * CELL : Infinity);
 
   function nearest(f, x, z, need, maxR = 6, opener = false, ok = null) {
     const c0 = cellOf(x, z); if (c0 < 0) return -1;
@@ -148,7 +210,7 @@ export function makeNav(ctx) {
       if (n === goal) break;
       const f = n >= N ? 1 : 0, c = n - f * N, i = c % NX, k = Math.floor(c / NX), F = floors[f];
       const relax = (m, cost) => { if (done[m] === gen) return; const ng = g[n] + cost; if (seen[m] !== gen || ng < g[m]) { seen[m] = gen; g[m] = ng; from[m] = n; const mf = m >= N ? 1 : 0; push(m, ng + hz(mf, m - mf * N)); } };
-      for (const [di, dk, w] of NB) {
+      for (const [di, dk, w] of NB8) {
         const ii = i + di, kk = k + dk; if (ii < 0 || kk < 0 || ii >= NX || kk >= NZ) continue;
         const m = kk * NX + ii;
         if (!free(f, m, need, opener)) continue;
@@ -184,8 +246,8 @@ export function makeNav(ctx) {
 
   // A taut path: [{ x, z, f }], with the stair as two consecutive points on different floors
   function path(f0, x0, z0, f1, x1, z1, need, opener) {
-    let c0 = cellOf(x0, z0);
-    if (!free(f0, c0, need, opener)) c0 = nearest(f0, x0, z0, need, 3, opener);
+    let c0 = cellOf(x0, z0), moved = false;
+    if (!free(f0, c0, need, opener)) { c0 = nearest(f0, x0, z0, need, 3, opener); moved = true; }
     let c1 = cellOf(x1, z1);
     if (!free(f1, c1, need, opener) || floors[f1].door[c1] >= 0) c1 = nearest(f1, x1, z1, need, 4, opener);
     if (c0 < 0 || c1 < 0) return null;
@@ -196,6 +258,7 @@ export function makeNav(ctx) {
     pts[pts.length - 1] = { ...pts[pts.length - 1] };
     // pull taut, floor by floor: from each anchor, reach as far ahead as can be seen
     const out = [{ x: x0, z: z0, f: f0 }];
+    if (moved && pts.length > 1) out.push(pts[0]);      // pressed against something: out to open floor first, not on through it
     let a = 0;
     while (a < pts.length - 1) {
       if (pts[a + 1].f !== pts[a].f) { out.push(pts[a + 1]); a++; continue; }
@@ -231,7 +294,7 @@ export function makeNav(ctx) {
   }
 
   return {
-    rebuild, free, freeAt, nearest, path, clearLine, see, floorY, floorOf, roomAt, randomSpot, cellOf, cx, cz, floors, doors,
+    rebuild, free, freeAt, nearest, flood, reachD, path, clearLine, see, floorY, floorOf, roomAt, randomSpot, cellOf, cx, cz, floors, doors, laneAt, passages,
     get version() { return version; }, get stair() { return stair; }, FLOORS, CELL,
   };
 }
@@ -293,8 +356,8 @@ export class Mover {
     const target = Math.min(want, 0.3 + left * this.ease * 0.4);
     this.v += (target - this.v) * Math.min(1, dt * this.ease);
     const yawTo = Math.atan2(dx, dz);
-    this.face(yawTo, dt);
-    const off = Math.abs(Math.atan2(Math.sin(yawTo - this.yaw), Math.cos(yawTo - this.yaw)));
+    if (!this.strafe) this.face(yawTo, dt);                                                          // (shuffling sideways, it keeps its own heading)
+    const off = this.strafe ? 0 : Math.abs(Math.atan2(Math.sin(yawTo - this.yaw), Math.cos(yawTo - this.yaw)));
     const step = this.v * dt * Math.max(0.12, Math.cos(Math.min(off, 1.45)));
     if (L <= step || L < 0.05) {
       this.x = p.x; this.z = p.z; this.f = p.f; this.i++;

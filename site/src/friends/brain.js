@@ -82,6 +82,25 @@ for (const id of ORDER) {
   VOCATIVE[id] = new RegExp(`^(?:(?:hey|hi|hello|ok|okay|so|and|oh|um|yo|well) )?(?:${CAST[id].alias})\\b`);
 }
 
+// The pulse of each record in the crate, to dance to (party.js sets the beat from it; it lives here because
+// it is pure, and so is tested with the rest of this file). sound.js tells us only the title of what is on
+// (nowPlaying), so the tempo is looked up here by title. These are felt tempos for swaying to, by ear and
+// from the usual markings, not metronome readings (the classical records are played with plenty of rubato);
+// the second number is how much bounce the music has (1 a proper dance, 0.5 a slow sway). A record not in
+// the list gets a middling 84 and a gentle sway. If sound.js ever says the record's bpm (nowTrack().bpm),
+// that wins.
+const TEMPI = [
+  [/my house/i, 94, 1], [/come on in/i, 97, 1], [/gymnop/i, 68, 0.5], [/goldberg.*variation 13/i, 66, 0.55], [/goldberg.*: aria/i, 60, 0.45],
+  [/op\. 9 no\. 2/i, 56, 0.45], [/72 no\. 1/i, 66, 0.5], [/prelude no\. 1 /i, 70, 0.7], [/prelude no\. 9/i, 60, 0.6], [/prelude no\. 17/i, 104, 0.85],
+  [/träumerei|traumerei/i, 60, 0.45], [/am kamin|fireside/i, 100, 0.85], [/foreign lands/i, 96, 0.75], [/moonlight/i, 54, 0.4], [/k\. 333/i, 64, 0.55],
+  [/romance an[oó]nimo|spanish romance/i, 72, 0.55], [/cello suite/i, 76, 0.7],
+];
+export function tempoFor(title, bpm = null) {
+  const hit = TEMPI.find(([re]) => re.test(title ?? ''));
+  if (+bpm > 30) return { bpm: +bpm, feel: hit ? hit[2] : +bpm > 85 ? 1 : 0.6 };
+  return hit ? { bpm: hit[1], feel: hit[2] } : { bpm: 84, feel: 0.6 };
+}
+
 export function makeBrain({ rnd = Math.random } = {}) {
   const mem = { name: '', like: '', turns: 0, danced: 0, by: {}, bags: new Map(), banter: new Set(), lastBanter: -1 };
   for (const id of ORDER) mem.by[id] = { count: {}, labels: [], last: null, lastBack: -9, sharedSaid: new Set(), turns: 0, asked: {} };

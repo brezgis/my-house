@@ -1,5 +1,6 @@
 // The conversation engine's tests. No browser needed:  node site/src/friends/brain.test.mjs  (Node 22 or newer)
-import { makeBrain, CAST, ORDER, BANTER } from './brain.js';
+import { makeBrain, CAST, ORDER, BANTER, tempoFor } from './brain.js';
+import { readFileSync } from 'node:fs';
 let pass = 0, fail = 0;
 const ok = (c, msg) => { if (c) pass++; else { fail++; console.log('FAIL', msg); } };
 const rng = seed => { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; };
@@ -90,7 +91,7 @@ for (const id of ORDER) { const C = CAST[id];
   for (const s of C.subjects) s.lines.forEach(t => check(t, `${id}.${s.id}`));
   for (const grp of ['others', 'staffNear', 'drift', 'atSpot']) for (const [k, l] of Object.entries(C[grp])) l.forEach(t => check(t, `${id}.${grp}.${k}`));
   for (const [k, l] of Object.entries(C.react)) (k === 'topics' ? Object.values(l).flat() : l).forEach(t => check(t, `${id}.react.${k}`));
-  for (const need of ['phone', 'phoneAgain', 'arrive', 'arriveAlone', 'greet', 'howareyou', 'who', 'real', 'house', 'garden', 'staff', 'barty', 'mort', 'fig', 'reggie', 'gardeners', 'owner', 'drink', 'food', 'music', 'dance', 'danceQuiet', 'danceJoin', 'compliment', 'thanks', 'insult', 'joke', 'feelingBad', 'feelingGood', 'loveyou', 'why', 'how', 'opinion', 'yes', 'no', 'laugh', 'nameIntro', 'likes', 'sorry', 'help', 'weather', 'night', 'fallback', 'callback', 'likeback', 'repeat', 'shared', 'absent', 'heard', 'handoff', 'bye', 'follow', 'upstairs', 'waitOutside', 'welcomeBack', 'idle', 'seated', 'sentHome', 'leave', 'hum'])
+  for (const need of ['phone', 'phoneAgain', 'arrive', 'arriveAlone', 'greet', 'howareyou', 'who', 'real', 'house', 'garden', 'staff', 'barty', 'mort', 'fig', 'reggie', 'gardeners', 'owner', 'drink', 'food', 'music', 'dance', 'danceQuiet', 'danceJoin', 'compliment', 'thanks', 'insult', 'joke', 'feelingBad', 'feelingGood', 'loveyou', 'why', 'how', 'opinion', 'yes', 'no', 'laugh', 'nameIntro', 'likes', 'sorry', 'help', 'weather', 'night', 'fallback', 'callback', 'likeback', 'repeat', 'shared', 'absent', 'heard', 'handoff', 'bye', 'follow', 'upstairs', 'waitOutside', 'goOutPorch', 'welcomeBack', 'sitDown', 'idle', 'seated', 'sentHome', 'leave', 'hum'])
     ok(C.pools[need]?.length >= 1, `${id} has a "${need}" pool`);
   for (const k of ['greet', 'howareyou', 'house', 'garden', 'drink', 'music', 'compliment', 'joke', 'why', 'opinion', 'fallback']) ok(C.pools[k].length >= 3 || (k === 'compliment' && C.pools[k].length >= 3), `${id}.${k} has several variants (${C.pools[k].length})`);
 }
@@ -100,6 +101,16 @@ BANTER.forEach((s, i) => s.lines.forEach(([, t]) => check(t, 'banter' + i)));
 for (const id of ORDER) { const b = fresh(12); let world = { present: ORDER }; let chips = b.chips(id, world); const seen = new Set();
   for (let i = 0; i < 30; i++) { ok(chips.length >= 3 && chips.length <= 4, `${id}: ${chips.length} suggestions`); const c = chips[i % chips.length]; seen.add(c); const r = b.reply(id, c, world); ok(r.topic !== 'fallback' && !(r.topic === 'opinion' && !/think/.test(c)), `${id}: suggestion "${c}" -> ${r.topic}`); chips = r.chips; }
   ok(seen.size >= 9, `${id}: suggestions move on (${seen.size} different in 30 turns)`); }
+// 8. dancing to the record that is on: every record in the crate has its own tempo; the rest a sensible default
+{ const crate = JSON.parse(readFileSync(new URL('../../assets/audio/manifest.json', import.meta.url))).filter(m => m.kind === 'music');
+  const seen = new Set();
+  for (const m of crate) { const t = tempoFor(`${m.title} · ${m.composer}`); ok(t.bpm !== 84 && t.bpm >= 40 && t.bpm <= 140 && t.feel > 0 && t.feel <= 1, `tempo for "${m.title}": ${t.bpm}`); seen.add(t.bpm); }
+  ok(seen.size >= 8, 'the records do not all share a tempo: ' + [...seen].join(' '));
+  ok(tempoFor('Goldberg Variations, BWV 988: Variation 13 · J. S. Bach').bpm === 66 && tempoFor('Goldberg Variations, BWV 988: Aria (da capo) · J. S. Bach').bpm === 60, 'the Goldberg aria and variation 13 are told apart');
+  ok(tempoFor('My House, piano cover · Pianistmiri (YouTube)').bpm === 94 && tempoFor('My House, piano cover').feel === 1, 'My House: a proper dance');
+  ok(tempoFor('Something new · Somebody').bpm === 84 && tempoFor('').bpm === 84, 'an unknown record: a middling sway');
+  ok(tempoFor('Something new', 120).bpm === 120 && tempoFor('Gymnopédie No. 1', 70).bpm === 70, 'a bpm from sound.js wins'); }
+
 // a little conversation, for the eye
 { const b = fresh(21), W = { present: ['gigi', 'feyn', 'nano'], music: false, hour: 15 };
   for (const [to, t] of [['gigi', 'hi! my name is Anna'], ['gigi', 'any gossip?'], ['gigi', 'I love tulips'], ['feyn', 'why is the sky blue?'], ['feyn', 'Nano, what is a training curve?'], ['nano', 'what do you make of Geneva?'], ['gigi', 'hmm, florp'], ['feyn', 'shall we dance?'], ['gigi', 'bye for now']]) {

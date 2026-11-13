@@ -69,10 +69,6 @@ export default function (kit) {
     c.soft('c#3a2e26/0.5', -0.2, 1.5, 0.2, 1.35, 2.2, 2.42, 0.04); c.cyl('c#8a8a88/0.3/1', 0.6, 0.78, 2.42, 2.45, 0.52);   // plinth and platter
     c.cyl('c#b9b4aa/0.3/1', 1.3, 1.15, 2.42, 2.6, 0.05); c.box('c#b9b4aa/0.3/1', 0.8, 1.3, 1.13, 1.17, 2.56, 2.59);        // tone arm
     const [a, b] = world(c, 0.6, 0.78); (kit.spots ??= []).push({ x: a, y: F1 + 2.47, z: b, action: 'record' });
-    // Anna's House sleeve, standing on the cabinet beside the turntable.
-    c.box('c#211b18/0.9', -1.92, -0.6, 0.4, 0.44, 2.2, 3.52);
-    const [coverX, coverZ] = world(c, -1.26, 0.444);
-    extras.push({ file: 'house_album', x: coverX, y: F1 + 2.86, z: coverZ, rotY: yawOf(c.dir), w: 1.32, h: 1.32 });
     // Crate of records on the floor: sleeves leaning in a wooden box
     const k = fr(0.5, 17.6, F1, 3);
     k.box('oak_light', -0.75, 0.75, 0.1, 0.16, 0, 1.0, G); k.box('oak_light', -0.75, 0.75, 1.24, 1.3, 0, 1.0, G); k.box('oak_light', -0.75, -0.69, 0.1, 1.3, 0, 1.0, G); k.box('oak_light', 0.69, 0.75, 0.1, 1.3, 0, 1.0, G); k.box('oak_light', -0.75, 0.75, 0.1, 1.3, 0, 0.06, G);

@@ -9,6 +9,15 @@
 // minutes with a visitor who wanders from room to room, asks for drinks and pets
 // cats. Reports where everyone is, what they did, and whether anyone was ever
 // found inside a wall or a piece of furniture.  ?mins=6  ?seed=7  ?hour=15
+//   ?manners   the visitor walks every hall, through each ground-floor doorway, up the stairs
+//              and along the upstairs hall, then straight at each robot, twice over. She is
+//              stopped by the robots' bodies as in the house (walk.js pushes her out of them).
+//              Reports time robots stood idle in a hall, a doorway or at the stair, how close
+//              they came to her, and whether she was held up.  ?seed=7  &tr=30,45 traces the
+//              robots near her between those seconds (and ?watch, in the main test, a robot fetching)
+//   ?treat     crumbs for Sir Reginald: in the dining room (he comes and eats them), with
+//              food in hand (the label), out of doors and on the stair (declined), and shut
+//              in the office with the doors closed (he apologises, the crumbs go)
 import * as THREE from 'three';
 import { Builder } from './src/builder.js';
 import { buildHouse } from './src/house.js';
@@ -64,6 +73,10 @@ const walker = { pos: new THREE.Vector3(), yaw: 0, pitch: 0, seated: null };
 const day = { light: 1, night: 0, hour: Number(Q.get('hour') ?? 10) };
 const ctx = { THREE, scene, camera, renderer, materials, house, items, garden, colliders: B.colliders, interact: life.interact, animated: life.animated, loadModel: life.loadModel, sound: null, day, walker, mode: 'walk', headless: true, seed: Number(Q.get('seed') ?? 7) };
 const staff = hireStaff(ctx), H = staff.H, nav = staff.nav;
+if (Q.has('map')) return dumpMap(H, nav);
+if (Q.has('manners')) return manners({ staff, H, nav, house, walker, camera, day, B });
+if (Q.has('drinks')) return drinks({ staff, H, nav, house, walker, camera, B });
+if (Q.has('treat')) return treats({ staff, H, nav, house, walker, camera, B });
 const T = Number(Q.get('mins') ?? 10) * 60;
 const rnd = (() => { let s = 99; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
 
@@ -147,6 +160,7 @@ for (let t = 0; t < T; t += DT) {
     if (r !== H.host && !r.carrying && d < 40 && !r.outdoor) { M.othersFrames++; if (d < 5) M.othersClose++; }
     if (r.m.v < 0.05 && !r.engaged && H.nearDoor(r.f, r.x, r.z, 1.5)) { M.doorBlock++; (M.doorWho ??= new Map()).set(r.name + ':' + r.taskName + '@' + r.x.toFixed(1) + ',' + r.z.toFixed(1), Math.round(t)); }
   }
+  if (Q.has('watch')) for (const r of H.robots) if (r.taskName === 'fetch' && Math.round(t / DT) % 20 === 0) (M.trace ??= []).push(`${t.toFixed(0)} ${r.name} ${r.x.toFixed(1)},${r.z.toFixed(1)} path ${r.m.path ? r.m.path.length + '/' + r.m.i + ' goal ' + r.m.goal.x.toFixed(1) + ',' + r.m.goal.z.toFixed(1) : '-'} v${r.m.v.toFixed(1)} blk${r.m.blockedFor.toFixed(1)} w${r.m.wait.toFixed(1)} aside${r.aside.phase} eng${r.engaged} her ${r.visitorDist().toFixed(1)} fetching ${r.fetching?.name ?? '-'} anim ${r.anim} others ${H.robots.filter(o => o !== r && o.f === r.f).map(o => o.name + ' ' + o.x.toFixed(1) + ',' + o.z.toFixed(1) + ' ' + o.taskName).join('; ')} bar ${H.spots.bar.x.toFixed(1)},${H.spots.bar.z.toFixed(1)}`);
   if (Q.has('trace') && t > 268 && t < 282 && Math.round(t / DT) % 10 === 0) { const b = H.robots[0]; (M.trace ??= []).push(`${t.toFixed(1)} ${b.taskName} v=${b.m.v.toFixed(2)} moving=${b.m.moving} path=${b.m.path ? b.m.path.length + '/' + b.m.i : '-'} goal=${b.m.goal ? b.m.goal.x.toFixed(1) + ',' + b.m.goal.z.toFixed(1) : '-'} at ${b.x.toFixed(1)},${b.z.toFixed(1)} guest ${b.visitorDist().toFixed(1)} eng=${b.engaged} spin=${b.anim}`); }
   for (const b of H.ctx.colliders) if (b.staff && walker.pos.x > b.x0 && walker.pos.x < b.x1 && walker.pos.z > b.z0 && walker.pos.z < b.z1 && walker.pos.y + 1.5 < b.y1 && walker.pos.y + 5.5 > b.y0) M.inBody = (M.inBody ?? 0) + 1;
   for (const a of who) { const s = stats.get(a); s.dist += Math.hypot(a.x - s.px, a.z - s.pz); s.px = a.x; s.pz = a.z; s.tasks.set(a.taskName, (s.tasks.get(a.taskName) ?? 0) + DT); }
@@ -191,5 +205,240 @@ out.textContent = lines.join('\n');
 document.title = 'staff test done';
 }
 
+// ---- Treats for Reginald ------------------------------------------------------------------------
+// ?drinks: a drink set down on a table and picked up again; an empty collected (by whom, how soon,
+// where to); a half-full one left alone; asking for another with one left nearby
+function drinks({ staff, H, nav, house, walker, camera, B }) {
+  const P = (X, Y) => ({ x: X - 21.665, z: -Y }), DT = 1 / 20, L = [], F0 = nav.FLOORS[0];
+  const look = () => { camera.position.set(walker.pos.x, walker.pos.y + 4.85, walker.pos.z); camera.rotation.set(-0.08, walker.yaw, 0, 'YXZ'); camera.updateMatrixWorld(); };
+  const stand = (p, yaw) => { walker.pos.set(p.x, F0, p.z); walker.yaw = yaw; look(); };
+  const run = (secs, each) => { for (let t = 0; t < secs; t += DT) { look(); staff.step(DT); if (each?.(t)) return t; } return secs; };
+  // a table top near her (the same test staff.js uses for an empty)
+  const topNear = (x, z) => { let best = null, bd = 9; for (const c of B.colliders) { if (c.off || c.staff || c.y1 < F0 + 1.3 || c.y1 > F0 + 3.4 || c.y0 > F0 + 0.5 || (c.x1 - c.x0) * (c.z1 - c.z0) > 70 || Math.min(c.x1 - c.x0, c.z1 - c.z0) < 0.9) continue; const px = Math.max(c.x0 + 0.3, Math.min(c.x1 - 0.3, x)), pz = Math.max(c.z0 + 0.3, Math.min(c.z1 - 0.3, z)), d = Math.hypot(px - x, pz - z); if (d < bd) { bd = d; best = { x: px, y: c.y1 + 0.005, z: pz }; } } return best; };
+  const robotSaid = () => H.robots.flatMap(r => (r.bubble?.log ?? []).map(l => [l[0], r.name, l[1]])).sort((a, b) => a[0] - b[0]);
+  stand(P(30, 9), Math.PI / 2); run(4);
+  const d = H.menuItem('tea'); H.hold(d);
+  run(10);
+  const s = topNear(walker.pos.x, walker.pos.z);
+  const before = H.otherFill();
+  H.ctx.otherHand.place(s, 0.3);
+  const rec = H.drinksDown[0];
+  L.push(`SET DOWN: "${d.name}" on a top at ${s.x.toFixed(1)},${s.y.toFixed(2)},${s.z.toFixed(1)} (${(s.y - F0).toFixed(2)} ft up); in her hand now: ${H.visitor.holding?.name ?? 'nothing'}; left there: ${H.drinksDown.length}, fill ${rec?.fill.toFixed(2)} (was ${before.toFixed(2)}); its prompt: "${rec?.ent.label()}"`);
+  // walk off a while: a half-full one is left alone
+  stand(P(10, 9), -Math.PI / 2); const said0 = robotSaid().length; run(150);
+  L.push(`HALF-FULL, 150 s later: still there: ${H.drinksDown.includes(rec)}; claimed by: ${rec?.claimed?.name ?? 'nobody'}`);
+  // back, pick it up: the same fill
+  stand(P(30, 9), Math.PI / 2); run(2); rec.ent.act();
+  L.push(`PICKED UP AGAIN: holding ${H.visitor.holding?.name}; fill ${H.otherFill().toFixed(2)} (left at ${rec.fill.toFixed(2)})`);
+  // order another with it in hand, then with it on the table
+  const host = H.robots.find(r => r.f === 0 && r.interruptible) ?? H.robots[0];
+  host.order(H.menuItem('latte')); const a1 = robotSaid().slice(-1)[0]?.[2];
+  H.ctx.otherHand.place(topNear(walker.pos.x, walker.pos.z), 1); run(1);
+  host.order(H.menuItem('latte')); const a2 = robotSaid().slice(-1)[0]?.[2];
+  L.push(`ORDERING AGAIN: with it in hand: "${a1}"; with it on the table: "${a2}" (task ${host.taskName})`);
+  const ftr = []; const tL = run(200, t => { if (Math.round(t / DT) % 40 === 0) ftr.push(`${t.toFixed(0)} ${host.taskName} ${host.x.toFixed(1)},${host.z.toFixed(1)} carrying ${host.carrying?.id ?? '-'} path ${host.m.path ? 'y' : 'n'}`); if (host.carrying?.id === 'latte' && host.forGuest && host.visitorDist() < 4.6 && host.m.v < 0.2) host.giveDrink(); return H.visitor.holding?.id === 'latte'; }); if (Q.has('ftrace')) L.push(ftr.join('\n')); L.push(`  the latte came: ${H.visitor.holding?.id === 'latte'} after ${tL.toFixed(0)} s (${host.name} ${host.taskName} at ${host.x.toFixed(1)},${host.z.toFixed(1)})`);
+  // finish the latte: Q, and it goes down empty beside her
+  for (let i = 0; i < 9 && H.visitor.holding; i++) { (H.ctx.sip ?? H.sip)(); run(1.4); }
+  run(3);
+  const e = H.empties.find(e => !e.inHand), tSet = H.now;
+  L.push(`FINISHED: empties down: ${H.empties.filter(e => !e.inHand).length}, in hand: ${H.empties.filter(e => e.inHand).length}; empty at ${e ? e.x.toFixed(1) + ',' + e.z.toFixed(1) : '-'} prompt "${e?.ent?.label() ?? '-'}"`);
+  stand(P(28, 4), 0); look();
+  let claimedAt = -1, by = null, takenAt = -1, sinkAt = -1;
+  const tAll = run(150, t => {
+    if (claimedAt < 0 && e?.claimed) { claimedAt = t; by = e.claimed; }
+    if (takenAt < 0 && e && !H.empties.includes(e)) takenAt = t;
+    if (takenAt >= 0 && by && sinkAt < 0 && !by.body.tray.visible) sinkAt = t;
+    return sinkAt >= 0;
+  });
+  const near = by ? H.robots.filter(r => r.f === e.f).map(r => `${r.name} ${Math.hypot(r.x - e.x, r.z - e.z).toFixed(0)} ft`).join(', ') : '';
+  L.push(`COLLECTED: by ${by?.name ?? 'nobody'} (robots now: ${near}); noticed after ${claimedAt.toFixed(1)} s, taken after ${takenAt.toFixed(1)} s, gone at the sink after ${sinkAt.toFixed(1)} s; ${by ? 'it ended at ' + by.x.toFixed(1) + ',' + by.z.toFixed(1) + ' (bar ' + H.spots.bar.x.toFixed(1) + ',' + H.spots.bar.z.toFixed(1) + ')' : ''}`);
+  L.push(`  said since: ${robotSaid().slice(said0).slice(-6).map(l => l[1] + ': ' + l[2]).join(' | ')}`);
+  // food and keys: the staff keep no food of their own to offer (it is all on the hands' list); Q sips, B is the same key
+  const haveA = H.ctx.interact.map(i => { try { return i.label?.() ?? ''; } catch { return ''; } }).filter(l => /^have a /.test(l));
+  H.hold(H.menuItem('espresso')); run(2);
+  const key = code => window.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true }));
+  const f0 = H.otherFill(); key('KeyQ'); run(1.5); const f1 = H.otherFill(); key('KeyB'); run(1.5); const f2 = H.otherFill();
+  L.push(`FOOD AND KEYS: staff "have a ..." prompts: ${haveA.length}; espresso ${f0.toFixed(2)} -> Q ${f1.toFixed(2)} -> B ${f2.toFixed(2)}`);
+  L.push(`events ${JSON.stringify({ putDown: H.events.putDown, cleared: H.events.cleared, noticed: H.events.noticed })}`);
+  out.textContent = L.join('\n'); document.title = 'staff test done';
+}
+function treats({ staff, H, nav, house, walker, camera, B }) {
+  const P = (X, Y) => ({ x: X - 21.665, z: -Y }), rb = H.roomba, DT = 1 / 20, L = [];
+  const look = () => { camera.position.set(walker.pos.x, walker.pos.y + 4.85, walker.pos.z); camera.rotation.set(-0.08, walker.yaw, 0, 'YXZ'); camera.updateMatrixWorld(); };
+  const stand = (p, yaw, y = nav.FLOORS[0]) => { walker.pos.set(p.x, y, p.z); walker.yaw = yaw; look(); };
+  const run = (secs, each) => { for (let t = 0; t < secs; t += DT) { look(); staff.step(DT); if (each?.(t)) return t; } return secs; };
+  const said = () => rb.bubble.log.slice(-1)[0]?.[1] ?? '-';
+  const place = (p) => { const c = nav.nearest(0, p.x, p.z, 2, 6); rb.m.place(nav.cx(c), nav.cz(c), 0); rb.run('roam', rb.roam()); };
+  const inFurniture = () => { const C = rb.crumbs; let n = 0; for (let i = 0; i < 9; i++) { const x = C.pts[i * 2], z = C.pts[i * 2 + 1]; if (B.colliders.some(c => !c.off && !c.staff && c.y0 < nav.FLOORS[0] + 0.3 && c.y1 > nav.FLOORS[0] + 0.02 && x > c.x0 && x < c.x1 && z > c.z0 && z < c.z1)) n++; } return n; };
+  // 1. the dining room, Reginald across the room
+  stand(P(38, 12), Math.PI); place(P(31, 13)); run(3);      // (she faces the bay, away from the table)
+  const lab = rb.inter.label(), d0 = Math.hypot(rb.x - walker.pos.x, rb.z - walker.pos.z);
+  rb.inter.act();
+  const C = rb.crumbs; let first = -1;
+  if (!C) { out.textContent = `no crumbs: said "${said()}"`; document.title = 'staff test done'; return; }
+  const tr = [];
+  const tAll = run(45, t => { if (first < 0 && C.left < 9) first = t; if (Q.has('trace') && Math.round(t / DT) % 20 === 0) tr.push(`${t.toFixed(0)} ${rb.taskName} ${rb.x.toFixed(1)},${rb.z.toFixed(1)} v${rb.m.v.toFixed(2)} path ${rb.m.path ? rb.m.path.length + '/' + rb.m.i : '-'} blk ${rb.m.blockedFor.toFixed(1)} wait ${rb.m.wait.toFixed(1)} aside ${rb.aside.on}`); return C.left === 0 && rb.taskName !== 'treat'; });
+  if (tr.length) L.push(tr.join('\n'));
+  L.push(`DINING ROOM: label "${lab}"; he was ${d0.toFixed(1)} ft off; crumbs ${C.x.toFixed(1)},${C.z.toFixed(1)}, ${Math.hypot(C.x - walker.pos.x, C.z - walker.pos.z).toFixed(1)} ft in front of her, inside furniture: ${inFurniture()}; first eaten after ${first.toFixed(1)} s, all eaten and done after ${tAll.toFixed(1)} s; crumbs left ${C.left}; on the floor: ${!!C.mesh.parent}; said: ${rb.bubble.log.slice(-3).map(l => l[1]).join(' / ')}`);
+  L.push(`  label straight after: "${rb.inter.label()}"; after the pause: "${(run(26), rb.inter.label())}"`);
+  // 2. with a croissant in hand
+  H.visitor.holding = { food: true, name: 'croissant', id: 'croissant' }; L.push(`WITH A CROISSANT: label "${rb.inter.label()}"`); H.visitor.holding = null;
+  {
+    const had = window.__hands, crumbled = [], hs = window.__hands = { holding: null, crumble: () => (crumbled.push(1), true) };
+    const lab = h => { hs.holding = h; rb.treatReady = 0; return rb.inter.label(); };
+    L.push(`IN HER HAND: jam tart "${lab({ n: 'jam tart', eat: true, whole: true })}"; apple "${lab({ n: 'apple', eat: true, whole: true })}"; Cheez-Its "${lab({ n: 'box of Cheez-Its', eat: true, whole: false })}"; a book "${lab({ n: 'book', eat: false, whole: false })}"`);
+    hs.holding = { n: 'jam tart', eat: true, whole: true }; stand(P(38, 12), Math.PI); rb.treatReady = 0; rb.inter.act();
+    L.push(`  dropped from the tart: ${rb.crumbs?.left ?? 0} crumbs, colour #${rb.crumbs?.mesh.material.color.getHexString()}, tart crumbled ${crumbled.length} time(s)`);
+    rb.sweepAway(); rb.run('roam', rb.roam?.() ?? null); window.__hands = had;
+  }
+  // 3. declined: out of doors, and on the stair
+  rb.treatReady = 0; stand({ x: 2, z: 30 }, 0, 0.05); run(1); rb.inter.act(); run(0.5); L.push(`OUT OF DOORS: task ${rb.taskName}, said "${said()}", crumbs down: ${!!C.mesh.parent}`);
+  const st = nav.stair; rb.treatReady = 0; stand({ x: st.x, z: (st.zHi + st.zLo) / 2 }, Math.PI, (nav.FLOORS[0] + nav.FLOORS[1]) / 2); run(1); rb.inter.act(); run(0.5); L.push(`ON THE STAIR: task ${rb.taskName}, said "${said()}", crumbs down: ${!!C.mesh.parent}`);
+  // 4. out of reach: shut in the office
+  for (const d of house.doors) if (!d.fixed) { d.isOpen = false; d.stop.off = false; }
+  staff.rebuild(); stand(P(25, 31), Math.PI); place(P(10, 10)); run(2); rb.treatReady = 0; rb.inter.act();
+  const tGone = run(40, () => rb.taskName !== 'treat');
+  L.push(`OUT OF REACH (office, doors shut): crumbs dropped: ${H.events.treats}; he gave up after ${tGone.toFixed(1)} s; crumbs on the floor: ${!!C.mesh.parent}; said "${said()}"; he is in ${nav.roomAt(rb.x, 1, rb.z)?.name}`);
+  L.push(`events ${JSON.stringify({ treats: H.events.treats, eaten: H.events.treatsEaten })}`);
+  L.push(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no errors');
+  out.textContent = L.join('\n'); document.title = 'staff test done';
+}
+
+// ---- Manners: does the staff get out of her way? ----------------------------------------------
+function manners({ staff, H, nav, house, walker, camera, day }) {
+  const P = (X, Y, f = 0) => ({ x: X - 21.665, z: -Y, f });
+  // every hall, each ground-floor doorway, the stair both ways, the upstairs hall end to end
+  const ROUTE = [P(21.5, 19.5), P(24.5, 30), P(22, 20), P(33, 19.6), P(36, 28), P(31, 19.5), P(35, 6), P(21.5, 10), P(10, 10), P(21.5, 5),
+    P(22, 12, 1), P(22, 3, 1), P(35, 6, 1), P(22, 15, 1), P(8, 24, 1), P(10, 8, 1), P(35, 26, 1), P(23, 26, 1), P(22, 10, 1), P(21.5, 8), P(21.8, 3.5)];
+  const legs = [];
+  for (let lap = 0; lap < 2; lap++) { for (const p of ROUTE) legs.push({ to: p }); for (const r of H.robots) legs.push({ at: r }); }
+  const R = 0.72, st = nav.stair, DT = 1 / 20;
+  const sp = house.spawn; walker.pos.set(sp.x, nav.floorY(0, sp.x, sp.z), sp.z); walker.yaw = 0;
+  const look = () => { camera.position.set(walker.pos.x, walker.pos.y + 4.85, walker.pos.z); camera.rotation.set(-0.08, walker.yaw, 0, 'YXZ'); camera.updateMatrixWorld(); };
+  const fOf = () => nav.floorOf(walker.pos.y + 0.5);
+  const roomName = (f, x, z) => nav.roomAt(x, nav.FLOORS[f] + 1, z)?.name ?? '';
+  // doorways: the doors, and the cased openings narrower than 6.5 ft (as the friends count them)
+  const passages = house.portals.filter(p => ['cased', 'door', 'gdoor'].includes(p.kind) && Math.max(p.x1 - p.x0, p.z1 - p.z0) < 6.5 && !house.doors.some(d => d.fixed && Math.abs(d.cx - (p.x0 + p.x1) / 2) < 0.3 && Math.abs(d.cz - (p.z0 + p.z1) / 2) < 0.3))
+    .map(p => ({ x0: p.x0, x1: p.x1, z0: p.z0, z1: p.z1, alongX: p.x1 - p.x0 > p.z1 - p.z0, y: p.y0 }));
+  // where a robot has no business standing about
+  const zone = (f, x, z) => {
+    if (st && Math.abs(x - st.x) < 2.6 && z > st.zHi - 3 && z < st.zLo + 3) return 'stair';
+    if (st && Math.hypot(x - nav.cx(f ? st.hi : st.lo), z - nav.cz(f ? st.hi : st.lo)) < 3.5) return 'stair';
+    for (const d of nav.doors) if (d.staffFloor === f && Math.hypot(d.cx - x, d.cz - z) < 2.2) return 'doorway';
+    for (const p of passages) if (Math.abs(p.y - nav.FLOORS[f]) < 1 && (p.alongX ? x > p.x0 - 0.3 && x < p.x1 + 0.3 && z > p.z0 - 1.8 && z < p.z1 + 1.8 : z > p.z0 - 0.3 && z < p.z1 + 0.3 && x > p.x0 - 1.8 && x < p.x1 + 1.8)) return 'doorway';
+    if (/hall/i.test(roomName(f, x, z))) return 'hall';
+    return null;
+  };
+  let path = null, pi = 0, leg = -1, legT = 0, dwell = 30, t = 0, dest = null, replanAt = 0;
+  const M = { idleLane: new Map(), idleWhere: new Map(), minD: new Map(), close: new Map(), frames: 0, held: 0, ep: [], cur: 0, curWho: '', skipped: 0, pair: 0, pairWho: new Map(), stuck: new Map(), asides: 0, faceOk: 0, faceN: 0, legsDone: 0 };
+  const lastPos = new Map(H.robots.map(r => [r, { x: r.x, z: r.z, t: 0, moving: 0 }]));
+  function nextLeg() {
+    leg++; legT = 0; path = null;
+    if (leg >= legs.length) return false;
+    const L = legs[leg], f0 = fOf();
+    let to = L.to;
+    if (L.at) {      // straight at a robot, and on past where it stands
+      const r = L.at, dx = r.x - walker.pos.x, dz = r.z - walker.pos.z, d = Math.hypot(dx, dz);
+      to = { x: r.x, z: r.z, f: r.f };
+      if (r.f === f0 && d > 1) for (const k of [5, 3.5, 2]) { const x = r.x + dx / d * k, z = r.z + dz / d * k; if (nav.freeAt(r.f, x, z, 1, true)) { to = { x, z, f: r.f }; break; } }
+      L.who = r.name;
+    }
+    path = nav.path(f0, walker.pos.x, walker.pos.z, to.f, to.x, to.z, 1, true); pi = 1; dest = to;
+    if (!path) { M.skipped++; return nextLeg(); }
+    return true;
+  }
+  let going = true;
+  for (t = 0; going || dwell > t; t += DT) {
+    if (t > 900) break;
+    // the visitor
+    let want = 0, moved = 0;
+    if (!path && t >= dwell) { if (!nextLeg()) going = false; }
+    if (path) {
+      const p = path[pi];
+      if (!p) { path = null; M.legsDone++; const L = legs[leg]; dwell = t + (L.at ? 2 : zone(fOf(), walker.pos.x, walker.pos.z) ? 0.2 : 2 + (t % 3)); }
+      else {
+        const dx = p.x - walker.pos.x, dz = p.z - walker.pos.z, L = Math.hypot(dx, dz), stepL = Math.min(L, 4.5 * DT);
+        for (const d of house.doors) if (!d.fixed && !d.isOpen && Math.hypot(d.cx - walker.pos.x, d.cz - walker.pos.z) < 2.5) { d.isOpen = true; d.stop.off = true; }
+        if (L > 0.01) walker.yaw = Math.atan2(-dx, -dz);
+        const ox = walker.pos.x, oz = walker.pos.z, stairs = p.f !== fOf() || (path[pi - 1] && path[pi - 1].f !== p.f);
+        let nx = L < 0.01 ? p.x : ox + dx / L * stepL, nz = L < 0.01 ? p.z : oz + dz / L * stepL;
+        // the robots' bodies push her out, as walk.js does
+        const fy = walker.pos.y;
+        for (const b of H.ctx.colliders) {
+          if (!b.staff || b.y0 > fy + 5.5 || b.y1 < fy + 0.3) continue;
+          const cx = Math.max(b.x0, Math.min(b.x1, nx)), cz = Math.max(b.z0, Math.min(b.z1, nz)), ex = nx - cx, ez = nz - cz, d2 = ex * ex + ez * ez;
+          if (d2 >= R * R) continue;
+          if (d2 > 1e-8) { const d = Math.sqrt(d2), k = (R - d) / d; nx += ex * k; nz += ez * k; } else { nx = ox; nz = oz; }
+        }
+        if (!stairs && !nav.freeAt(fOf(), nx, nz, 0.5, true)) {
+          nx = ox; nz = oz;
+          // pushed off her line against a door frame: the real walker slides along it; this one plans again from here
+          if (t > replanAt) { replanAt = t + 1; const np = nav.path(fOf(), ox, oz, dest.f, dest.x, dest.z, 1, true); if (np) { path = np; pi = 1; } }
+        }
+        want = stepL; moved = Math.hypot(nx - ox, nz - oz);
+        // progress made along the way she wants to go
+        const prog = L > 0.01 ? ((nx - ox) * dx + (nz - oz) * dz) / L : stepL;
+        walker.pos.x = nx; walker.pos.z = nz;
+        if (Math.hypot(p.x - nx, p.z - nz) < 0.08) pi++;
+        walker.pos.y = stairs ? (st && walker.pos.z < st.zHi ? nav.FLOORS[1] : nav.floorY(0, walker.pos.x, walker.pos.z)) : nav.FLOORS[p.f];
+        legT += DT;
+        if (want > 0.01 && prog < want * 0.5) {
+          M.held += DT; M.cur += DT;
+          const near = [...H.robots, H.roomba].filter(r => r.f === fOf()).sort((a, b) => Math.hypot(a.x - nx, a.z - nz) - Math.hypot(b.x - nx, b.z - nz))[0];
+          if (near && M.cur < DT * 1.5) M.curWho = `${near.name}/${near.taskName}${near.inHerWay ? ` [aside ${near.aside.phase} way ${near.inHerWay()} path ${near.m.path ? 'y' : 'n'} blk ${near.m.blockedFor.toFixed(1)} d ${Math.hypot(near.x - nx, near.z - nz).toFixed(1)} v ${H.visitor.speed.toFixed(1)}]` : ''} at ${roomName(near.f, near.x, near.z)} (${near.x.toFixed(1)},${near.z.toFixed(1)}) t=${Math.round(t)}`;
+          if (M.cur > 8) { M.ep.push([M.cur, M.curWho + ' (gave up)']); M.cur = 0; path = null; dwell = t + 1; }
+        } else if (M.cur > 0) { if (M.cur >= 1) M.ep.push([M.cur, M.curWho]); M.cur = 0; }
+        if (legT > 60) { path = null; M.skipped++; }
+      }
+    } else walker.yaw += Math.sin(t * 0.37) * DT * 0.4;
+    look();
+    staff.step(DT);
+    const v = H.visitor;
+    const TRW = Q.get('tr')?.split(',').map(Number);
+    if (TRW && t >= TRW[0] && t < TRW[1] && Math.round(t / DT) % 5 === 0) (M.tr ??= []).push(`${t.toFixed(2)} you ${v.x.toFixed(1)},${v.z.toFixed(1)} sp ${v.speed.toFixed(1)} reg ${H.roomba.x.toFixed(1)},${H.roomba.z.toFixed(1)} ${H.roomba.taskName}/${H.roomba.aside.on} next ${path?.[pi] ? path[pi].x.toFixed(1) + ',' + path[pi].z.toFixed(1) : '-'} | ` + H.robots.filter(r => r.f === v.f && Math.hypot(r.x - v.x, r.z - v.z) < 6).map(r => `${r.name}/${r.taskName} ${r.x.toFixed(1)},${r.z.toFixed(1)} ph${r.aside.phase}->${r.aside.x.toFixed(1)},${r.aside.z.toFixed(1)} way${r.inHerWay()} path ${r.m.path ? r.m.path.length + '/' + r.m.i : '-'} v${r.m.v.toFixed(1)} blk${r.m.blockedFor.toFixed(1)} w${r.m.wait.toFixed(1)}`).join(' | '));
+    // the staff
+    for (const r of H.robots) {
+      const idle = r.m.v < 0.1 && !r.m.moving && !r.engaged && r.taskName !== 'deliver', z = idle ? zone(r.f, r.x, r.z) : null;
+      if (z) { const k = r.name + ' ' + z; M.idleLane.set(k, (M.idleLane.get(k) ?? 0) + DT); const w = `${r.name}/${r.taskName}@${roomName(r.f, r.x, r.z) || '?'}(${r.x.toFixed(0)},${r.z.toFixed(0)},f${r.f})`; M.idleWhere.set(w, (M.idleWhere.get(w) ?? 0) + DT); }
+      if (v.present && r.f === v.f && !(r.carrying && r.forGuest)) {
+        const d = Math.hypot(r.x - v.x, r.z - v.z);
+        if (d < (M.minD.get(r.name) ?? 99)) M.minD.set(r.name, d);
+        if (d < 4 && !(r.engaged && H.talk.robot === r)) M.close.set(r.name, (M.close.get(r.name) ?? 0) + DT);
+      }
+      if (r.engaged && r.visitorDist() < 12 && r.taskName !== 'deliver') { M.faceN++; let a = Math.atan2(v.x - r.x, v.z - r.z) - r.m.yaw; a = Math.abs(Math.atan2(Math.sin(a), Math.cos(a))); if (a < 0.6) M.faceOk++; }
+      for (const o of H.robots) if (o.i > r.i && o.f === r.f && Math.hypot(o.x - r.x, o.z - r.z) < 2.2) { M.pair += DT; const k = `${r.name}/${r.taskName}+${o.name}/${o.taskName}`; M.pairWho.set(k, (M.pairWho.get(k) ?? 0) + DT); }
+      // stuck: meaning to go somewhere and not getting there
+      const lp = lastPos.get(r);
+      if (r.m.moving) { lp.moving += DT; if (lp.moving > 5) { if (Math.hypot(r.x - lp.x, r.z - lp.z) < 0.6) { const k = `${r.name}/${r.taskName}(${r.x.toFixed(0)},${r.z.toFixed(0)})`; M.stuck.set(k, (M.stuck.get(k) ?? 0) + 5); } lp.x = r.x; lp.z = r.z; lp.moving = 0; } }
+      else { lp.x = r.x; lp.z = r.z; lp.moving = 0; }
+    }
+  }
+  if (M.cur >= 1) M.ep.push([M.cur, M.curWho]);
+  const sum = m => [...m.values()].reduce((a, b) => a + b, 0);
+  const top = (m, n = 6) => [...m].sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, s]) => `${s.toFixed(1)}s ${k}`).join('; ');
+  const L = [];
+  L.push(`MANNERS seed ${H.ctx.seed}: ${(t / 60).toFixed(1)} min, ${M.legsDone} legs walked, ${M.skipped} skipped, events ${JSON.stringify({ asides: H.events.asides ?? 0, glides: H.events.glides ?? 0, moveAlong: H.events.moveAlong ?? 0 })}`);
+  L.push(`IDLE IN THE WAY (hall, doorway, stair): ${sum(M.idleLane).toFixed(1)} s in all; ${top(M.idleLane, 9) || 'none'}`);
+  L.push(`  where: ${top(M.idleWhere, 8) || 'nowhere'}`);
+  L.push(`CLOSEST TO HER (not serving): ${H.robots.map(r => `${r.name} ${(M.minD.get(r.name) ?? NaN).toFixed(1)} ft`).join(', ')}; time under 4 ft (not talking to her): ${H.robots.map(r => `${r.name} ${(M.close.get(r.name) ?? 0).toFixed(1)} s`).join(', ')}`);
+  const eps = M.ep.sort((a, b) => b[0] - a[0]);
+  L.push(`HELD UP: ${M.held.toFixed(1)} s in all; episodes of 3 s or more (blocked): ${eps.filter(e => e[0] >= 3).length}; longest ${(eps[0]?.[0] ?? 0).toFixed(1)} s; ${eps.slice(0, 6).map(([s, w]) => `${s.toFixed(1)}s by ${w}`).join(' | ')}`);
+  L.push(`TWO ROBOTS WITHIN 2.2 FT: ${M.pair.toFixed(1)} s ${top(M.pairWho, 4)}`);
+  L.push(`STUCK (moving, under 0.6 ft in 5 s): ${sum(M.stuck).toFixed(0)} s ${top(M.stuck, 5)}`);
+  L.push(`FACING HER WHILE ENGAGED: ${M.faceN ? (100 * M.faceOk / M.faceN).toFixed(1) + '%' : 'n/a'} of ${M.faceN} frames`);
+  if (M.tr) L.push(M.tr.join('\n'));
+  L.push(`final: ${staff.status().filter(s => !/Bramble|Thistle/.test(s.who)).map(s => `${s.who} ${s.task} ${s.room}`).join(', ')}`);
+  L.push(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no errors');
+  out.textContent = L.join('\n');
+  document.title = 'staff test done';
+}
+
+// ?map=x0,z0,x1,z1[,f]: the walkable grid there (. open, 1-4 lane kinds, d door, # blocked), x across, z down
+function dumpMap(H, nav) {
+  const [x0, z0, x1, z1, f = 0] = Q.get('map').split(',').map(Number);
+  const F = nav.floors[f], rows = [];
+  for (let z = z1; z >= z0; z -= nav.CELL) { let r = `${z.toFixed(1).padStart(6)} `; for (let x = x0; x <= x1; x += nav.CELL) { const c = nav.cellOf(x, z); r += c < 0 || !F.walk[c] ? '#' : F.door[c] >= 0 ? 'd' : F.lane[c] ? String(F.lane[c]) : '.'; } rows.push(r); }
+  out.textContent = `cell ${nav.CELL}; x from ${x0} to ${x1}\n` + rows.join('\n'); document.title = 'staff test done';
+}
 if (Q.has('poses')) await poses(); else await runTest();
 </script>

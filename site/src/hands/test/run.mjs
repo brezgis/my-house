@@ -145,6 +145,41 @@ ok('the toys: tokens, trees, plurals', () => {
 });
 ok('data: every thing has a name and a line; food is marked; no cats', () => {
   for (const [id, T] of Object.entries({ ...THINGS, ...SNACKS })) { assert(T.n && (T.l || T.take), id); if (T.eat) assert(T.eat === 'whole' || (Array.isArray(T.eat) && T.eat.length), id); assert(!/\bcats?\b/i.test(id + ' ' + T.n + ' ' + (T.l ?? '')), id); }
-  for (const id of ['croissant', 'st_bread_1', 'st_cake_stand', 'chess_set', 'st_vintage_phone']) assert(!THINGS[id], id + ' belongs to another part of the house');
+  for (const id of ['chess_set', 'st_vintage_phone']) assert(!THINGS[id], id + ' belongs to another part of the house');
+});
+ok('food: one list; anything edible can be eaten to the end; a cake gives a slice', () => {
+  const all = { ...THINGS, ...SNACKS };
+  for (const [id, T] of Object.entries(all)) {
+    if (!T.eat || T.taste) continue;
+    if (Array.isArray(T.eat)) assert(T.done, id + ': a list of bites needs the line that finishes it');
+    else assert(T.eat === 'whole' && (T.bites ?? 3) >= 1 && (T.bites ?? 3) <= 4, id + ': a few bites');
+  }
+  for (const id of ['croissant', 'st_bread_1', 'st_cake_stand']) assert(THINGS[id]?.eat && THINGS[id].portion, id + ': the staff\'s old foods are on the one list, one at a time');
+  for (const [id, T] of Object.entries(THINGS)) if (/cake/.test(id)) assert(T.portion && /^take (a|an|some) /.test(T.take) && T.portion.n !== T.n, id + ': a slice, not the whole cake');
+  for (const [id, T] of Object.entries(THINGS)) if (T.portion) { assert(T.portion.n && (T.portion.model || T.portion.shape), id); assert(T.eat, id + ': a portion is to eat'); }
+  for (const id of ['lemon', 'yellow_onion']) assert(THINGS[id].taste, id + ': tasted, not finished');
+  for (const id of ['st_book', 'Camera_01', 'jug_01', 'st_mug', 'si_kylix_greek_cup', 'garden_gnome']) assert(!THINGS[id].eat, id + ': not food');
+  const staff = readFileSync(new URL('../../staff.js', here), 'utf8');
+  assert(!/const FOOD = \{/.test(staff), 'staff.js keeps no food list of its own');
+  const carry = readFileSync(new URL('../carry.js', here), 'utf8');
+  assert(/KeyQ/.test(carry) && /KeyB/.test(carry) && /Q takes a bite/.test(carry) && !/B takes a bite/.test(carry), 'Q eats (B too), and the hints say Q');
+});
+ok('putting down: at her feet there is always clear floor beside the furniture (the last resort)', () => {
+  // the same offsets carry.js tries in front of her feet; she stands just off the long side of each low piece of furniture
+  const offs = [[1.2, 0], [1.2, 0.7], [1.2, -0.7], [0.9, 1.5], [0.9, -1.5], [1.6, 0], [0.6, 3.1]];
+  let tried = 0, found = 0;
+  for (const c of colliders) {
+    if (c.off || c.staff || Math.abs(c.y0 - 1.6) > 0.3 || c.y1 - c.y0 > 3.6 || c.y1 - c.y0 < 1 || c.x1 - c.x0 < 1.5) continue;
+    const fx = 0, fz = -1, wx = (c.x0 + c.x1) / 2, wz = c.z1 + 1.1; tried++;
+    if (colliders.some(k => !k.off && !k.staff && wx > k.x0 && wx < k.x1 && wz > k.z0 && wz < k.z1 && k.y0 < 3 && k.y1 > 1.7)) { found++; continue; }      // (she could not stand there; nothing to test)
+    for (const [d, a] of offs) {
+      const co = Math.cos(a), sn = Math.sin(a), x = wx + (fx * co - fz * sn) * d, z = wz + (fx * sn + fz * co) * d, s = { x, y: 1.6, z, c: null };
+      if (clearSpot(s, 0.2, 0.5, colliders) && Math.hypot(s.x - x, s.z - z) < 0.5) {
+        for (const k of colliders) if (!k.off && !k.staff && k.y0 < 2.1 && k.y1 > 1.65) assert(!(s.x > k.x0 && s.x < k.x1 && s.z > k.z0 && s.z < k.z1), 'not inside anything');
+        found++; break;
+      }
+    }
+  }
+  assert(tried > 20 && found >= tried * 0.95, `found ${found} of ${tried}`); console.log(`       (${found} of ${tried} places)`);
 });
 console.log(`\n${n} groups passed`);

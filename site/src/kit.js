@@ -104,7 +104,7 @@ export function makeKit(B) {
   // high; with flat: true it lies face-up at height z instead (w along x, tall along y).
   function sign(f, x, y, z, w, tall, draw, o = {}) {
     const [a, c] = world(f, x, y);
-    extras.push({ draw, cw: o.cw ?? 256, ch: o.ch ?? 256, x: a, y: f.h + z, z: c, rotY: yawOf(f.dir) + (o.turn ?? 0), w, h: tall, flat: !!o.flat, glow: o.glow, rough: o.rough });
+    extras.push({ draw, cw: o.cw ?? 256, ch: o.ch ?? 256, x: a, y: f.h + z, z: c, rotY: yawOf(f.dir) + (o.turn ?? 0), w, h: tall, flat: !!o.flat, glow: o.glow, rough: o.rough, tilt: o.tilt });
   }
   // A printed box or bag: a body with a drawn front (and the same on the back if both: true).
   function pack(f, x, y, z, w, d, tall, colour, draw, o = {}) {

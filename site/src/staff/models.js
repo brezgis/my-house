@@ -28,7 +28,7 @@ let solidMat = null;
 export function solid() {
   return solidMat ??= new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.38, metalness: 0.12, envMapIntensity: 0.9 });
 }
-function mesh(geo, mat = solid()) { const m = new THREE.Mesh(geo, mat); m.castShadow = false; m.receiveShadow = false; return m; }
+function mesh(geo, mat = solid()) { const m = new THREE.Mesh(geo, mat); m.castShadow = false; m.receiveShadow = true; return m; }
 const sph = (r, w = 20, h = 14) => new THREE.SphereGeometry(r, w, h);
 const cyl = (r0, r1, h, s = 18) => new THREE.CylinderGeometry(r0, r1, h, s);
 
@@ -191,7 +191,7 @@ export function buildRobot(key) {
   tray.add(mesh(merge([paint(T(cyl(ts, ts * 0.92, 0.03, 28)), BRASS), paint(T(new THREE.TorusGeometry(ts, 0.018, 6, 30), { p: [0, 0.025, 0], r: [Math.PI / 2, 0, 0] }), '#b8914a')])));
   const slot = new THREE.Group(); slot.position.y = 0.02; tray.add(slot);
 
-  root.traverse(o => { o.castShadow = false; o.receiveShadow = false; o.userData.staff = true; });
+  root.traverse(o => { o.castShadow = false; o.receiveShadow = !!o.isMesh; o.userData.staff = true; });
   return { root, bob, body, face, ring, hands, tray, slot, spec: S, R, bodyScale, top: S.hover + (key === 'barty' ? 1.15 : key === 'mort' ? 0.75 : 0.75), ...extra };
 }
 
@@ -223,7 +223,11 @@ export function buildRoomba() {
 
 // ---- The gardeners --------------------------------------------------------------------------------
 // Bramble: a terracotta flowerpot with a round green head growing out of it, a straw hat and a
-// watering can. Thistle: a squat, mossy, weatherproof dome in a waxed bucket hat, secateurs in hand.
+// galvanised watering can (carried in her left hand). Thistle: a squat, mossy, weatherproof dome in a
+// waxed bucket hat, with a leather satchel on his right hip for his small tools.
+// Each hand is a group holding one mesh per thing it can hold (the glove alone, or the glove merged with
+// a tool); exactly one is visible, so a tool in the hand costs no draw call of its own. The tools' working
+// ends are given in the hand's frame (TOOL_TIPS), so gardeners.js can put them where the work is.
 export const GARDENER_SPECS = {
   bramble: { key: 'bramble', name: 'Bramble', short: 'Bramble', hover: 3.0, radius: 0.8, speed: 2.1,
     face: { eye: '#ffe9c0', gap: 42, eyeW: 34, eyeH: 42, blush: 'rgba(255,140,110,.5)', bg: '#0f140c' }, ring: 0xffd9a0, chirp: [62, 66, 69] },
@@ -231,12 +235,52 @@ export const GARDENER_SPECS = {
     face: { eye: '#d6f5b0', gap: 48, eyeW: 30, eyeH: 34, bg: '#0c120a' }, ring: 0xb8f0a0, chirp: [52, 55, 59] },
 };
 const mud = (base, y0, y1) => p => { const n = Math.sin(p.x * 23 + p.z * 17) * Math.sin(p.y * 31 + p.x * 9); return p.y < y0 + (y1 - y0) * (0.5 + 0.5 * n) ? '#5f4630' : base; };
+const STEEL = '#c3c8cc', STEEL_D = '#8f969b', WOOD = '#9a7348', TIN = '#9aa4a8';
+// The working end of each tool, in the hand's frame (feet; the glove is at the origin, +z is forward)
+export const TOOL_TIPS = { can: [0, -0.085, 0.6], secateurs: [0, 0.0, 0.4], trowel: [0, -0.01, 0.46], smoker: [0, 0.33, 0.3], broom: [0, -2.62, 0] };
+// Tools, built about the glove
+const toolGeo = {
+  can: () => [
+    paint(T(cyl(0.17, 0.19, 0.34, 16), { p: [0, -0.3, 0] }), TIN),
+    paint(T(cyl(0.172, 0.172, 0.03, 16), { p: [0, -0.14, 0] }), '#b5bdc0'),
+    paint(T(cyl(0.175, 0.175, 0.025, 16), { p: [0, -0.4, 0] }), '#b5bdc0'),
+    paint(T(new THREE.TorusGeometry(0.14, 0.022, 6, 14, Math.PI), { p: [0, -0.13, 0], r: [0, Math.PI / 2, 0] }), '#8a9498'),        // the handle, over the top
+    paint(T(cyl(0.022, 0.034, 0.47, 8), { p: [0, -0.27, 0.34], r: [0.92, 0, 0] }), TIN),                                        // the spout
+    paint(T(cyl(0.062, 0.03, 0.06, 12), { p: [0, -0.1, 0.56], r: [0.92, 0, 0] }), '#8a9498'),                                     // and its rose
+    paint(T(cyl(0.058, 0.058, 0.008, 12), { p: [0, -0.083, 0.585], r: [0.92, 0, 0] }), '#6c767a'),
+  ],
+  secateurs: () => [
+    paint(T(new THREE.BoxGeometry(0.035, 0.03, 0.24), { p: [-0.028, 0, 0.1], r: [0, 0.1, 0] }), '#b33a2a'),
+    paint(T(new THREE.BoxGeometry(0.035, 0.03, 0.24), { p: [0.028, 0, 0.1], r: [0, -0.1, 0] }), '#b33a2a'),
+    paint(T(cyl(0.025, 0.025, 0.05, 8), { p: [0, 0, 0.23] }), STEEL_D),
+    paint(T(new THREE.BoxGeometry(0.018, 0.04, 0.17), { p: [-0.012, 0.004, 0.32], r: [0, -0.12, 0] }), STEEL),
+    paint(T(new THREE.BoxGeometry(0.018, 0.03, 0.15), { p: [0.012, -0.004, 0.31], r: [0, 0.16, 0] }), STEEL_D),
+  ],
+  trowel: () => [
+    paint(T(cyl(0.035, 0.03, 0.24, 8), { p: [0, 0, 0.02], r: [Math.PI / 2, 0, 0] }), WOOD),
+    paint(T(cyl(0.03, 0.022, 0.06, 8), { p: [0, 0, 0.16], r: [Math.PI / 2, 0, 0] }), STEEL_D),
+    paint(T(sph(1, 10, 6), { p: [0, -0.01, 0.31], s: [0.075, 0.018, 0.16] }), STEEL),
+  ],
+  smoker: () => [
+    paint(T(new THREE.BoxGeometry(0.1, 0.06, 0.22), { p: [0, -0.04, 0.02] }), '#7b5434'),                    // the bellows, in the hand
+    paint(T(new THREE.BoxGeometry(0.11, 0.025, 0.24), { p: [0, -0.085, 0.02] }), '#5b3d24'),
+    paint(T(cyl(0.095, 0.095, 0.26, 14), { p: [0, 0.08, 0.17] }), '#b9b6ad'),                              // the fire can
+    paint(T(new THREE.ConeGeometry(0.1, 0.1, 14), { p: [0, 0.26, 0.17] }), '#a19e95'),
+    paint(T(cyl(0.022, 0.03, 0.11, 8), { p: [0, 0.3, 0.24], r: [0.9, 0, 0] }), '#8c897f'),                   // nozzle, bent forward
+  ],
+  broom: () => [
+    paint(T(cyl(0.035, 0.035, 2.6, 8), { p: [0, -0.85, 0] }), WOOD),
+    paint(T(cyl(0.07, 0.07, 0.12, 10), { p: [0, -2.15, 0] }), '#5b4630'),
+    paint(T(new THREE.ConeGeometry(0.2, 0.48, 12, 1, true), { p: [0, -2.4, 0], s: [1, 1, 0.75] }), '#c2a35e'),       // a besom of birch twigs
+    paint(T(cyl(0.2, 0.2, 0.02, 12), { p: [0, -2.635, 0], s: [1, 1, 0.75] }), '#a98a4c'),
+  ],
+};
 
 export function buildGardener(key) {
   const S = GARDENER_SPECS[key];
   const root = new THREE.Group(), bob = new THREE.Group(); root.add(bob); bob.position.y = S.hover; root.userData.staff = true;
   const parts = [], BRASS = '#c9a45c';
-  let face, R, ringY, handL, handR, trayAt, tool = [], top;
+  let face, R, ringY, handL, handR, trayAt, top, holster, tools;
   if (key === 'bramble') {
     // the pot
     const pot = new THREE.LatheGeometry([[0, -0.56], [0.42, -0.56], [0.5, -0.1], [0.56, 0.36], [0.64, 0.38], [0.65, 0.55], [0.5, 0.55], [0.5, 0.45], [0, 0.45]].map(([r, y]) => new THREE.Vector2(r, y)), 22);
@@ -251,11 +295,17 @@ export function buildGardener(key) {
     const hat = [paint(T(cyl(0.72, 0.74, 0.03, 28), { p: [0, 0, 0] }), '#d9b866'), paint(T(cyl(0.3, 0.36, 0.26, 22), { p: [0, 0.14, 0] }), '#d4b25e'), paint(T(cyl(0.365, 0.365, 0.07, 22), { p: [0, 0.05, 0] }), '#5e7d4a')]
       .map(g => T(g, { r: [0.12, 0, 0.1] })).map(g => T(g, { p: [0, hy + 0.3, -0.04] }));
     parts.push(...hat);
+    // a canvas pouch hung on the rim, front right: her secateurs and the koi food live in it
+    const pa = -0.75, px = -0.4, pz = 0.4;
+    parts.push(paint(T(new THREE.BoxGeometry(0.26, 0.24, 0.1), { p: [px, 0.2, pz], r: [0.08, pa, 0] }), '#cdbb8e'));
+    parts.push(paint(T(new THREE.BoxGeometry(0.27, 0.09, 0.115), { p: [px, 0.3, pz + 0.005], r: [0.08, pa, 0] }), '#b8a676'));
+    parts.push(paint(T(new THREE.BoxGeometry(0.03, 0.2, 0.03), { p: [px - 0.07, 0.43, pz - 0.07], r: [0, pa, 0] }), '#8a7a52'));
+    parts.push(paint(T(new THREE.BoxGeometry(0.03, 0.2, 0.03), { p: [px + 0.07, 0.43, pz - 0.07], r: [0, pa, 0] }), '#8a7a52'));
+    parts.push(paint(T(new THREE.BoxGeometry(0.025, 0.14, 0.03), { p: [px + 0.03, 0.39, pz + 0.02], r: [0.2, pa, 0.1] }), '#b33a2a'));      // a red handle peeping out
+    holster = [px + 0.05, 0.3, pz + 0.12];
     face = makeFace(S.face); const vg = visor(R + 0.008, 0.85, 0.85, 1.75, hs); vg.translate(0, hy, 0); face.mesh = mesh(vg, face.mat);
-    ringY = -0.75; handL = [-0.78, 0.0, 0.15]; handR = [0.78, 0.0, 0.15]; trayAt = [0.55, 0.05, 0.5]; top = S.hover + 1.5;
-    // a galvanised watering can
-    tool = [paint(T(cyl(0.17, 0.19, 0.34, 16), { p: [0, -0.2, 0.12] }), '#9aa4a8'), paint(T(cyl(0.022, 0.035, 0.5, 8), { p: [0, -0.12, 0.42], r: [1.0, 0, 0] }), '#9aa4a8'),
-      paint(T(cyl(0.06, 0.03, 0.06, 10), { p: [0, 0.02, 0.62], r: [1.0, 0, 0] }), '#8a9498'), paint(T(new THREE.TorusGeometry(0.13, 0.02, 6, 14, Math.PI), { p: [0, -0.03, 0.08], r: [0, Math.PI / 2, 0] }), '#8a9498')];
+    ringY = -0.75; handL = [-0.78, 0.0, 0.15]; handR = [0.78, 0.0, 0.15]; trayAt = [-0.55, 0.05, 0.5]; top = S.hover + 1.5;
+    tools = [['secateurs'], ['can']];
   } else {
     R = 0.62; const bs = [1.15, 0.85, 1.05];
     parts.push(paint(T(sph(R, 24, 16), { s: bs }), p => { const m = Math.sin(p.x * 19) * Math.sin(p.z * 21 + p.y * 7); return p.y < -0.28 + 0.1 * m ? '#6a4f36' : m > 0.55 ? '#5d7d42' : '#84a062'; }));        // weathered green, mossy patches, mud below
@@ -265,36 +315,104 @@ export function buildGardener(key) {
     const hat = [paint(T(cyl(0.34, 0.42, 0.3, 20), { p: [0, 0.15, 0] }), '#5b5a3a'), paint(T(cyl(0.62, 0.44, 0.08, 24), { p: [0, 0.02, 0] }), '#55543a'), paint(T(cyl(0.425, 0.425, 0.05, 20), { p: [0, 0.07, 0] }), '#3e3d29')]
       .map(g => T(g, { r: [-0.08, 0, -0.08] })).map(g => T(g, { p: [0, R * 0.85 - 0.08, 0] }));
     parts.push(...hat);
+    // a leather satchel on the belt, right hip: secateurs, trowel, smoker, the koi food
+    const pa = -1.03, px = -0.52, pz = 0.31;
+    parts.push(paint(T(new THREE.BoxGeometry(0.34, 0.3, 0.14), { p: [px, -0.3, pz], r: [0.1, pa, 0] }), '#6b4a2e'));
+    parts.push(paint(T(new THREE.BoxGeometry(0.35, 0.12, 0.155), { p: [px, -0.19, pz + 0.004], r: [0.1, pa, 0] }), '#5a3d25'));
+    parts.push(paint(T(new THREE.BoxGeometry(0.05, 0.05, 0.03), { p: [px + 0.07, -0.22, pz + 0.07], r: [0.1, pa, 0] }), BRASS));
+    parts.push(paint(T(cyl(0.022, 0.022, 0.16, 6), { p: [px + 0.04, -0.06, pz - 0.02], r: [0.15, 0, 0.2] }), WOOD));          // the trowel's handle
+    holster = [px + 0.08, -0.12, pz + 0.12];
     face = makeFace(S.face); face.mesh = mesh(visor(R + 0.008, 0.95, 1.0, 1.55, bs), face.mat);
     ringY = -0.6; handL = [-0.9, -0.1, 0.15]; handR = [0.9, -0.1, 0.15]; trayAt = [0.6, -0.1, 0.55]; top = S.hover + 0.9;
-    // secateurs, red handles
-    tool = [paint(T(new THREE.BoxGeometry(0.03, 0.2, 0.05), { p: [-0.025, 0.12, 0.05], r: [0, 0, 0.12] }), '#b33a2a'), paint(T(new THREE.BoxGeometry(0.03, 0.2, 0.05), { p: [0.025, 0.12, 0.05], r: [0, 0, -0.12] }), '#b33a2a'),
-      paint(T(new THREE.BoxGeometry(0.02, 0.13, 0.03), { p: [0, 0.28, 0.05] }), '#c9ccd0')];
+    tools = [['secateurs', 'trowel', 'smoker', 'broom'], []];
   }
   const body = mesh(merge(parts)); bob.add(body, face.mesh);
   const ring = new THREE.Mesh(T(new THREE.TorusGeometry(R * 0.55, 0.032, 8, 30), { r: [Math.PI / 2, 0, 0] }), new THREE.MeshBasicMaterial({ color: S.ring, toneMapped: false, transparent: true, opacity: 0.85 }));
   ring.position.y = ringY; bob.add(ring);
-  const glove = paint(T(sph(0.12, 10, 7), { s: [1, 0.85, 1.15] }), key === 'bramble' ? '#c9a46a' : '#b08a4e');       // leather gardening gloves, both
+  const glove = () => paint(T(sph(0.12, 10, 7), { s: [1, 0.85, 1.15] }), key === 'bramble' ? '#c9a46a' : '#b08a4e');       // leather gardening gloves, both
+  // hands[0] is the right hand (-x: everyone faces +z), hands[1] the left
   const hands = [handL, handR].map((p, i) => {
     const h = new THREE.Group(); h.position.set(...p); h.userData.rest = p;
-    h.add(mesh(i === (key === 'bramble' ? 1 : 0) ? merge([glove, ...tool]) : glove)); bob.add(h); return h;
+    const v = { glove: mesh(glove()) };
+    for (const k of tools[i]) { v[k] = mesh(merge([glove(), ...toolGeo[k]()])); v[k].visible = false; }
+    for (const k in v) h.add(v[k]);
+    h.userData.variants = v; h.userData.holding = 'glove';
+    bob.add(h); return h;
   });
   const tray = new THREE.Group(); tray.position.set(...trayAt); tray.visible = false; bob.add(tray);
   tray.add(mesh(merge([paint(T(new THREE.CylinderGeometry(0.3, 0.27, 0.06, 20)), '#8a6a44'), paint(T(new THREE.TorusGeometry(0.3, 0.025, 6, 22), { p: [0, 0.04, 0], r: [Math.PI / 2, 0, 0] }), '#6f5434')])));   // a trug
   const slot = new THREE.Group(); slot.position.y = 0.04; tray.add(slot);
-  root.traverse(o => { o.castShadow = false; o.receiveShadow = false; o.userData.staff = true; });
-  return { root, bob, body, face, ring, hands, tray, slot, spec: S, R, top, tool: hands[key === 'bramble' ? 1 : 0] };
+  root.traverse(o => { o.castShadow = false; o.receiveShadow = !!o.isMesh; o.userData.staff = true; });
+  return { root, bob, body, face, ring, hands, tray, slot, spec: S, R, top, holster, tool: hands[0] };
+}
+// Show what a hand holds ('glove' for nothing); returns false if this hand cannot hold it
+export function holdInHand(hand, what) {
+  const v = hand.userData.variants; if (!v[what]) return false;
+  if (hand.userData.holding !== what) { v[hand.userData.holding].visible = false; v[what].visible = true; hand.userData.holding = what; }
+  return true;
 }
 
-// Thistle's wheelbarrow
+// ---- Thistle's wheelbarrow ---------------------------------------------------------------------------
+// A small proper mechanism. root stands at the wheel's contact with the ground and turns with the barrow
+// (+z toward the wheel); pivot sits at the axle and tips the barrow about it (rotation.x > 0 lifts the
+// handles); the wheel spins in it. The body's geometry is swapped for the load it carries (each variant
+// merged once, on first use), so a load costs no draw call; the wheel is the barrow's one extra.
+export const BARROW = { wheelR: 0.44, grips: [[-0.43, 0.43, -2.78], [0.43, 0.43, -2.78]], legs: [[-0.37, -0.44, -1.62], [0.37, -0.44, -1.62]], tray: [0, 0.62, -1.0], len: 2.78 };
+const LOADS = {
+  weeds: () => { const out = []; for (let i = 0; i < 9; i++) { const a = i * 2.4, r = 0.12 + (i % 3) * 0.12; out.push(paint(T(new THREE.IcosahedronGeometry(0.17, 0), { p: [Math.cos(a) * r * 1.3, 0.62 + (i % 2) * 0.07, -1.0 + Math.sin(a) * r * 1.6], r: [i, i * 2, 0], s: [1.2, 0.6, 1] }), ['#5f7d3a', '#78944a', '#4f6a33', '#8a9a52'][i % 4])); }
+    for (let i = 0; i < 5; i++) out.push(paint(T(cyl(0.012, 0.012, 0.4, 4), { p: [-0.2 + i * 0.1, 0.78, -1.05 + (i % 2) * 0.2], r: [0.6 + i * 0.3, i, 0.4] }), '#6a7d3c'));
+    return out; },
+  leaves: () => { const out = []; for (let i = 0; i < 12; i++) { const a = i * 2.1, r = 0.1 + (i % 4) * 0.1; out.push(paint(T(sph(0.13, 6, 4), { p: [Math.cos(a) * r * 1.4, 0.6 + (i % 3) * 0.05, -1.0 + Math.sin(a) * r * 1.7], r: [0.3 * i, i, 0], s: [1.3, 0.25, 1] }), ['#b8742e', '#c99a3e', '#8f5a2a', '#a8642c'][i % 4])); } return out; },
+  compost: () => { const out = []; for (let i = 0; i < 10; i++) { const a = i * 2.3, r = 0.08 + (i % 3) * 0.12; out.push(paint(T(new THREE.IcosahedronGeometry(0.19, 0), { p: [Math.cos(a) * r * 1.3, 0.6 + (i % 2) * 0.08, -1.0 + Math.sin(a) * r * 1.6], r: [i, i * 1.7, 0], s: [1.3, 0.55, 1.1] }), ['#3e2c1e', '#4a3424', '#35271b', '#5a4330'][i % 4])); }
+    for (let i = 0; i < 4; i++) out.push(paint(T(new THREE.BoxGeometry(0.02, 0.02, 0.22), { p: [-0.2 + i * 0.13, 0.74, -1.0 + (i % 2) * 0.25], r: [0.2, i * 0.8, 0.1] }), '#b59a5a'));      // bits of straw
+    return out; },
+};
+export const BARROW_LOADS = Object.keys(LOADS);
 export function buildBarrow() {
-  const G = '#4f6b4a', parts = [
-    paint(T(new THREE.CylinderGeometry(0.9, 0.55, 0.7, 4, 1, true), { p: [0, 1.1, 0], r: [0, Math.PI / 4, 0], s: [1, 1, 1.5] }), G),
-    paint(T(new THREE.BoxGeometry(1.0, 0.06, 1.3), { p: [0, 0.76, 0] }), G),
-    paint(T(new THREE.BoxGeometry(1.05, 0.08, 1.9), { p: [0, 1.38, 0], s: [1, 1, 1] }), '#4a3424'),               // a load of compost
-    paint(T(new THREE.TorusGeometry(0.42, 0.1, 8, 18), { p: [0, 0.45, 1.25], r: [0, Math.PI / 2, 0] }), '#222'),
-    paint(T(cyl(0.05, 0.05, 0.2, 6), { p: [0, 0.45, 1.25], r: [0, 0, Math.PI / 2] }), '#888'),
-    ...[-0.45, 0.45].flatMap(x => [paint(T(cyl(0.04, 0.04, 2.6, 6), { p: [x, 0.95, -0.3], r: [Math.PI / 2 - 0.25, 0, 0] }), '#8a6a44'), paint(T(cyl(0.035, 0.035, 0.75, 6), { p: [x, 0.38, -0.55] }), '#5b4630')]),
+  const G = '#4f6b4a', G2 = '#5c7a56', IRON = '#2f3433', { wheelR: WR } = BARROW;
+  // the tray: a pressed steel tub, deeper at the back, its front raked forward over the wheel
+  const skew = g => { const a = g.attributes.position; for (let i = 0; i < a.count; i++) { const y = a.getY(i) + 0.26, z = a.getZ(i); if (z > 0) a.setZ(i, z + y * 0.55); } return g; };
+  const tub = new THREE.CylinderGeometry(0.78, 0.5, 0.52, 4, 2, true); tub.rotateY(Math.PI / 4); tub.scale(1, 1, 1.32); skew(tub); tub.computeVertexNormals();
+  const inner = tub.toNonIndexed(); inner.scale(-0.985, 1, 0.985); inner.computeVertexNormals();          // the inside, facing in (mirrored, so its faces turn inward)
+  const rim = new THREE.TorusGeometry(0.78, 0.028, 5, 4); rim.rotateZ(Math.PI / 4); rim.scale(1, 1.32, 1); rim.rotateX(Math.PI / 2); rim.translate(0, 0.26, 0); skew(rim);
+  const parts = [
+    paint(T(tub, { p: [0, 0.48, -1.0] }), G), paint(T(inner, { p: [0, 0.48, -1.0] }), G2),
+    paint(T(new THREE.BoxGeometry(0.7, 0.03, 0.92), { p: [0, 0.235, -1.0] }), G2),
+    paint(T(rim, { p: [0, 0.48, -1.0] }), '#3f5a3c'),      // rolled rim
   ];
-  const m = mesh(merge(parts)); m.userData.staff = true; return m;
+  // shafts: from the axle back under the tray to the grips; forks to the axle, legs, a stay
+  for (const s of [-1, 1]) {
+    const a = [s * 0.12, 0, 0.02], b = [s * 0.36, 0.2, -1.3], c = [s * 0.43, 0.43, -2.6];
+    for (const [p, q, r] of [[a, b, 0.032], [b, c, 0.032]]) {
+      const dx = q[0] - p[0], dy = q[1] - p[1], dz = q[2] - p[2], L = Math.hypot(dx, dy, dz), g = cyl(r, r, L, 7);
+      g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(dx / L, dy / L, dz / L)));
+      parts.push(paint(T(g, { p: [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2] }), WOOD));
+    }
+    parts.push(paint(T(cyl(0.048, 0.044, 0.32, 8), { p: [s * 0.43, 0.43, -2.76], r: [Math.PI / 2 - 0.17, 0, 0] }), '#3a2f26'));          // rubber grips
+    parts.push(paint(T(cyl(0.022, 0.022, 0.62, 6), { p: [s * 0.36, -0.13, -1.56], r: [-0.12, 0, 0] }), IRON));                           // legs
+    parts.push(paint(T(new THREE.BoxGeometry(0.1, 0.03, 0.14), { p: [s * 0.37, -0.43, -1.62] }), IRON));
+    parts.push(paint(T(cyl(0.016, 0.016, 0.62, 5), { p: [s * 0.2, 0.18, -0.4], r: [1.35, 0, -s * 0.2] }), IRON));                         // tray stay
+  }
+  parts.push(paint(T(cyl(0.02, 0.02, 0.74, 5), { p: [0, -0.13, -1.53], r: [0, 0, Math.PI / 2] }), IRON));                                   // leg brace
+  parts.push(paint(T(cyl(0.03, 0.03, 0.3, 8), { p: [0, 0, 0], r: [0, 0, Math.PI / 2] }), IRON));                                           // axle
+  const base = parts.map(g => g.index ? g.toNonIndexed() : g);
+  const cache = {};
+  const geoFor = (load, broom) => {
+    const k = `${load}|${broom}`; if (cache[k]) return cache[k];
+    const extra = [...(LOADS[load]?.() ?? [])];
+    if (broom) extra.push(paint(T(cyl(0.032, 0.032, 2.2, 7), { p: [0.12, 0.78, -1.25], r: [1.438, 0, 0] }), WOOD), paint(T(new THREE.ConeGeometry(0.19, 0.45, 10, 1, true), { p: [0.12, 0.96, 0.09], r: [1.438 + Math.PI, 0, 0], s: [1, 1, 0.7] }), '#c2a35e'));      // the broom rides along, head over the wheel
+    return (cache[k] = merge([...base, ...extra.map(g => g.index ? g.toNonIndexed() : g)]));
+  };
+  const root = new THREE.Group(), pivot = new THREE.Group(); pivot.position.y = WR; root.add(pivot);
+  const body = mesh(geoFor('', false)); pivot.add(body);
+  const wheel = mesh(merge([
+    paint(T(new THREE.TorusGeometry(WR - 0.075, 0.075, 8, 22), { r: [0, Math.PI / 2, 0] }), '#232323'),
+    paint(T(new THREE.TorusGeometry(WR - 0.15, 0.025, 5, 20), { r: [0, Math.PI / 2, 0] }), '#9a3a2a'),
+    paint(T(cyl(0.07, 0.07, 0.16, 10), { r: [0, 0, Math.PI / 2] }), '#9a3a2a'),
+    ...[0, 1, 2, 3, 4, 5].map(i => paint(T(new THREE.BoxGeometry(0.03, WR * 2 - 0.3, 0.03), { r: [(i * Math.PI) / 6, 0, 0] }), '#9a3a2a')),
+  ].map(g => g.index ? g.toNonIndexed() : g)));
+  pivot.add(wheel);
+  root.userData.barrow = { pivot, body, wheel, load: '', broom: false, setLoad(load, broom = this.broom) { if (load === this.load && broom === this.broom) return; this.load = load; this.broom = broom; body.geometry = geoFor(load, broom); } };
+  root.traverse(o => { o.castShadow = false; o.receiveShadow = !!o.isMesh; o.userData.staff = true; });
+  return root;
 }

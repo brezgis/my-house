@@ -122,8 +122,9 @@ export class Walker {
         const n = Math.max(1, Math.ceil((speed * dt) / 0.3));
         for (let i = 0; i < n; i++) { this.pos.x += (vx * dt) / n; this.pos.z += (vz * dt) / n; this.collide(this.pos); }
       }
-      // The edge of the world: the island's rim holds you back gently
-      if (this.rim) { const dx = this.pos.x - this.rim.x, dz = this.pos.z - this.rim.z, d = Math.hypot(dx, dz), max = this.rim.at ? this.rim.at(Math.atan2(dz, dx)) : this.rim.r; if (d > max) { this.pos.x = this.rim.x + (dx / d) * max; this.pos.z = this.rim.z + (dz / d) * max; } }
+      // The edge of the world: the island's rim holds you back gently (but not while you are up on a deck
+      // flagged `free`, as the treehouse's out over the edge are: their own rails hold you there)
+      if (this.rim && !this.surfaces.some(s => s.free && this.pos.x >= s.x0 && this.pos.x <= s.x1 && this.pos.z >= s.z0 && this.pos.z <= s.z1 && this.pos.y > Math.min(s.h, s.h2 ?? s.h) - 0.8)) { const dx = this.pos.x - this.rim.x, dz = this.pos.z - this.rim.z, d = Math.hypot(dx, dz), max = this.rim.at ? this.rim.at(Math.atan2(dz, dx)) : this.rim.r; if (d > max) { this.pos.x = this.rim.x + (dx / d) * max; this.pos.z = this.rim.z + (dz / d) * max; } }
       // Feet: step up small rises smoothly; fall, or jump, under gravity.
       const floor = this.floorAt(this.pos.x, this.pos.z, this.pos.y);
       if (this.grounded && floor >= this.pos.y - 0.6) this.pos.y += (floor - this.pos.y) * Math.min(1, dt * 14);

@@ -100,7 +100,11 @@ export class Ground {
     const loader = new THREE.TextureLoader(), aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
     const tex = (file, size, srgb) => { const t = sharedTexture(file); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1 / size, 1 / size); t.anisotropy = aniso; if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; };
     const mats = {};
-    let order = 0;
+    // Each flat layer is pulled toward the eye a little more than the one beneath it, so layers a
+    // fraction of an inch apart do not fight. The pull must follow their HEIGHTS: it used to follow the
+    // order of the table above, so from a distance the meadow (low, but late in the table) covered the
+    // soil round the fire pit and flagstones in the lawn, and they appeared as you walked up.
+    const rank = Object.fromEntries(Object.keys(SETS).filter(k => SETS[k][3] > 0 && this.parts[k].length).sort((a, b) => SETS[a][3] - SETS[b][3]).map((k, i) => [k, i]));
     for (const [kind, [file, size, tint, , rough]] of Object.entries(SETS)) {
       if (!this.parts[kind].length) continue;
       let m;
@@ -110,7 +114,7 @@ export class Ground {
       } else m = kind === 'lawn' && grassMat ? grassMat.clone() : new THREE.MeshStandardMaterial({ map: tex(file + '_color', size, true), normalMap: tex(file + '_normal', size), color: tint, roughness: rough, envMapIntensity: 0.5 });
       const solid = SETS[kind][3] === 0;
       if (kind === 'lawn' && grassMat) { m.transparent = false; m.alphaMap = null; m.depthWrite = true; }
-      if (!solid) { m.polygonOffset = true; m.polygonOffsetFactor = -1 - order; m.polygonOffsetUnits = -2 - order * 2; order++; }
+      if (!solid) { const order = rank[kind]; m.polygonOffset = true; m.polygonOffsetFactor = -1 - order; m.polygonOffsetUnits = -2 - order * 2; }
       const mesh = new THREE.Mesh(mergeGeometries(this.parts[kind]), m);
       mesh.receiveShadow = true; mesh.castShadow = solid; mesh.name = 'ground ' + kind;
       scene.add(mesh); mats[kind] = m;

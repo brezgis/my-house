@@ -24,6 +24,7 @@ export function setupToys(ctx) {
   chess(ctx, modes, hold).catch(e => console.warn('chess', e));
   telescope(ctx, modes, hold);
   globe(ctx);
+  import('./jigsaw.js').then(m => m.setupJigsaw(ctx, modes, hold)).catch(e => console.warn('jigsaw', e));      // the jigsaw on the dining table
 }
 
 // ------------------------------------------------------------------------------------------

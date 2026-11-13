@@ -1,4 +1,5 @@
 #!/bin/bash
+"$(dirname "$0")/clean_cache.sh"      # sweep up after earlier Chrome runs (see that file)
 # Take a screenshot of the house with headless Chrome, rendered on the GPU (about a minute).
 # ANGLE=swiftshader falls back to slow software rendering if the GPU is unavailable.
 #   tools/shot.sh <out.png> "<query string>" [width height]

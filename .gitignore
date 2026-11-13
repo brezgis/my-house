@@ -5,3 +5,10 @@ research/*
 tools/local.env
 .DS_Store
 __pycache__/
+# The guest book's own data, when it is run here for testing: the notes, the salt, local settings
+guestbook/data/
+guestbook/*.db
+guestbook/*.db-wal
+guestbook/*.db-shm
+guestbook/salt
+guestbook/*.env

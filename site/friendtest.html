@@ -10,7 +10,11 @@
 //                              room, upstairs, out into the garden and back, talks, dances and sends them
 //                              home. Reports manners (distance, doorways, attention) and whether anybody
 //                              was ever inside a wall or a piece of furniture.   ?seed=7  ?staff=0
-//   friendtest.html?poses      the three bodies on a plain floor (poses=side | dance | staff for the family)
+//   friendtest.html?plan=out   the same, but an afternoon out of doors: the side terrace, round to the front porch,
+//                              the screened porch behind the kitchen, the back garden and the front garden
+//   friendtest.html?poses      the three bodies on a plain floor (poses=side | back | top | staff for the family;
+//                              &who=gigi close up on one, &ry=0.6 turns them all, &dim for lamplight); it keeps
+//                              rendering, so animated parts (Nano's loss curve) move between shots
 //   friendtest.html?chat=gigi  the telephone card and chat box alone, with the real conversation engine,
 //                              for trying the typing quickly (chat=gigi,feyn puts two in the room; &phone opens the telephone)
 import * as THREE from 'three';
@@ -19,7 +23,43 @@ const errors = [];
 addEventListener('error', e => errors.push(String(e.message)));
 addEventListener('unhandledrejection', e => errors.push(String(e.reason)));
 
+// The gesture sheet: one guest in every gesture (bodies.js handPose), labelled, frozen at a moment (&t=1.3).
+//   ?poses=gestures&who=gigi            front     &ry=1.2 from the side     &old  the hand poses as they were before
+//   (before: party.js set a handful of poses directly, with no easing and no anchor: talking raised the right
+//    hand a little, typing and drumming were the same height in the air, sipping held the cup beside the face)
+async function gestureSheet() {
+  const { buildGuest, useThreeBodies, handPose, GESTURES } = await import('./src/friends/bodies.js');
+  useThreeBodies(THREE);
+  out.remove(); document.body.style.margin = 0; document.body.style.background = '#d9d2c4';
+  const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(innerWidth, innerHeight); r.toneMapping = THREE.ACESFilmicToneMapping; document.body.appendChild(r.domElement);
+  const sc = new THREE.Scene(); sc.background = new THREE.Color(0xd9d2c4);
+  sc.add(new THREE.HemisphereLight(0xfff4e6, 0x8a7a66, 1.6)); const sun = new THREE.DirectionalLight(0xfff0dc, 2.2); sun.position.set(5, 10, 8); sc.add(sun);
+  const id = Q.get('who') || 'gigi', t = Number(Q.get('t') ?? 1.3), ry = Number(Q.get('ry') ?? 0), old = Q.has('old');
+  const OLD = {      // the hand targets party.js used before (x, y, z each hand), for the same names where there was one
+    rest: (L, R) => [L[0], L[1], L[2], R[0], R[1], R[2]], open: (L, R) => [L[0], L[1], L[2], R[0], R[1] + 0.17, R[2] + 0.16], drum: () => [-0.2, -0.36, 0.62, 0.19, -0.2, 0.62],
+    type: () => [-0.24, -0.26, 0.62, 0.24, -0.26, 0.62], sip: (L, R) => [L[0], L[1], L[2], 0.3, R[1] + 0.34, 0.52], hair: (L, R, b) => [-0.22, b.R * b.bs[1] + 0.02, 0.12, R[0], R[1], R[2]],
+    make: () => [-0.2, -0.05, 0.6, 0.22, -0.12, 0.62], draw: (L, R) => [L[0], L[1], L[2], 0.46, 0.36, 0.62], reach: (L, R) => [L[0], L[1], L[2], R[0], R[1] + 0.12, R[2] + 0.42] };
+  const names = old ? Object.keys(OLD) : GESTURES, cols = old ? 5 : 7, rows = Math.ceil(names.length / cols), dx = 2.3, dy = 3.0;
+  const HP = new Float32Array(8), labels = [];
+  names.forEach((n, i) => {
+    const b = buildGuest(id), c = i % cols, row = Math.floor(i / cols), x = (c - (cols - 1) / 2) * dx, y = (rows - 1 - row) * dy;
+    b.root.position.set(x, y, 0); b.root.rotation.y = ry; sc.add(b.root); b.face.draw(['type', 'draw', 'piano', 'read', 'lean', 'browse'].includes(n) ? 'focus' : 'happy');
+    if (old) { const L = b.hands[0].userData.rest, R = b.hands[1].userData.rest, h = OLD[n](L, R, b); b.hands[0].position.set(h[0], h[1], h[2]); b.hands[1].position.set(h[3], h[4], h[5]); }
+    else { handPose(b, n, t, t * 1.6, null, HP, 0); b.hands[0].position.set(HP[0], HP[1], HP[2]); b.hands[1].position.set(HP[3], HP[4], HP[5]); b.hands[0].rotation.x = HP[6]; b.hands[1].rotation.x = HP[7]; }
+    if (b.cup) b.cup.visible = ['carry', 'sip', 'make'].includes(n) || (old && n === 'sip');
+    if (b.book) b.book.visible = n === 'read';
+    if (['lean', 'browse'].includes(n) && !old) b.bob.rotation.x = 0.22; else if (['type', 'draw', 'piano', 'read', 'make'].includes(n) && !old) b.bob.rotation.x = 0.1;
+    labels.push([n, new THREE.Vector3(x, y + b.spec.hover - 1.2 * (b.spec.tall ?? 1), 0)]);
+  });
+  const cy = ((rows - 1) * dy + 2.2 + 4.8) / 2, cam = new THREE.PerspectiveCamera(24, innerWidth / innerHeight, 0.1, 400); cam.position.set(0, cy + 0.6, Math.max(cols * dx / cam.aspect, rows * dy * 1.05) / (2 * Math.tan(0.21)) + 3); cam.lookAt(0, cy, 0); cam.updateMatrixWorld();
+  r.render(sc, cam);
+  for (const [n, p] of labels) { p.project(cam); const d = document.createElement('div'); d.textContent = n; d.style.cssText = `position:fixed;left:${((p.x + 1) / 2 * innerWidth).toFixed(0)}px;top:${((1 - p.y) / 2 * innerHeight).toFixed(0)}px;transform:translate(-50%,0);font:13px Georgia,serif;color:#3a2a1e`; document.body.appendChild(d); }
+  const tag = document.createElement('div'); tag.style.cssText = 'position:fixed;left:8px;top:6px;font:14px Georgia,serif;color:#3a2a1e'; tag.textContent = `${id}: ${old ? 'the hand poses before' : 'gestures now'}${ry ? ' (from the side)' : ''}`; document.body.appendChild(tag);
+  document.title = 'done';
+}
+
 async function poses() {
+  if (Q.get('poses') === 'gestures') return gestureSheet();
   const { buildGuest, useThreeBodies, costOf } = await import('./src/friends/bodies.js');
   useThreeBodies(THREE);
   out.remove(); document.body.style.margin = 0;
@@ -31,7 +71,7 @@ async function poses() {
   const costs = {};
   ['feyn', 'gigi', 'nano'].forEach((k, i) => {
     const b = buildGuest(k); b.root.position.set((i - 1) * 3.0, 0, -5); sc.add(b.root); b.face.draw(['wink', 'happy', 'neutral'][i]);
-    if (kind === 'side') b.root.rotation.y = 1.1; if (kind === 'back') b.root.rotation.y = Math.PI;
+    if (kind === 'side') b.root.rotation.y = 1.1; if (kind === 'back') b.root.rotation.y = Math.PI; if (Q.has('ry')) b.root.rotation.y = Number(Q.get('ry'));
     if (b.cup) b.cup.visible = true;
     costs[k] = costOf(b.root);
   });
@@ -41,7 +81,10 @@ async function poses() {
     cam.position.set(0, 7.5, 9); cam.lookAt(0, 3, -6.5);
   } else if (kind === 'top') { cam.position.set(0, 13, -1); cam.lookAt(0, 3.4, -5); }
   else { cam.position.set(0, 4.6, 5.2); cam.lookAt(0, 3.3, -5); }
-  r.render(sc, cam);
+  const who = ['feyn', 'gigi', 'nano'].indexOf(Q.get('who'));
+  if (who >= 0) { const x = (who - 1) * 3.0, y = who === 2 ? 4.35 : 3.62; cam.position.set(x, y + 0.5, -1.6); cam.lookAt(x, y + 0.05, -5); }
+  if (Q.has('dim')) { sc.background.set(0x2a2420); sc.children[0].intensity = 0.25; sun.color.set(0xffb070); sun.intensity = 0.7; }
+  (function loop() { r.render(sc, cam); requestAnimationFrame(loop); })();
   const tag = document.createElement('div'); tag.style.cssText = 'position:fixed;left:8px;bottom:6px;font:12px monospace;color:#333'; tag.textContent = JSON.stringify(costs); document.body.appendChild(tag);
   document.title = 'done';
 }
@@ -93,6 +136,7 @@ async function runTest() {
   let seed = Number(Q.get('seed') ?? 7) >>> 0;
   const friendsRnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
   const ctx = { THREE, scene, camera, renderer, materials, house, items, garden, colliders: B.colliders, interact: life.interact, animated: life.animated, loadModel: life.loadModel, track: life.track, zoneAt: life.zoneAt, sound: null, day, walker, mode: 'walk', headless: true, seed: 7, friendsRnd, friendsDelay: 0 };
+  window.__ctx = ctx;      // (for probing from the test driver)
   let staff = null;
   if (Q.get('staff') !== '0') { const { hireStaff } = await import('./src/staff.js'); staff = hireStaff(ctx); ctx.staff = staff; window.__staff = staff; }
   const { setupFriends } = await import('./src/friends.js');
@@ -113,7 +157,22 @@ async function runTest() {
     [395, () => { snapshot('back in the hall'); outside = true; walker.pos.set(2, 0.05, 30); }], [440, () => { snapshot('visitor in the garden'); outside = false; walker.pos.set(sp.x, 1.6, sp.z); }], [470, () => { snapshot('back indoors'); go(Pt(14, 8)); }],
     [560, () => { snapshot('a long sit in the living room (wandering allowed)'); }], [562, () => log('sends Geneva home: "' + party.sendHome('gigi') + '"')], [600, () => { snapshot('Geneva gone'); party.sayTo('feyn', 'time to go home'); party.sendHome('nano'); }], [650, () => snapshot('everyone gone')],
   ];
-  const T = 655, DT = 1 / 20, lines = [];
+  // out of doors: she steps out (placed, as the test walker only knows the house plan), stands, moves on
+  const outAt = (x, y, z, yaw) => () => { outside = true; path = null; walker.pos.set(x, y, z); walker.yaw = yaw; };
+  const lawnNear = (x, z) => { const o = staff?.H?.out, c = o ? o.nearest(0, x, z, 2, 20) : -1; return c >= 0 ? [o.cx(c), o.cz(c)] : [x, z]; };
+  const backLawn = lawnNear(15, -60), OUT = [];
+  const outPlan = [
+    [2, () => { log('rings all three: ' + ['feyn', 'gigi', 'nano'].map(id => `${id} "${party.ring(id)}"`).join('  ')); }],
+    [34, () => { snapshot('everyone in, in the hall'); go(Pt(9.5, 9)); }], [60, () => { snapshot('living room'); outAt(-24.5, 1.2, 4, Math.PI / 2)(); }],
+    [95, () => { snapshot('side terrace', true); outAt(-13, 1.2, 6, Math.PI)(); }], [125, () => { snapshot('front of the terrace', true); outAt(3, 1.45, 7, Math.PI)(); }],
+    [155, () => { snapshot('front porch', true); outside = false; walker.pos.set(sp.x, 1.6, sp.z); go(Pt(36, 30)); }], [200, () => { snapshot('kitchen'); outAt(15, 1.5, -41, 0)(); }],
+    [240, () => { snapshot('screened porch', true); outAt(backLawn[0], 0.05, backLawn[1], 0)(); }], [290, () => { snapshot('back garden', true); outAt(2, 0.05, 30, Math.PI)(); }],
+    [345, () => { snapshot('front garden', true); outAt(-61.97, 0.05, -74.0, 0)(); walker.seated = { label: 'sit by the fire' }; }], [405, () => { snapshot('sitting by the fire pit', true); walker.seated = null; outAt(-29.5, 1.2, -0.5, Math.PI / 2)(); }], [440, () => { snapshot('back on the side terrace', true); outside = false; walker.pos.set(sp.x, 1.6, sp.z); go(Pt(14, 8)); }],
+    [470, () => { snapshot('back indoors, living room'); outAt(-24, 1.2, -1, Math.PI / 2)(); }], [490, () => { log('sends everyone home from the terrace: ' + ['feyn', 'gigi', 'nano'].map(id => party.sendHome(id)).join(' / ')); }],
+    [530, () => snapshot('everyone gone')],
+  ];
+  if (Q.get('plan') === 'out') { plan.length = 0; plan.push(...outPlan); }
+  const T = Q.get('plan') === 'out' ? 535 : 655, DT = 1 / 20, lines = [];
   const TR = Q.get('trace')?.split(',').map(Number) ?? null;
   const log = s => lines.push(`  t=${Math.round(now)}  ${s}`);
   let now = 0, path = null, pi = 0, outside = false, pk = 0;
@@ -130,29 +189,30 @@ async function runTest() {
     walker.pos.y = stairs ? (nav.stair && walker.pos.z < nav.stair.zHi ? nav.FLOORS[1] : nav.floorY(0, walker.pos.x, walker.pos.z)) : nav.FLOORS[p.f];
   }
   const M = { closeWho: new Map(), close: 0, closeStill: 0, frames: 0, dist: [], door: 0, doorWho: new Map(), engaged: 0, facing: 0, still: 0, engStart: new Map(), bad: 0, firstBad: [], inBody: 0, pairClose: 0, follow: [], doorOpenFrames: 0, staffClose: 0 };
-  function snapshot(label) {
+  function snapshot(label, out = false) {
     const v = P.v, st = party.status();
-    lines.push(`  t=${Math.round(now)}  ${label}: visitor ${v.outside ? 'outside' : (v.room ?? '?')} f${v.f} | ` + st.map(s => `${s.who} ${s.state}/${s.mode}${s.away ? '@' + s.away : ''} in ${s.room} f${s.f} ${s.state === 'here' && s.f === v.f ? Math.hypot(s.x - v.x, s.z - v.z).toFixed(1) + 'ft' : ''}`).join(' | '));
+    if (out) for (const g of P.guests) if (g.state === 'here') OUT.push(g.out && Math.hypot(g.m.x - v.x, g.m.z - v.z) < 12 ? 1 : 0);
+    lines.push(`  t=${Math.round(now)}  ${label}: visitor ${v.outside ? 'outside' : (v.room ?? '?')} f${v.f} | ` + st.map(s => `${s.who} ${s.state}/${s.mode}${s.away ? '@' + s.away : ''} in ${s.room} f${s.f} ${s.state === 'here' && (s.f === v.f || v.outside) ? Math.hypot(s.x - v.x, s.z - v.z).toFixed(1) + 'ft' : ''}${s.where ? ' ' + s.where : ''}`).join(' | '));
     for (const g of P.guests) if (g.state === 'here' && !g.away && !v.outside) M.follow.push(g.m.f === v.f && Math.hypot(g.m.x - v.x, g.m.z - v.z) < 16 ? 1 : 0);
   }
   for (now = 0; now < T; now += DT) {
     while (pk < plan.length && now >= plan[pk][0]) plan[pk++][1]();
     walk(DT, now); camera.position.set(walker.pos.x, walker.pos.y + 4.85, walker.pos.z); camera.rotation.set(-0.08, walker.yaw, 0, 'YXZ'); camera.updateMatrixWorld();
     staff?.step(DT); party.step(DT, false);
-    const v = P.v, still = now - v.movedAt > 2;
+    const v = P.v, still = P.now - v.movedAt > 2;      // (P.now: the party clock, which starts at the first ring)
     for (const g of P.guests) {
       if (g.state !== 'here') continue;
       const d = g.m.f === v.f && !v.outside ? Math.hypot(g.m.x - v.x, g.m.z - v.z) : 99;
-      if (d < 40) { M.frames++; if (d < 3.6) { M.close++; if (still && g.m.v < 0.1 && !g.engaged) { M.closeStill++; M.closeWho.set(`${g.name}/${g.mode}${g.away ? '@' + g.away.spot.key : ''} ${d.toFixed(1)}ft`, Math.round(now)); } } if (still && !g.away && g.mode === 'idle') M.dist.push(d); }
+      if (d < 40) { M.frames++; if (d < 3.6) { M.close++; if (still && g.m.v < 0.1 && !g.engaged) { M.closeStill++; const k = `${g.name}/${g.mode}${g.sitting ? '+sit' : ''}${g.away ? '@' + g.away.spot.key : ''} t=${Math.round(now / 5) * 5}`; M.closeWho.set(k, (M.closeWho.get(k) ?? 0) + 1); } } if (still && !g.away && g.mode === 'idle') M.dist.push(d); }
       if (g.mode === 'idle' && g.m.v < 0.05 && !g.engaged) if (party.nearDoor(g.m.f, g.m.x, g.m.z, 1.5)) { M.door++; M.doorWho.set(`${g.name}@${g.m.x.toFixed(1)},${g.m.z.toFixed(1)}`, Math.round(now)); }
       if (g.engaged && d < 12 && P.now < g.engagedUntil && g.look === v) { if (!M.engStart.has(g)) M.engStart.set(g, now); if (now - M.engStart.get(g) > 1.5) { M.engaged++; let a = Math.atan2(v.x - g.m.x, v.z - g.m.z) - g.m.yaw; a = Math.abs(Math.atan2(Math.sin(a), Math.cos(a))); if (a < 0.45) M.facing++; if (g.m.v < 0.15) M.still++; } } else M.engStart.delete(g);
-      for (const o of P.guests) if (o !== g && o.state === 'here' && o.m.f === g.m.f && Math.hypot(o.m.x - g.m.x, o.m.z - g.m.z) < 1.2) { M.pairClose++; const k = `${g.id}/${g.mode}${g.sitting ? '+sit' : ''}${g.garden ? '+garden' : ''}${g.out ? '+out' : ''} with ${o.id}/${o.mode}${o.sitting ? '+sit' : ''}${o.garden ? '+garden' : ''} near ${Math.round(g.m.x)},${Math.round(g.m.z)}`; (M.pairWho ??= new Map()).set(k, (M.pairWho.get(k) ?? 0) + 1); }
+      for (const o of P.guests) if (o !== g && o.state === 'here' && o.m.f === g.m.f && Math.hypot(o.m.x - g.m.x, o.m.z - g.m.z) < 1.2) { M.pairClose++; const k = `${g.id}/${g.mode}${g.sitting ? '+sit' : ''}${g.garden ? '+garden' : ''}${g.out ? '+out' : ''} with ${o.id}/${o.mode}${o.sitting ? '+sit' : ''}${o.garden ? '+garden' : ''} near ${Math.round(g.m.x)},${Math.round(g.m.z)} t=${Math.round(now / 10) * 10}`; (M.pairWho ??= new Map()).set(k, (M.pairWho.get(k) ?? 0) + 1); }
       if (staff) for (const a of staff.H.robots) if (a.f === g.m.f && Math.hypot(a.x - g.m.x, a.z - g.m.z) < 1.1) M.staffClose++;
       if (walker.pos.x > g.box.x0 && walker.pos.x < g.box.x1 && walker.pos.z > g.box.z0 && walker.pos.z < g.box.z1 && Math.abs(walker.pos.y - g.m.y) < 2) M.inBody++;
     }
     if (P.door?.isOpen) M.doorOpenFrames++;
     if (P.door && P.door.isOpen !== M.doorWas) { M.doorWas = P.door.isOpen; lines.push(`    ${now.toFixed(1)}: front door ${M.doorWas ? 'opened' : 'closed'} (ours: ${P.doorOpenedByUs}); near it: ` + [...P.guests.map(g => [g.name, g.m.x, g.m.z, g.state]), ...(staff ? staff.H.robots.map(r => [r.name, r.x, r.z, r.taskName]) : []), ['you', v.x, v.z, '']].filter(a => Math.hypot(a[1] - P.door.cx, a[2] - P.door.cz) < 9).map(a => `${a[0]} ${a[3]} ${a[1].toFixed(1)},${a[2].toFixed(1)}`).join('; ')); }
-    if (TR && now >= TR[0] && now < TR[1] && Math.round(now / DT) % 100 === 0) lines.push(`    ${now.toFixed(0)}: you ${v.x.toFixed(1)},${v.z.toFixed(1)} f${v.f} | ` + P.guests.map(g => `${g.name} ${g.state}/${g.mode}/${g.lastStatus ?? ''} ${g.m.x.toFixed(1)},${g.m.z.toFixed(1)} f${g.m.f} v${g.m.v.toFixed(1)} goal ${g.m.goal ? g.m.goal.x.toFixed(1) + ',' + g.m.goal.z.toFixed(1) + ' f' + g.m.goal.f : '-'}${g.away ? ' away:' + g.away.spot.key : ''}${g.engaged ? ' eng' : ''}`).join(' | ') + (staff ? ' | staff ' + staff.H.robots.map(r => `${r.name} ${r.x.toFixed(1)},${r.z.toFixed(1)} f${r.f}`).join(' ') : ''));
+    if (TR && now >= TR[0] && now < TR[1] && Math.round(now / DT) % (Number(Q.get("every")) || 100) === 0) lines.push(`    ${now.toFixed(0)}: you ${v.x.toFixed(1)},${v.z.toFixed(1)} f${v.f} | ` + P.guests.map(g => `${g.name} ${g.state}/${g.mode}/${g.lastStatus ?? ''}${g.sitting ? '+sit' : ''}${g.seatGlide ? '+seatglide' : ''}${g.holdUntil > P.now ? '+hold' : ''}${g.outing ? '+outing' : ''} fs${g.followSince ? (P.now - g.followSince).toFixed(0) : '-'} ${g.m.x.toFixed(1)},${g.m.z.toFixed(1)} f${g.m.f} v${g.m.v.toFixed(1)} goal ${g.m.goal ? g.m.goal.x.toFixed(1) + ',' + g.m.goal.z.toFixed(1) + ' f' + g.m.goal.f : '-'}${g.away ? ' away:' + g.away.spot.key : ''}${g.engaged ? ' eng' : ''}`).join(' | ') + (staff ? ' | staff ' + staff.H.robots.map(r => `${r.name} ${r.x.toFixed(1)},${r.z.toFixed(1)} f${r.f}`).join(' ') : ''));
     if (Math.round(now / DT) % 5 === 0) for (const b of party.check()) { M.bad++; if (M.firstBad.length < 10) M.firstBad.push(`t=${now.toFixed(1)} ${b.who} (${b.mode}) at x=${b.x} z=${b.z} f=${b.f} inside box x ${b.box.x0.toFixed(2)}..${b.box.x1.toFixed(2)} z ${b.box.z0.toFixed(2)}..${b.box.z1.toFixed(2)} y ${b.box.y0.toFixed(1)}..${b.box.y1.toFixed(1)}`); }
   }
   const med = a => { const s = [...a].sort((p, q) => p - q); return s.length ? s[Math.floor(s.length / 2)] : NaN; };
@@ -163,12 +223,18 @@ async function runTest() {
   R.push(`events ${JSON.stringify(P.events)}`);
   R.push(`been round: ${[...P.been].join(', ')}; final states: ${party.status().map(s => s.who + ' ' + s.state).join(', ')}; front door ${P.door?.isOpen ? 'OPEN' : 'closed'} (open for ${(M.doorOpenFrames * DT).toFixed(0)} s in all)`);
   R.push(`cost per guest: ${JSON.stringify(party.cost())}`);
-  R.push(`DISTANCE: while she stands still, settled guests are a median ${med(M.dist).toFixed(1)} ft away (10th percentile ${[...M.dist].sort((a, b) => a - b)[Math.floor(M.dist.length * 0.1)]?.toFixed(1)}); frames within 3.6 ft of her: ${pct(M.close, M.frames)} (and standing still there, not speaking, while she is still: ${M.closeStill} ${[...M.closeWho].slice(0, 8).join(' ')})`);
+  R.push(`DISTANCE: while she stands still, settled guests are a median ${med(M.dist).toFixed(1)} ft away (10th percentile ${[...M.dist].sort((a, b) => a - b)[Math.floor(M.dist.length * 0.1)]?.toFixed(1)}); frames within 3.6 ft of her: ${pct(M.close, M.frames)} (and standing still there, not speaking, while she is still: ${M.closeStill}; most: ${[...M.closeWho].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k, n]) => `${n} ${k}`).join(', ')})`);
   R.push(`FOLLOWING: at each checkpoint, guests on her floor and within 16 ft: ${pct(M.follow.reduce((a, b) => a + b, 0), M.follow.length)} of ${M.follow.length}`);
+  if (OUT.length) R.push(`OUT OF DOORS: at each outdoor checkpoint, guests out with her and within 12 ft: ${pct(OUT.reduce((a, b) => a + b, 0), OUT.length)} of ${OUT.length}`);
   R.push(`ATTENTION while speaking to her (after the first 1.5 s): facing her ${pct(M.facing, M.engaged)}, holding still ${pct(M.still, M.engaged)} of ${M.engaged} frames`);
   R.push(`DOORWAYS: frames a guest stood idle in a doorway, a cased opening or at the stair (within 1.5 ft): ${M.door} ${[...M.doorWho].slice(0, 6).join(' ')}`);
   if (M.pairWho) R.push('OVERLAPS: ' + [...M.pairWho].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, n]) => `${n} ${k}`).join(' | '));
   R.push(`BODIES: frames her centre was inside a guest: ${M.inBody}; guest-on-guest overlaps (under 1.2 ft): ${M.pairClose}; guest-on-staff (under 1.1 ft): ${M.staffClose}`);
+  const acts = party.checkActs?.() ?? [];
+  R.push(`ACTIVITIES: ${acts.filter(a => a.ok).length} of ${acts.length} spots check out against the furniture` + acts.filter(a => !a.ok).map(a => `\n  BAD ${a.who}.${a.key}: ${a.why}`).join(''));
+  R.push('  ' + acts.map(a => `${a.who}.${a.key}${a.ok ? '' : '!'}(${a.reach ?? '-'}${a.moved ? ' moved ' + a.moved : ''})`).join(' '));
+  R.push(`CUPS: ${(party.cups?.() ?? []).map(c => `${c.held ? 'in hand' : 'set down'} at ${c.x.toFixed(1)},${c.y.toFixed(2)},${c.z.toFixed(1)} fill ${c.f.toFixed(2)}${c.empty ? ' empty' : ''} on ${nav.roomAt(c.x, c.y + 0.5, c.z)?.name ?? '-'}`).join('; ') || 'none'}`);
+    R.push(`RESCUES: ${P.events.rescues}`, ...(P.rescueLog ?? []).map(l => '  ' + l));
   R.push(`INSIDE-COLLIDER SAMPLES: ${M.bad}`); for (const b of M.firstBad) R.push('  ' + b);
   R.push('', 'THE AFTERNOON:', ...lines, '', 'NOTES SHOWN TO THE VISITOR:', ...P.notes.map(n => '  ' + n), '', 'WHAT WAS SAID:');
   const said = []; for (const g of P.guests) for (const [t, text] of g.bubble.log) said.push([t, g.name, text]);

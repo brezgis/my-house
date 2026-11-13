@@ -169,7 +169,7 @@ export function buildDrink(d) {
   if (liquid.length) liq.add(new THREE.Mesh(mergeGeometries(liquid.map(clean)), liqMat));
   if (glass.length) { const m = new THREE.Mesh(mergeGeometries(glass.map(clean)), glassMat); m.renderOrder = 3; g.add(m); }
   g.add(extras);
-  g.traverse(o => { o.castShadow = o.receiveShadow = false; o.userData.staff = true; });
+  g.traverse(o => { o.castShadow = false; o.receiveShadow = !!o.isMesh; o.userData.staff = true; });
   g.userData.drink = d; g.userData.top = top;
   setFill(g, 1);
   return g;

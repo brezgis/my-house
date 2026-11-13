@@ -357,7 +357,7 @@ Object.assign(VOICE, {
 
 export const GARDEN_FACTS = [
   "The garden's older than the paint on the house. Some of those roses were here before any of us.",
-  'Eight raised beds in the potager, a glasshouse, an orchard and three hives. And a scarecrow nobody listens to.',
+  'Eight raised beds in the potager, a glasshouse, an orchard and three hives. And a jay who thinks it is all his.',
   "The pond's natural. Well, natural-ish. The koi think they own it. The ducks disagree.",
   'Everything grows a bit too big out here. Madame likes it that way. Calls it generous.',
   'The meadow paths are mown, the rest is left long, for the bees and the crickets.',
@@ -455,7 +455,7 @@ export const GARDEN_TALK = [
     ] },
   { id: 'mood', cat: 'us', own: true, ask: 'How are you today?', pool: 'mood',
     then: [
-      { id: 'mood.secret', ask: 'Tell me a secret.', say: { bramble: "The biggest strawberries never reach the house. Gardener's tax. Don't tell Mort; he counts.", thistle: "The scarecrow's hat was mine. I want it back. Can't prove a thing." } },
+      { id: 'mood.secret', ask: 'Tell me a secret.', say: { bramble: "The biggest strawberries never reach the house. Gardener's tax. Don't tell Mort; he counts.", thistle: "I talk to the tomatoes. Sternly. It works. Don't spread it about." } },
       { id: 'mood.joke', ask: 'Know any jokes?', say: { bramble: 'What did the big tomato say to the little one? Ketchup, love. ...Thistle laughed at that once. I have it written down.', thistle: "Hm. A snail sets off for the front door. ...That's it. He's still going. Since Tuesday." } },
     ] },
   // ---- the indoor staff (on the same card)
@@ -511,7 +511,7 @@ export const GARDEN_TALK = [
     say: { bramble: 'Strawberries, Sungold tomatoes, runner beans up the canes, and more courgettes than sense. And a hare in the lettuces I have decided not to see.',
       thistle: 'Beans. Tomatoes. Lettuce, what the hare leaves. Courgettes. Nobody needs that many courgettes.' },
     then: [
-      { id: 'potager.hare', ask: { bramble: 'A hare?', thistle: 'What about the scarecrow?' }, say: { bramble: "Shh. If I notice him, I have to do something about him. He only takes the outside leaves. He's very polite about it.", thistle: "Decorative. The jay sits on him. I've spoken to him about it. Nothing." } },
+      { id: 'potager.hare', ask: { bramble: 'A hare?', thistle: 'What about the jay?' }, say: { bramble: "Shh. If I notice him, I have to do something about him. He only takes the outside leaves. He's very polite about it.", thistle: "Decorative. Sits on the bean poles like he pays rent. I've spoken to him about it. Nothing." } },
       { id: 'potager.try', ask: 'Could I try something?', serve: true },
     ] },
   { id: 'far', cat: 'garden', ask: "What's at the far end?", near: { x: -8, z: -150, r: 38 }, point: { x: -8, z: -150 },

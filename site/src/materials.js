@@ -112,9 +112,9 @@ export function makeMaterials(renderer, quality = {}) {
     clinker: pbr('clinker', 3.4, { color: 0xc9b3a6, env: 0.6 }),
     pavers: pbr('pavers', 5, { color: 0xa89384 }),
     tile: pbr('tile', 6, { color: 0xe6cdbd, roughness: 0.85 }),
-    timber: pbr('fir', 2.2, { color: new THREE.Color().setRGB(1.7, 3.4, 6.5, THREE.LinearSRGBColorSpace), roughness: 0.88, flat: true, env: 2.6 }),      // the fir photo is near black-red: lifted to a dark weathered brown // dark-stained outside
+    timber: pbr('fir', 2.2, { color: new THREE.Color().setRGB(2.9, 5.2, 9.2, THREE.LinearSRGBColorSpace), roughness: 0.88, flat: true, env: 2.6 }),      // the fir photo is near black-red: lifted to a dark weathered brown // dark-stained outside
     grass: pbr('grass', 9, { color: 0xd9dc9c, flat: true, roughness: 1, bump: 0.6 }),
-    sash: pbr('fir', 2.2, { color: 0x7d6a58, roughness: 0.8, flat: true, env: 0.6 }),
+    sash: pbr('fir', 2.2, { color: 0xa48a70, roughness: 0.8, flat: true, env: 0.6 }),
     bark: pbr('bark', 1, { color: 0x9a8f84, bump: 1.5 }),
     hedge: pbr('grass', 3, { color: 0x5d7a4a, bump: 2.5, flat: true, roughness: 1 }),
     soil: new THREE.MeshStandardMaterial({ color: 0x3b2a1f, roughness: 1 }),
