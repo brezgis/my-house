@@ -250,7 +250,7 @@ export function makeLampPool({ scene, lamps, vis, size, day, camera }) {
     for (const s of slots) {
       if (s.lamp === 'lantern') { s.lamp = null; s.level = 0; }
       const wanted = s.lamp && near.includes(s.lamp);
-      s.level += ((wanted ? 1 : 0) - s.level) * Math.min(1, dt * (wanted ? 2.2 : 1.5));      // slow, so a change of lamp is a drift, not a blink
+      s.level += ((wanted ? 1 : 0) - s.level) * Math.min(1, dt * (wanted ? 5.5 : 2.4));      // slow, so a change of lamp is a drift, not a blink
       if (!wanted && s.level < 0.02) {
         const free = near.find(l => !pool.some(o => o.lamp === l));
         s.lamp = free ?? null; s.level = free ? s.level : 0;
@@ -279,8 +279,8 @@ export function makeLampPool({ scene, lamps, vis, size, day, camera }) {
 
 // ---- eyes adjusting -----------------------------------------------------------------------
 // Targets by where you are (in / half / out) and the hour; changes are made in log space, quick
-// toward darker and slower toward brighter, so stepping outside never whites out and stepping
-// in never goes black.
+// toward darker and almost as quick toward brighter, so stepping outside never whites out and a room is
+// never left dark while the eye catches up.
 export function makeExposure(Q) {
   const inDay = Number(Q.get('exp') ?? 1.6);
   const T = { in: [inDay, 2.0, 2.6], half: [1.35, 1.9, 2.45], out: [0.8, 1.6, 2.2] };     // day, dusk, night
@@ -294,7 +294,8 @@ export function makeExposure(Q) {
     update(renderer, where, day, dt, snap) {
       const aim = target(where, day);
       if (cur === null || snap) cur = aim;
-      else { const k = aim < cur ? 2.6 : 1.1; cur = Math.exp(Math.log(cur) + (Math.log(aim) - Math.log(cur)) * Math.min(1, dt * k)); }
+      else { const k = aim < cur ? 3.4 : 3.6;      // (it used to take two or three seconds to brighten on coming indoors: a room stood dark while it did)
+        cur = Math.exp(Math.log(cur) + (Math.log(aim) - Math.log(cur)) * Math.min(1, dt * k)); }
       renderer.toneMappingExposure = cur;
     },
     target,

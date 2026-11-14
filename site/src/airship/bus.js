@@ -1,12 +1,12 @@
 // Dandelion, the airship on Line 6: a short, chubby yellow school bus slung under a cream envelope,
 // and one of the robots. The bus is the robot: its windscreen is a dark glowing face screen with simple
 // eyes (as Barty's, Mort's and Fig's), it floats on a ring of light, a pair of mitten hands bob beside
-// its face, and the black-striped body is rounded like a toy. Wheels tucked up as if it never needed
-// them, a stop-sign arm that swings out, red and amber lamps that flash in turn while the door is open,
+// its face, and the black-striped body is rounded like a toy. Wheels half tucked up (she stands on them
+// where there is a road to stand on), a stop-sign arm that swings out, red and amber lamps that flash in turn while the door is open,
 // a folding door, a destination blind over the windscreen, two brass propellers, fins at the tail, a
 // brass tuba bell on the roof for a horn. Inside: two rows of green bench seats, round windows (and a long one on the door side) to see
 // out of, panelled walls, a ribbed floor, hand-straps, a map of the line, a brass rail, a ticket machine (the fare is a nice thought), and a mirror in which the bus's
-// eyes look back at you.
+// eyes look back at you. No driver, no wheel, no driver's seat: she drives herself, and you can walk about in her.
 //
 // Shared by Anna's House and Vesper Street: it imports nothing but three. ONE draw call: every part is
 // one merged, vertex-coloured mesh with one small canvas (512 x 512: the face, the blind, the lettering,
@@ -21,7 +21,10 @@
 //   const bus = buildBus({ ring: 0xa8d8ff });  scene.add(bus.root);
 //   bus.update(t, dt, { light })  each frame (light 0 night .. 1 day: lamps and ring brighter after dark)
 //   bus.setDoor(0..1), bus.setArm(0..1), bus.flash(on), bus.setBlind('ROUND THE ISLAND'), bus.setFace(expr), bus.look(-1..1)
-//   bus.seat: the passenger's eye in the bus's frame (a Vector3); bus.door: just outside the door, at the floor
+//   bus.seats: every place to sit (a passenger's eye in the bus's frame); bus.door: the far end of the gangplank
+//   bus.hold(p, doorOpen), bus.deckY(p), bus.onPlank(p): where a visitor walking about aboard can stand (ride.js)
+//   options: plank (the gangplank's length), drop (how far its far end comes down: 0 where she hovers beside a lawn,
+//   bus.wheel less the kerb's height where she stands on her wheels in a road)
 
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -56,7 +59,7 @@ const REG = {
 const YELLOW = '#f3b21b', BLACK = '#1d1b1a', CREAM = '#efe4cf', BRASS = '#c9a45c', GREEN = '#2f6048', GREEN2 = '#264d3a', SILVER = '#bdbdb4', GLASS = '#1b2a30', ROPE = '#a8956c';
 const FONT = '"Arial Narrow", "Helvetica Neue", Arial, sans-serif', SERIF = 'Georgia, "Times New Roman", serif';
 
-export function buildBus({ ring = DANDELION.ring, name = DANDELION.name, plank = 8 } = {}) {
+export function buildBus({ ring = DANDELION.ring, name = DANDELION.name, plank = 8, drop = 0 } = {}) {
   // ---- the canvas -------------------------------------------------------------------------------
   const cv = document.createElement('canvas'); cv.width = cv.height = S; const g = cv.getContext('2d');
   const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
@@ -146,7 +149,7 @@ export function buildBus({ ring = DANDELION.ring, name = DANDELION.name, plank =
   const WHITE = (() => { const [u0, v0, u1, v1] = uvOf(REG.white); return [(u0 + u1) / 2, (v0 + v1) / 2]; })();
   // add(geometry, colour or (p, n) => colour, { region, part, pivot, glow, perFace })
   //   part: 1 propeller (spins about z), 2 stop arm (turns about y), 3 and 4 the door's leaves, 5 the left hand (bobs),
-  //   6 the gangplank (slides out by pivot.x), 7 the steering wheel (turns about z), 8 the right hand (bobs, and waves about z)
+  //   6 the gangplank (slides out by pivot.x, and slopes), 8 the right hand (bobs, and waves about z)
   //   glow: 1 ring, 2 red lamps, 3 amber lamps, 4 head, tail and cabin lamps, 5 screens (glow with their picture),
   //   6 the cabin's own walls (a little light of their own, so the inside is not grey under a blue sky), 7 her face (a screen
   //   outside, clear glass from inside); may be (p, n) => group
@@ -205,10 +208,10 @@ export function buildBus({ ring = DANDELION.ring, name = DANDELION.name, plank =
     if (ribbon) { const [za, zb, r] = ribbon, h = new THREE.Path(); h.moveTo(za, HOLE_Y - r); h.lineTo(zb, HOLE_Y - r); h.absarc(zb, HOLE_Y, r, -Math.PI / 2, Math.PI / 2, false); h.lineTo(za, HOLE_Y + r); h.absarc(za, HOLE_Y, r, Math.PI / 2, Math.PI * 1.5, false); sh.holes.push(h);
       for (const y of [HOLE_Y - r - 0.08, HOLE_Y + r + 0.08]) add(box(side * 4.0, side * 4.1, y - 0.07, y + 0.07, za, zb), BRASS);
       for (const [zc, rz] of [[za, -Math.PI / 2], [zb, Math.PI / 2]]) add(T(new THREE.TorusGeometry(r + 0.08, 0.07, 3, 10, Math.PI).rotateZ(rz).rotateY(Math.PI / 2), { p: [side * 4.05, HOLE_Y, zc] }), BRASS); }
-    const g2 = new THREE.ExtrudeGeometry(sh, { depth: 0.18, bevelEnabled: false, curveSegments: 10 });
+    const g2 = new THREE.ExtrudeGeometry(sh, { depth: 0.18, bevelEnabled: false, curveSegments: 16 });
     g2.rotateY(-Math.PI / 2); g2.translate(side > 0 ? 4.0 : -3.82, 0, 0);
     add(g2, (p, nrm) => (nrm.x * side > 0.5 ? YELLOW : nrm.x * side < -0.5 ? CREAM : '#2e2a26'), { perFace: true, glow: (p, nrm) => (nrm.x * side > 0.5 ? 0 : 6) });
-    for (const hz of holes) add(T(new THREE.TorusGeometry(HOLE_R + 0.04, 0.08, 2, 12), { p: [side * 4.04, HOLE_Y, hz], r: [0, Math.PI / 2, 0] }), BRASS);
+    for (const hz of holes) add(T(new THREE.TorusGeometry(HOLE_R + 0.04, 0.08, 6, 32), { p: [side * 4.04, HOLE_Y, hz], r: [0, Math.PI / 2, 0] }), BRASS);      // a round brass rim (a ribbon of two faces flickered)
   };
   sidePanel(1, -9.5, 8.5, [...HOLE_Z, 4.1, 6.9]);
   sidePanel(-1, -9.5, 5.0, [], [-8.1, 3.75, 1.12]); sidePanel(-1, 7.8, 8.5, []);      // the island side: one long window with round ends
@@ -219,7 +222,7 @@ export function buildBus({ ring = DANDELION.ring, name = DANDELION.name, plank =
   // the roof: a low barrel, lined inside
   { const shell = new THREE.CylinderGeometry(1, 1, 18.2, 18, 1, true, -Math.PI / 2, Math.PI).rotateX(-Math.PI / 2); add(T(shell.clone(), { p: [0, 6.3, -0.5], s: [4.05, 1.25, 1] }), (p, nrm) => (nrm.y < -0.2 ? CREAM : YELLOW));
     add(T(shell, { p: [0, 6.3, -0.5], s: [3.84, 1.1, 0.99] }), p => (Math.abs(p.x) > 3.2 ? '#cfc2a8' : Math.abs(p.x) > 2.2 ? '#e2d7c0' : CREAM), { glow: 6, perFace: true });      // darker into the corners
-    for (const z of [-8, -5, -2, 1, 4, 7]) { add(T(new THREE.TorusGeometry(1, 0.035, 2, 10, Math.PI), { p: [0, 6.3, z], s: [3.8, 1.07, 1] }), '#cbb994', { glow: 6 }); if (z % 2) add(T(new THREE.TorusGeometry(1, 0.025, 2, 10, Math.PI), { p: [0, 6.3, z + 0.02], s: [4.08, 1.27, 1] }), '#d9a018'); }      // riveted ribs inside, seams outside
+    for (const z of [-8, -5, -2, 1, 4, 7]) { add(T(new THREE.TorusGeometry(1, 0.035, 5, 10, Math.PI), { p: [0, 6.3, z], s: [3.8, 1.07, 1] }), '#cbb994', { glow: 6 }); if (z % 2) add(T(new THREE.TorusGeometry(1, 0.025, 5, 10, Math.PI), { p: [0, 6.3, z + 0.02], s: [4.08, 1.27, 1] }), '#d9a018'); }      // riveted ribs inside, seams outside
     for (const s2 of [-1, 1]) add(box(s2 > 0 ? 4.02 : -4.14, s2 > 0 ? 4.14 : -4.02, 6.24, 6.36, -9.6, 8.6), '#d9a018');      // rain gutters
     for (const z of [8.6, -9.6]) add(T(new THREE.CircleGeometry(1, 24, 0, Math.PI), { p: [0, 6.3, z], s: [4.05, 1.25, 1] }), YELLOW);
     for (const z of [8.44, -9.44]) add(T(new THREE.CircleGeometry(1, 24, 0, Math.PI), { p: [0, 6.29, z], s: [3.86, 1.12, 1] }), CREAM, { glow: 6 });      // the ends, inside
@@ -248,10 +251,11 @@ export function buildBus({ ring = DANDELION.ring, name = DANDELION.name, plank =
   add(T(new THREE.CircleGeometry(0.8, 24), { p: [-2.7, 2.4, -9.79], r: [0, Math.PI, 0] }), '#ffffff', { region: 'six', fit: true });
   for (const s of [-1, 1]) add(T(cylZ(0.3, 0.14, 12), { p: [s * 3.25, 1.25, -9.8] }), '#d42a1e', { glow: 4 });
   add(T(rbox(7.6, 0.6, 0.6, 0.2, 4), { p: [0, 0.45, -10.0] }), BLACK);
-  // wheels, tucked up into the body; the brass cap underneath, and the ring of light
-  for (const s of [-1, 1]) for (const z of [-6.4, 5.2]) { add(T(new THREE.TorusGeometry(0.92, 0.36, 5, 12), { p: [s * 3.72, -1.15, z], r: [0, Math.PI / 2, 0] }), '#232323'); add(T(cylX(0.55, 0.5, 12), { p: [s * 3.75, -1.15, z] }), SILVER); add(T(cylX(0.2, 0.62, 8), { p: [s * 3.75, -1.15, z] }), BRASS); }
+  // wheels, half tucked up into the body (she stands on them where there is ground to stand on: their lowest point is
+  // WHEEL below the cabin floor); the brass cap underneath, and the ring of light between them
+  for (const s of [-1, 1]) for (const z of [-6.4, 5.2]) { add(T(new THREE.TorusGeometry(0.92, 0.36, 5, 12), { p: [s * 3.72, -1.35, z], r: [0, Math.PI / 2, 0] }), '#232323'); add(T(cylX(0.55, 0.5, 12), { p: [s * 3.75, -1.35, z] }), SILVER); add(T(cylX(0.2, 0.62, 8), { p: [s * 3.75, -1.35, z] }), BRASS); }
   add(T(new THREE.SphereGeometry(2.3, 14, 4, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), { p: [0, -1.28, -0.5], s: [1, 0.42, 1.5] }), BRASS);
-  add(T(new THREE.TorusGeometry(3.3, 0.17, 6, 32), { p: [0, -2.45, -0.5], r: [Math.PI / 2, 0, 0], s: [1, 1.5, 1] }), new THREE.Color(ring).getStyle(), { glow: 1 });
+  add(T(new THREE.TorusGeometry(3.3, 0.17, 6, 32), { p: [0, -2.1, -0.5], r: [Math.PI / 2, 0, 0], s: [1, 1.5, 1] }), new THREE.Color(ring).getStyle(), { glow: 1 });
   // the door: two leaves that fold in
   for (const [z0, z1, part, pv] of [[5.04, 6.4, 3, 5.0], [6.4, 7.76, 4, 7.8]]) {
     const o = { part, pivot: [-4.0, 0, pv] }, x0 = -4.06, x1 = -3.96;
@@ -265,7 +269,8 @@ export function buildBus({ ring = DANDELION.ring, name = DANDELION.name, plank =
     add(box(4.1, 4.18, 2.18, 2.32, 6.4, 7.6), BLACK, o);
     for (const s of [1, -1]) add(T(new THREE.CircleGeometry(0.7, 8, Math.PI / 8), { p: [4.22 + s * 0.02, 2.25, 5.75], r: [0, s * Math.PI / 2, 0] }), '#ffffff', { ...o, region: 'stop', fit: true });
     add(T(cylX(0.71, 0.03, 8).rotateX(Math.PI / 8), { p: [4.22, 2.25, 5.75] }), '#b3201c', o); }
-  // her own gangplank: it slides out from under the floor at the door, level with the floor, when the door opens
+  // her own gangplank: it slides out from under the floor at the door when the door opens: level with the floor where she
+  // hovers beside a lawn, or sloping down by `drop` to the kerb where she stands on her wheels
   { const o = { part: 6, pivot: [plank, 0, 0] }, x0 = -4.05 - plank, x1 = -3.95;
     add(box(x0, x1, -0.2, -0.1, 5.3, 7.5), '#8a6f55', o);      // (just under the floor, so that stowed it is out of sight)
     for (let x = x0 + 0.25; x < x1; x += 0.5) add(box(x - 0.04, x + 0.04, -0.1, -0.075, 5.32, 7.48), '#6b5440', o);      // cleats
@@ -303,17 +308,20 @@ export function buildBus({ ring = DANDELION.ring, name = DANDELION.name, plank =
   for (let z = -8.8; z < 3.6; z += 1.1) add(box(2.95, 3.72, 6.02, 6.05, z - 0.04, z + 0.04), SILVER);
   add(box(3.0, 3.66, 6.06, 6.5, -6.6, -5.0), '#ffffff', { region: 'suitcase' }); add(tube([3.0, 6.36, -6.0], [3.0, 6.36, -5.6], 0.03, 4), '#3a2a20');
   add(T(new THREE.CylinderGeometry(0.32, 0.32, 0.38, 10), { p: [3.32, 6.25, -3.9] }), '#d9a3a8'); add(T(new THREE.CylinderGeometry(0.33, 0.33, 0.06, 10), { p: [3.32, 6.43, -3.9] }), '#8a3a4a');
-  add(tube([3.3, 6.12, -2.6], [3.3, 6.12, 0.2], 0.03, 4), '#2a2622'); add(T(new THREE.ConeGeometry(0.11, 1.6, 6).rotateX(Math.PI / 2), { p: [3.3, 6.13, -1.7] }), '#24382f'); add(T(new THREE.TorusGeometry(0.09, 0.022, 2, 6, Math.PI), { p: [3.3, 6.05, 0.25], r: [0, Math.PI / 2, 0] }), '#7a4a2a');
+  add(tube([3.3, 6.12, -2.6], [3.3, 6.12, 0.2], 0.03, 4), '#2a2622'); add(T(new THREE.ConeGeometry(0.11, 1.6, 6).rotateX(Math.PI / 2), { p: [3.3, 6.13, -1.7] }), '#24382f'); add(T(new THREE.TorusGeometry(0.09, 0.022, 5, 6, Math.PI), { p: [3.3, 6.05, 0.25], r: [0, Math.PI / 2, 0] }), '#7a4a2a');
   // on the back wall: the notice, and a little photograph of the island
   add(new THREE.PlaneGeometry(1.25, 0.78).translate(-2.3, 5.05, -9.43), '#ffffff', { region: 'notice', glow: 6 });
   add(new THREE.PlaneGeometry(0.95, 0.6).translate(2.3, 5.0, -9.43), '#ffffff', { region: 'photo', glow: 6 }); add(box(1.78, 2.82, 4.66, 5.34, -9.46, -9.44), '#6b5020');
   // the green bench seats (buttoned), the brass rail, the ticket machine, the mirror
-  for (const c of [-7.3, -4.4, -1.5, 1.4]) for (const s of [-1, 1]) {
+  const BENCH = [-7.3, -4.4, -1.5, 1.4], SEATS = [], SOLID = [], WHEEL = 2.63;
+  for (const c of BENCH) for (const s of [-1, 1]) { SOLID.push([Math.min(s * 0.95, s * 3.75), Math.max(s * 0.95, s * 3.75), c - 0.92, c + 0.68]); for (const x of [3.0, 1.7]) SEATS.push(new THREE.Vector3(s * x, 3.95, c + 0.1)); }
+  const SEAT0 = SEATS.findIndex(v => v.x === -3.0 && Math.abs(v.z - 1.5) < 0.01);
+  for (const c of BENCH) for (const s of [-1, 1]) {
     const xa = s * 0.95, xb = s * 3.75, lo = Math.min(xa, xb), hi = Math.max(xa, xb);
     add(box(lo, hi, 1.05, 1.5, c - 0.68, c + 0.68), '#ffffff', { region: 'tuft', glow: 6 });
     add(T(box(lo, hi, -0.85, 0.85, -0.15, 0.15), { p: [0, 2.3, c - 0.72], r: [-0.08, 0, 0] }), '#ffffff', { region: 'tuft', glow: 6 });      // lower than before: you can see back over them
     add(tube([lo + 0.02, 3.17, c - 0.79], [hi - 0.02, 3.17, c - 0.79], 0.15, 6), SILVER); add(box(lo + 0.08, hi - 0.08, 1.12, 3.0, c - 0.92, c - 0.88), GREEN2);      // a chrome-edged top, a seam down the back
-    add(T(new THREE.TorusGeometry(0.12, 0.024, 2, 6, Math.PI), { p: [s * 1.12, 3.3, c - 0.79], r: [0, Math.PI / 2, 0] }), BRASS);      // the grab handle on the aisle corner
+    add(T(new THREE.TorusGeometry(0.12, 0.024, 5, 6, Math.PI), { p: [s * 1.12, 3.3, c - 0.79], r: [0, Math.PI / 2, 0] }), BRASS);      // the grab handle on the aisle corner
     add(tube([s * 1.0, 0, c - 0.4], [s * 1.0, 1.05, c - 0.4], 0.05, 4), SILVER); add(tube([s * 1.0, 0, c + 0.45], [s * 1.0, 1.05, c + 0.45], 0.05, 4), SILVER);
   }
   add(T(new THREE.SphereGeometry(0.16, 6, 4), { p: [2.7, 1.6, -1.25], s: [1.3, 0.55, 1] }), '#b8452e'); add(T(cylX(0.11, 0.14, 6), { p: [2.48, 1.58, -1.25] }), '#e9e0cc');      // a forgotten knitted mitten
@@ -323,26 +331,19 @@ export function buildBus({ ring = DANDELION.ring, name = DANDELION.name, plank =
   add(box(-3.8, -2.55, 2.4, 5.2, 7.95, 8.45), '#8a6a3c'); add(box(-3.85, -2.5, 5.2, 5.35, 7.9, 8.45), BRASS);
   add(new THREE.PlaneGeometry(0.95, 0.95).rotateY(Math.PI).translate(-3.17, 4.35, 7.93), '#ffffff', { region: 'ticket', glow: 5 });
   add(box(-3.4, -2.95, 3.3, 3.42, 7.9, 7.96), '#1a1714');                                                          // the slot for the thought
-  // the cab: a low dashboard right across, two dials, toggles, her maker's plate, a speaking tube, a little fan, a bud vase
-  // with one dandelion in it, a thermos; the big wheel on its column (it turns a little by itself in flight); the empty
-  // driver's seat with a folded tartan blanket and a peaked cap on it; a framed rear-view mirror in which her eyes look back
+  // the front: a low dashboard right across, two dials, toggles, her maker's plate, a speaking tube, a little fan, a bud vase
+  // with one dandelion in it, a thermos; a framed rear-view mirror in which her eyes look back. No wheel and no driver's
+  // seat: she drives herself, and the space beside the console is somewhere to stand and look out through her face
   add(T(rbox(6.0, 0.85, 0.85, 0.25, 4), { p: [0.8, 2.98, 8.02] }), '#5a4636', { glow: 6 });
   add(box(-2.1, 3.7, 0.05, 2.62, 7.72, 8.45), '#3f5a46', { glow: 6 }); add(box(-2.12, 3.72, 0.05, 0.25, 7.7, 8.45), '#a8884a');      // the dashboard stands on a panelled console down to the floor
   add(new THREE.PlaneGeometry(1.7, 0.21).rotateY(Math.PI).translate(-0.4, 3.0, 7.585), '#ffffff', { region: 'plate' });
-  for (const x of [1.95, 2.95]) { add(new THREE.CircleGeometry(0.17, 10).rotateY(Math.PI).translate(x, 3.05, 7.585), '#efe4cf', { glow: 6 }); add(T(new THREE.TorusGeometry(0.18, 0.025, 2, 10), { p: [x, 3.05, 7.58] }), BRASS); add(T(new THREE.BoxGeometry(0.02, 0.13, 0.01).translate(0, 0.06, 0), { p: [x, 3.05, 7.57], r: [0, 0, x < 2.5 ? 0.7 : -0.4] }), '#a8361f'); }
+  for (const x of [1.95, 2.95]) { add(new THREE.CircleGeometry(0.17, 10).rotateY(Math.PI).translate(x, 3.05, 7.585), '#efe4cf', { glow: 6 }); add(T(new THREE.TorusGeometry(0.18, 0.025, 5, 10), { p: [x, 3.05, 7.58] }), BRASS); add(T(new THREE.BoxGeometry(0.02, 0.13, 0.01).translate(0, 0.06, 0), { p: [x, 3.05, 7.57], r: [0, 0, x < 2.5 ? 0.7 : -0.4] }), '#a8361f'); }
   for (let i = 0; i < 5; i++) { const x = 0.75 + i * 0.16; add(box(x - 0.04, x + 0.04, 2.66, 2.74, 7.58, 7.6), '#2a2622'); add(T(new THREE.BoxGeometry(0.025, 0.1, 0.025).translate(0, 0.05, 0), { p: [x, 2.7, 7.57], r: [-0.6 + (i % 2) * 1.2, 0, 0] }), SILVER); }
   add(tube([-1.75, 3.4, 8.25], [-1.75, 5.3, 8.3], 0.035, 5), BRASS); add(T(new THREE.CylinderGeometry(0.13, 0.04, 0.26, 8, 1, true).rotateX(-Math.PI / 2), { p: [-1.75, 5.3, 8.15] }), BRASS);
-  add(T(cylZ(0.05, 0.25, 6), { p: [-1.1, 3.55, 8.15] }), '#2a2622'); add(T(new THREE.TorusGeometry(0.22, 0.015, 2, 12), { p: [-1.1, 3.72, 8.02] }), SILVER); add(T(new THREE.CircleGeometry(0.2, 6), { p: [-1.1, 3.72, 8.04], r: [0, Math.PI, 0] }), BRASS);
+  add(T(cylZ(0.05, 0.25, 6), { p: [-1.1, 3.55, 8.15] }), '#2a2622'); add(T(new THREE.TorusGeometry(0.22, 0.015, 5, 12), { p: [-1.1, 3.72, 8.02] }), SILVER); add(T(new THREE.CircleGeometry(0.2, 6), { p: [-1.1, 3.72, 8.04], r: [0, Math.PI, 0] }), BRASS);
   add(T(new THREE.LatheGeometry([[0.01, 0], [0.07, 0.02], [0.08, 0.12], [0.03, 0.28], [0.04, 0.32]].map(([r, y]) => new THREE.Vector2(r, y)), 6), { p: [0.15, 3.4, 8.12] }), '#8ab0a8');
   add(tube([0.15, 3.6, 8.12], [0.19, 3.95, 8.1], 0.012, 3), '#5f7f3a'); add(T(new THREE.SphereGeometry(0.08, 6, 4), { p: [0.19, 3.98, 8.1] }), '#f3c21b', { glow: 6 });
   add(T(new THREE.CylinderGeometry(0.09, 0.09, 0.48, 8), { p: [-0.5, 3.64, 8.15] }), '#2f4a40'); add(T(new THREE.CylinderGeometry(0.095, 0.095, 0.12, 8), { p: [-0.5, 3.94, 8.15] }), SILVER);
-  { const o = { part: 7, pivot: [2.45, 4.15, 7.22] };
-    add(T(new THREE.TorusGeometry(0.62, 0.03, 3, 18), { p: [2.45, 4.15, 7.22] }), '#2a2622', o);
-    for (let k = 0; k < 3; k++) add(T(new THREE.BoxGeometry(0.035, 0.6, 0.02).translate(0, 0.3, 0), { p: [2.45, 4.15, 7.22], r: [0, 0, k * Math.PI * 2 / 3] }), SILVER, o); }
-  add(tube([2.45, 3.0, 7.75], [2.45, 4.15, 7.25], 0.05, 5), '#2a2622');
-  add(box(1.55, 3.4, 1.05, 1.5, 5.4, 6.7), '#ffffff', { region: 'tuft', glow: 6 }); add(T(box(1.55, 3.4, -0.85, 0.85, -0.13, 0.13), { p: [0, 2.35, 5.3], r: [-0.08, 0, 0] }), '#ffffff', { region: 'tuft', glow: 6 });
-  add(box(1.9, 3.0, 1.5, 1.68, 5.75, 6.5), '#ffffff', { region: 'tartan' });
-  add(T(new THREE.CylinderGeometry(0.2, 0.22, 0.15, 10), { p: [2.6, 1.76, 6.15] }), '#24304a'); add(T(new THREE.CylinderGeometry(0.225, 0.225, 0.04, 10), { p: [2.6, 1.7, 6.15] }), BRASS); add(T(new THREE.CircleGeometry(0.22, 6, 0, Math.PI), { p: [2.6, 1.69, 6.32], r: [-Math.PI / 2 + 0.2, 0, 0], s: [1, 0.7, 1] }), '#1a1a22');
   add(new THREE.PlaneGeometry(1.6, 0.62).rotateY(Math.PI).translate(0, 5.95, 8.33), '#ffffff', { region: 'mirror', glow: 5 });
   for (const [x0, x1, y0, y1] of [[-0.86, 0.86, 6.25, 6.32], [-0.86, 0.86, 5.58, 5.65], [-0.86, -0.8, 5.58, 6.32], [0.8, 0.86, 5.58, 6.32]]) add(box(x0, x1, y0, y1, 8.3, 8.36), BRASS);
   add(tube([0, 6.32, 8.36], [0, 6.62, 8.4], 0.04, 4), BRASS);
@@ -383,14 +384,14 @@ export function buildBus({ ring = DANDELION.ring, name = DANDELION.name, plank =
   // ---- one mesh, one material -------------------------------------------------------------------
   const geo = mergeGeometries(list, false); for (const l of list) l.dispose();
   geo.computeBoundingSphere();
-  const u = { uProp: { value: 0 }, uArm: { value: 0 }, uDoor: { value: 0 }, uHand: { value: 0 }, uPlank: { value: 0 }, uSteer: { value: 0 }, uWave: { value: 0 }, uRing: { value: 1.2 }, uRed: { value: 0 }, uAmber: { value: 0 }, uLamp: { value: 0.3 }, uScreen: { value: 1.3 }, uFill: { value: 0.3 } };
+  const u = { uProp: { value: 0 }, uArm: { value: 0 }, uDoor: { value: 0 }, uHand: { value: 0 }, uPlank: { value: 0 }, uSteer: { value: 0 }, uWave: { value: 0 }, uDrop: { value: drop }, uRing: { value: 1.2 }, uRed: { value: 0 }, uAmber: { value: 0 }, uLamp: { value: 0.3 }, uScreen: { value: 1.3 }, uFill: { value: 0.3 } };
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, map: tex, roughness: 0.45, metalness: 0.1, envMapIntensity: 0.8, side: THREE.DoubleSide });
   mat.onBeforeCompile = sh => {
     Object.assign(sh.uniforms, u);
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', `#include <common>
 attribute vec4 aRig; attribute float aGlow; varying float vGlow;
-uniform float uProp, uArm, uDoor, uHand, uPlank, uSteer, uWave;
+uniform float uProp, uArm, uDoor, uHand, uPlank, uSteer, uWave, uDrop;
 mat3 rY(float a) { float c = cos(a), s = sin(a); return mat3(c, 0.0, -s, 0.0, 1.0, 0.0, s, 0.0, c); }
 mat3 rZ(float a) { float c = cos(a), s = sin(a); return mat3(c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0); }`)
       .replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
@@ -406,7 +407,7 @@ vGlow = aGlow;`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
 transformed = rigR * (transformed - aRig.xyz) + aRig.xyz;
 if ((part > 4.5 && part < 5.5) || part > 7.5) transformed.y += uHand;
-if (part > 5.5 && part < 6.5) { transformed.x += (1.0 - uPlank) * aRig.x; transformed.y += uPlank * 0.13; }      // out, and up flush with the ground`);
+if (part > 5.5 && part < 6.5) { transformed.x += (1.0 - uPlank) * aRig.x; transformed.y += uPlank * (0.13 - uDrop * clamp((-3.95 - transformed.x) / aRig.x, 0.0, 1.0)); }      // out, up flush with the floor, and down to the ground at its far end`);
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', '#include <common>\nvarying float vGlow;\nuniform float uRing, uRed, uAmber, uLamp, uScreen, uFill;')
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
@@ -419,7 +420,7 @@ if (vGlow > 6.5) {      // her face: a screen from outside; from inside, clear g
   else { float k = vGlow < 1.5 ? uRing : vGlow < 2.5 ? uRed : vGlow < 3.5 ? uAmber : uLamp; totalEmissiveRadiance += diffuseColor.rgb * k; }
 }`);
   };
-  mat.customProgramCacheKey = () => 'dandelion3';
+  mat.customProgramCacheKey = () => 'dandelion4';
   const mesh = new THREE.Mesh(geo, mat); mesh.castShadow = false; mesh.receiveShadow = false; mesh.name = 'airship'; mesh.userData.cat = 'airship';
   const root = new THREE.Group(); root.name = 'airship'; root.add(mesh);
 
@@ -427,8 +428,38 @@ if (vGlow > 6.5) {      // her face: a screen from outside; from inside, clear g
   let flashing = false, nextBlink = 2, blinkT = 0, door = 0, arm = 0, waveT = 0, lastYaw = null, steer = 0;
   const api = {
     root, mesh, material: mat, uniforms: u, tex,
-    seat: new THREE.Vector3(-3.3, 3.95, 1.75),       // the passenger's eye: right-hand front seat, at the window end of the long window
-    door: new THREE.Vector3(-3.7 - plank, 0, 6.4),   // the far end of her gangplank, where you step aboard
+    seat: new THREE.Vector3(-3.0, 3.95, 1.5),        // a passenger's eye: right-hand front bench, by the long window (seats[SEAT0])
+    door: new THREE.Vector3(-3.7 - plank, -drop, 6.4),   // the far end of her gangplank, where you step aboard
+    // Every place to sit: the eye of someone sat there, in her frame, facing forward. Two to a bench.
+    seats: SEATS, SEAT0,
+    wheel: WHEEL, plank, drop,
+    // Where a visitor's feet are held (p: x, z in her frame; moved if it must be): the cabin floor, clear of the benches
+    // and the console, and, while the door is open, the gangplank. False once they have stepped off the gangplank
+    // (off its far end; or off its side, where it is low enough to step down from).
+    hold(p, doorOpen) {
+      const R = 0.5, X = 3.82 - R, end = -3.95 - plank;
+      if (doorOpen && p.x < -X) {
+        if (p.x < -3.9) {                                                    // on the gangplank
+          if (p.x < end - 0.25) return false;
+          const low = drop > 0.01 && (-3.95 - p.x) / plank > 1 - 1.3 / drop;
+          if (low && (p.z < 5.3 || p.z > 7.5)) return false;
+          if (!low) p.z = Math.max(5.65, Math.min(7.15, p.z));
+          return true;
+        }
+        if (p.z > 5.3 && p.z < 7.5) { p.z = Math.max(5.65, Math.min(7.15, p.z)); return true; }      // in the doorway
+      }
+      p.x = Math.max(-X, Math.min(X, p.x)); p.z = Math.max(-9.45 + R, Math.min(7.72 - R - 0.1, p.z));
+      for (const [x0, x1, z0, z1] of SOLID) {
+        if (p.x <= x0 - R || p.x >= x1 + R || p.z <= z0 - R || p.z >= z1 + R) continue;
+        const a = p.x - (x0 - R), b = (x1 + R) - p.x, c = p.z - (z0 - R), d = (z1 + R) - p.z, m = Math.min(a, b, c, d);
+        if (m === a) p.x = x0 - R; else if (m === b) p.x = x1 + R; else if (m === c) p.z = z0 - R; else p.z = z1 + R;
+      }
+      return true;
+    },
+    // is this point (her frame) on the gangplank, near enough its surface to step onto it?
+    onPlank(p) { return p.x < -3.9 && p.x > -3.95 - plank - 0.2 && p.z > 5.3 && p.z < 7.5 && Math.abs(p.y - this.deckY(p)) < 1.2; },
+    // the height of what is underfoot there
+    deckY(p) { return p.x < -3.9 ? 0.06 - drop * Math.max(0, Math.min(1, (-3.95 - p.x) / plank)) : 0.06; },
     length: 45, triangles: geo.attributes.position.count / 3,
     setDoor(v) { door = v; u.uDoor.value = 1.35 * v; const k = Math.min(1, Math.max(0, (v - 0.25) / 0.75)); u.uPlank.value = k * k * (3 - 2 * k); },      // the gangplank follows the door out
     setArm(v) { arm = v; u.uArm.value = -1.5 * v; },

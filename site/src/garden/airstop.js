@@ -79,8 +79,8 @@ export function buildAirstop(K) {
   K.extras.push({ draw: (g, w, h) => {
     g.fillStyle = '#efe6d0'; g.fillRect(0, 0, w, h); g.strokeStyle = LINE_HEX; g.lineWidth = 6; g.strokeRect(5, 5, w - 10, h - 10);
     g.fillStyle = LINE_HEX; g.fillRect(5, 5, w - 10, h * 0.17); T(g, 'LINE 6  ·  ANNA’S HOUSE', w / 2, h * 0.095, h * 0.06, '#efe6d0', { f: COND, ls: 1, b: 1 });
-    const rows = open ? [['arrives', 'when rung'], ['departs', 'when sat'], ['journey', 'one cloud'], ['fare', 'a nice thought']] : [['arrives', 'when rung'], ['today', 'round the island'], ['Vesper St.', 'soon'], ['fare', 'a nice thought']];
-    rows.forEach(([a, b], i) => { const yy = h * (0.3 + i * 0.13); T(g, a, w * 0.09, yy, h * 0.045, '#2a1c13', { f: TYPE, a: 'left' }); T(g, b, w * 0.91, yy, h * 0.045, '#2a1c13', { f: TYPE, a: 'right' }); g.strokeStyle = 'rgba(42,28,19,.25)'; g.lineWidth = 1; g.beginPath(); g.moveTo(w * 0.09, yy + h * 0.045); g.lineTo(w * 0.91, yy + h * 0.045); g.stroke(); });
+    const rows = open ? [['to', 'Vesper Street'], ['arrives', 'when rung'], ['departs', 'when aboard'], ['journey', 'one cloud'], ['fare', 'a nice thought']] : [['arrives', 'when rung'], ['today', 'round the island'], ['Vesper St.', 'soon'], ['fare', 'a nice thought']];
+    rows.forEach(([a, b], i) => { const yy = h * (0.285 + i * (rows.length > 4 ? 0.112 : 0.13)); T(g, a, w * 0.09, yy, h * 0.045, '#2a1c13', { f: TYPE, a: 'left' }); T(g, b, w * 0.91, yy, h * 0.045, '#2a1c13', { f: TYPE, a: 'right' }); g.strokeStyle = 'rgba(42,28,19,.25)'; g.lineWidth = 1; g.beginPath(); g.moveTo(w * 0.09, yy + h * 0.045); g.lineTo(w * 0.91, yy + h * 0.045); g.stroke(); });
     T(g, 'Please keep your hands inside the sky.', w / 2, h * 0.86, h * 0.042, '#a8361f', { f: SERIF, it: 1 });
     for (const [x, y] of [[14, 14], [w - 14, 14], [14, h - 14], [w - 14, h - 14]]) { g.fillStyle = '#8a8478'; g.beginPath(); g.arc(x, y, 4, 0, 7); g.fill(); }      // its four screws
   }, cw: 220, ch: 300, w: 0.84, h: 1.15, x: px, y: 4.38, z: pz - 0.11, rotY: Math.PI, rough: 0.9 });
@@ -156,8 +156,8 @@ export function airstopLife(ctx, K) {
     secs: { tour: 115 },
     lines: { welcome: ['Anna’s House. The bungalow under the oaks. Mind the step.'] },
     lookOnBoard: -1.4, pitchOnBoard: -0.2, pitchOnTour: -0.62, lookOnArrive: -1.3, pitchOnArrive: -0.35,      // aboard, the window on the island side; aloft, the view tips down to it
-    say, hint, bus: { plank: 9 },
-    hintAboard: 'E or Esc · get off (it takes you back to the stop) · the mouse looks about',
+    say, hint, bus: { plank: 9, drop: 0 },
+    hintAboard: 'Esc · back to the stop · any step stands you up, and you can walk about',
     onStart: () => { h0 = window.house?.hour ?? null; },
   });
   window.__airship = air;
@@ -167,17 +167,13 @@ export function airstopLife(ctx, K) {
     const r = air.call();
     if (r === 'rung') toast('The bell rings out across the sky. Somewhere, something yellow turns round.');
   } });
-  // the foot of her gangplank, on the grass: E there boards
-  const boardSpot = { x: 0, y: -999, z: 0, reach: 7, size: 1.6, label: () => (TRANSIT.town ? 'board the airship to Vesper Street' : 'board the airship'), act: () => air.board() };
-  ctx.interact.push(boardSpot);
+  // Boarding is on foot: walk up her gangplank from the grass (airship/ride.js). Esc asks her to turn back.
   addEventListener('keydown', e => { if (e.code === 'Escape' && air.aboard) air.getOff(); });
 
   ctx.animated.push((t, dt) => {
     sock.rotation.y = -2.1 + 0.35 * Math.sin(wind.value * 0.4) + 0.1 * Math.sin(wind.value * 1.7); sock.rotation.z = 0.5 + 0.15 * Math.sin(wind.value * 1.1);
     swingV += (-swing * 30 - swingV * 1.6) * dt; swing += swingV * dt; bell.rotation.z = swing * 0.35;
     if (hintText) { const root = window.house?.ctx; if (root && root.hint !== mine) { prev = root.hint; root.hint = mine; } }      // toys.js may have set its own since
-    const d = air.canBoard ? air.doorAt : null;
-    if (d) { boardSpot.x = d.x; boardSpot.y = d.y + 2.2; boardSpot.z = d.z; } else boardSpot.y = -999;
   });
 
   // a visitor from Vesper Street arrives aboard; test views
