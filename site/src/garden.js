@@ -58,6 +58,7 @@ import { chaplain } from './garden/chaplain.js';
 import { wind, rng } from './garden/cards.js';
 import { makeFlames } from './flame.js';
 import { buildAirstop, airstopLife } from './garden/airstop.js';
+import { smoresLife } from './garden/smores.js';
 import { inPoly } from './garden/flora.js';
 
 export { CHAPEL };
@@ -173,7 +174,12 @@ export function plantGarden(B, items) {
       K.collide(Math.min(hx, ex) - 0.1, Math.max(hx, ex) + 0.1, Math.min(fz, ez) - 0.3, Math.max(fz, ez), 4);
     }
     buildFrontWalk(K);      // the brick walk from here to the porch steps (garden/front_walk.js)
-    K.extras.push({ draw: (g, w, h) => { g.fillStyle = '#d9d2c0'; g.fillRect(0, 0, w, h); g.strokeStyle = '#8a9480'; g.lineWidth = 8; g.strokeRect(8, 8, w - 16, h - 16); g.fillStyle = '#4a4f44'; g.font = 'italic 64px "Iowan Old Style", Palatino, Georgia, serif'; g.textAlign = 'center'; g.fillText('Welcome to', w / 2, 92); g.font = 'italic 76px "Iowan Old Style", Palatino, Georgia, serif'; g.fillText('Anna’s House', w / 2, 178); }, cw: 600, ch: 230, w: 3.0, h: 1.15, x: px(23.55), y: 7.5, z: fz + 1.12, rotY: 0.04, rough: 0.9 });
+    // The sign: a painted board hung on two chains from the arbour's front hoop, lettered on both faces. (It was
+    // a single card floating in front of the arch, with nothing holding it and nothing to see from the garden side.)
+    { const sx = px(23.55), sy = 8.0, sz = fz + 0.6, welcome = (g, w, h) => { g.fillStyle = '#d9d2c0'; g.fillRect(0, 0, w, h); g.strokeStyle = '#8a9480'; g.lineWidth = 8; g.strokeRect(8, 8, w - 16, h - 16); g.fillStyle = '#4a4f44'; g.font = 'italic 64px "Iowan Old Style", Palatino, Georgia, serif'; g.textAlign = 'center'; g.fillText('Welcome to', w / 2, 92); g.font = 'italic 76px "Iowan Old Style", Palatino, Georgia, serif'; g.fillText('Anna’s House', w / 2, 178); };
+      K.box('c#d9d2c0/0.9', sx - 1.56, sx + 1.56, sy - 0.62, sy + 0.62, sz - 0.04, sz + 0.04);
+      for (const [dz, rotY] of [[0.046, 0], [-0.046, Math.PI]]) K.extras.push({ draw: welcome, cw: 600, ch: 230, w: 3.0, h: 1.15, x: sx, y: sy, z: sz + dz, rotY, rough: 0.9 });
+      for (const dx of [-1.2, 1.2]) { K.beam('c#2b2724/0.55/0.7', [sx + dx, sy + 0.6, sz], [sx + dx, 9.78, sz], 0.035, 0.035); K.box('c#2b2724/0.55/0.7', sx + dx - 0.05, sx + dx + 0.05, sy + 0.56, sy + 0.66, sz - 0.06, sz + 0.06); } }
   }
 
   // ======================================================================================
@@ -191,14 +197,14 @@ export function plantGarden(B, items) {
     // self-seeded things along the walk, and clover in the lawn
     for (let z = 18; z < 66; z += 2.2 + r() * 3) { const s = r() < 0.5 ? -1 : 1, x = s < 0 ? -1.4 - r() : 5.2 + r(); if (z > 41 && z < 60 && s > 0) F.add(r() < 0.6 ? 'wildflowers' : 'grass', x + 1, z, 0.6); else if (z > 60) F.add(r() < 0.6 ? 'wildflowers' : 'grass', x, z, 0.7); }
     // Foundation planting: hydrangeas grown big, ferns
-    G.rect('mulch', 8.6, 21.4, 0.5, 6.8);
+    G.rect('mulch', 8.6, 21.4, 0.5, 6.8, { hard: 'z0 x0' });
     F.row('hydrangea', 9.8, 2.3, 20.5, 2.3, 2.4, 1.2); F.row('fern', 9.5, 5.4, 20.8, 5.4, 2.0, 0.9); F.drift('hosta', 15, 5.6, 5, 0.6, 4, 1);
     G.blob('mulch', -19, 14.6, 14.5, 2.4, { wobble: 0.15 });
     F.drift('rose', -26, 14.2, 5, 1, 3, 1.05); F.drift('lavender', -16, 15.4, 8, 0.8, 7, 0.95); F.drift('catmint', -9, 15, 3, 0.6, 3, 0.9); F.drift('spires', -31, 15, 1.5, 0.6, 2, 0.8);
-    G.rect('mulch', -38.6, -34.0, -13.5, 13.5);
+    G.rect('mulch', -38.6, -34.0, -13.5, 13.5, { hard: 'x1' });
     F.row('hydrangea', -36.6, -11.5, -36.6, 11.5, 3.0, 1.2); F.row('fern', -38.0, -12.5, -38.0, 12.5, 2.2, 0.95); F.drift('hosta', -35, -2, 0.6, 9, 5, 1.1);
     // Shade bed along the north wall of the house, and stepping stones past it
-    G.rect('mulch', 21.9, 25.5, -36, -1);
+    G.rect('mulch', 21.9, 25.5, -36, -1, { hard: 'x0' });
     F.row('fern', 23.2, -2, 23.2, -35, 4.6, 1); for (const z of [-5, -16, -27]) K.ferns.push([23.4, 0.05, z, 1.0]); F.row('hosta', 24.6, -3, 24.6, -34, 2.6, 1.1); F.drift('hydrangea', 23, -18, 0.8, 8, 3, 1);
     for (let z = 12; z > -50; z -= 2.6) { const x = 29 + Math.sin(z * 0.12) * 1.4; G.blob('flagstone', x, z, 1.25, 0.95, { y: 0.09, wobble: 0.18, seed: Math.round(z * 10) }); }
     // A tree seat round the old oak, and a tyre swing from one of its limbs
@@ -213,16 +219,29 @@ export function plantGarden(B, items) {
       K.collide(ox - R1, ox + R1, oz - R1, oz + R1, 2.0);
       K.seat(ox + 4.2, h, oz - 1.8, -0.8, 'sit under the old oak');
       K.squirrelOn = { x: ox - 3.9, y: 1.62, z: oz + 1.2, ry: -2.2 };
-      K.tyre = { x: ox + 9, z: oz + 6, top: 16 };
-      G.blob('soil', ox + 9, oz + 6, 2.6, 1.8, { y: 0.06, wobble: 0.3 });
-      K.beam(OLDWOOD, [ox + 3, 15.6, oz + 2], [ox + 13, 17.5, oz + 9], 0.7, 0.7);          // the limb it hangs from
+      K.tyre = { x: ox + 9, z: oz + 6.2, top: 16.5 };                                       // (top: just inside the bough's underside, where the rope is tied)
+      G.blob('soil', ox + 9, oz + 6.2, 2.6, 1.8, { y: 0.06, wobble: 0.3 });
+      // the bough it hangs from, in the oak's own bark: it leaves one of the oak's limbs (trees.js grows them from the seed; the
+      // first point is on that limb's axis), runs out along the old line (the jay and the owl perch on its top: creatures.js,
+      // creatures_more.js) and thins to a tip
+      const bough = [[-0.02, 14.6, 1.3, 0.5], [3, 15.6, 2, 0.36], [13, 17.5, 9, 0.34], [16, 18.07, 11.1, 0.05]];
+      for (let i = 1; i < bough.length; i++) {
+        const [ax, ay, az, ar] = bough[i - 1], [bx, by, bz, br] = bough[i], A = new THREE.Vector3(ox + ax, ay, oz + az), d = new THREE.Vector3(ox + bx, by, oz + bz).sub(A), len = d.length();
+        const g = new THREE.CylinderGeometry(br, ar, len + (i < bough.length - 1 ? br * 0.8 : 0), 7, 1, true), uv = g.attributes.uv; for (let j = 0; j < uv.count; j++) uv.setXY(j, uv.getX(j) * 2, uv.getY(j) * len / 5);
+        g.translate(0, len / 2, 0); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize())); g.translate(A.x, A.y, A.z); B.mesh('bark', g);
+      }
     }
     // An old stone bird bath, mossy, with a blue tit
     {
       const x = -34, z = 46;
-      K.lathe('c#8b8a76/1', x, 0, z, [[0.01, 0], [0.9, 0], [0.9, 0.2], [0.45, 0.45], [0.3, 1.2], [0.36, 2.2], [0.5, 2.5], [1.5, 2.75], [1.6, 2.95], [1.45, 2.95], [0.01, 2.75]], 18);
-      K.lathe(PAINT.moss, x, 0.02, z, [[0.92, 0], [0.92, 0.12], [0.5, 0.38], [0.01, 0.4]], 14);
-      K.cyl('c#5a6a62/0.05/0.2', x, 2.78, 2.86, z, 1.42, 1.42, 18);
+      // a stepped plinth, a baluster stem with a ring and a collar, and a shallow dish with a rolled rim and a
+      // real hollow for the water (it was one cone with a flat lid of water across the top)
+      K.lathe('c#8b8a76/1', x, 0, z, [[0.01, 0], [1.0, 0], [1.0, 0.14], [0.92, 0.2], [0.8, 0.22], [0.8, 0.36], [0.55, 0.46], [0.4, 0.56], [0.34, 0.75], [0.38, 0.95], [0.44, 1.0], [0.44, 1.06], [0.36, 1.12],
+        [0.3, 1.5], [0.3, 1.85], [0.38, 2.1], [0.48, 2.2], [0.5, 2.26], [0.42, 2.32], [0.6, 2.42], [1.15, 2.6], [1.5, 2.78], [1.6, 2.86], [1.62, 2.92], [1.58, 2.96], [1.5, 2.96], [1.43, 2.92], [1.3, 2.84], [0.8, 2.76], [0.01, 2.72]], 28);
+      K.lathe(PAINT.moss, x, 0.02, z, [[1.02, 0], [1.02, 0.1], [0.82, 0.24], [0.56, 0.44], [0.01, 0.46]], 16);
+      for (const [a, s] of [[0.5, 1], [1.3, 0.7], [2.1, 1.1], [5.4, 0.8]]) K.rock(PAINT.moss, x + Math.cos(a) * 1.54, 2.95, z + Math.sin(a) * 1.54, 0.26 * s, 0.035, 0.13 * s, -a + 1.57, 1);      // moss on the rim, the shady side
+      K.cyl('c#5a6a62/0.05/0.2', x, 2.8, 2.87, z, 1.35, 1.35, 28);
+      for (const [dx, dz, c] of [[0.5, -0.35, 'c#b0803a/0.9'], [-0.3, 0.6, 'c#8a5a2a/0.9']]) K.cyl(c, x + dx, 2.871, 2.876, z + dz, 0.1, 0.07, 5);      // two fallen leaves on the water
       K.titOn = { x: x - 1.45, y: 2.95, z: z + 0.3, ry: 0.4 };
       K.collide(x - 1.2, x + 1.2, z - 1.2, z + 1.2, 3.2);
       F.drift('wildflowers', x, z, 3.2, 3.2, 5, 0.8); F.drift('grass', x, z, 2.4, 2.4, 3, 0.7);
@@ -236,6 +255,7 @@ export function plantGarden(B, items) {
   {
     const pf = F1 - 0.15;                                                 // porch floor
     K.model('Rockingchair_01', px(19.3), 6.5, 0.25, { y: pf, seat: 1.45 }); K.model('Rockingchair_01', px(27.8), 6.5, -0.25, { y: pf, seat: 1.45 });
+    for (const X of [19.3, 27.8]) K.collide(px(X) - 1.0, px(X) + 1.0, 6.5 - 1.25, 6.5 + 1.25, pf + 3, pf);      // the rockers are solid (they could be walked through)
     K.model('wooden_lantern_01', px(17.9) + 0.4, 10.6, 0, { y: pf }); K.lamp(px(17.9), F1 + 1, 10.6, 0.3);
     // small pots either side of the front door: ferns and a little lavender, well clear of the wall
     for (const x of [-2.4, 6.2]) { const top = K.pot(x, pf, 1.45, 0.85, [['lavender', 0.5, 0.25, 0.1]], { collide: false }); K.ferns.push([x - 0.15, top - 0.1, 1.5, 0.45]); K.collide(x - 0.85, x + 0.85, 0.6, 2.3, pf + 3, pf); }
@@ -262,6 +282,16 @@ export function plantGarden(B, items) {
   for (const [x, z] of [[-30, -16.5], [-35.5, -18.6], [-41, -19.3], [-46.5, -18.4], [-51.8, -16.6], [-57, -14.6], [-61.5, -14.0]]) G.blob('flagstone', x, z, 1.5, 1.1, { y: 0.09, wobble: 0.2, seed: Math.round(x * 7) });
   for (const [x, z] of [[-64.5, 23.6], [-63.5, 28.5], [-61.6, 33.2]]) G.blob('flagstone', x, z, 1.4, 1.05, { y: 0.09, wobble: 0.2, seed: Math.round(z * 7) });
   buildPlay(K);
+  // Clover and dandelions in the rough past the play set: thick along the island's rim, thinning into the lawn
+  {
+    const q = rng(5150), was = F.r; F.r = q;
+    for (let i = 0; i < 120; i++) {
+      const a = -0.08 + q() * 0.6, d = islandEdge(a) * (0.945 - 0.2 * q() ** 1.7), x = ISLAND.x + Math.cos(a) * d, z = ISLAND.z + Math.sin(a) * d, k = q();
+      if (x < 80 && z > -16 && z < 24) continue;                                    // not on the play set's ground
+      if (k < 0.42) F.add('clover', x, z, 0.6 + q() * 0.55, { y: 0.1 }); else F.add(k < 0.87 ? 'dandelion' : 'dandelionClock', x, z, 0.8 + q() * 0.4, { tilt: 0 });
+    }
+    F.r = was;
+  }
   buildTreehouse(K, { island: ISLAND, outline: islandEdge });      // in the great oak beyond the play set (garden/treehouse.js)
   buildPotager(K);
   buildLibrary(K); buildMailbox(K);       // by the gate (garden/little_library.js, mailbox.js)
@@ -319,7 +349,7 @@ export function plantGarden(B, items) {
   // ======================================================================================
   {
     const poly = [[-26.5, -24], [-26.5, -126], [-100, -128], [-110, -26], [-84, -16], [-50, -22], [-38, -30]];
-    G.poly('meadow', poly);
+    G.poly('meadow', poly, { soft: true });
     const paths = [
       [[-34, -21], [-46, -36], [-56, -58], [-62, -72]],
       [[-62, -88], [-78, -98], [-92, -110], [-95, -113]],
@@ -460,7 +490,7 @@ export function plantGarden(B, items) {
     // the tyre swing on the old oak
     if (K.tyre) {
       const t = K.tyre, grp = new T3.Group(); grp.position.set(t.x, t.top, t.z); scene.add(grp);
-      const rope = new T3.Mesh(new T3.CylinderGeometry(0.04, 0.04, t.top - 2.4, 5), new T3.MeshStandardMaterial({ color: 0x9a8a6a, roughness: 1 })); rope.position.y = -(t.top - 2.4) / 2; grp.add(rope);
+      const rope = new T3.Mesh(new T3.CylinderGeometry(0.04, 0.04, t.top - 3.0, 5), new T3.MeshStandardMaterial({ color: 0x9a8a6a, roughness: 1 })); rope.position.y = -(t.top - 3.0) / 2; grp.add(rope);      // from the bough into the top of the tyre
       const tyre = new T3.Mesh(new T3.TorusGeometry(1.0, 0.36, 10, 22), new T3.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.9 })); tyre.position.y = -(t.top - 2.0); tyre.castShadow = true; grp.add(tyre);
       const seat = { x: t.x, y: 4.6, z: t.z, yaw: 0.6, label: 'sit in the tyre swing' };
       ctx.interact.push({ x: t.x, y: 2.4, z: t.z, reach: 6, seat, label: () => 'sit in the tyre swing' });
@@ -484,6 +514,14 @@ export function plantGarden(B, items) {
     // the hammock, swaying a little; lie in it and look up into the leaves
     if (K.hammock) {
       const h = K.hammock, len = h.z0 - h.z1, cz = (h.z0 + h.z1) / 2, top = 5.6;
+      // where each maple's trunk really is at the ropes' height, as trees.js draws it (the first two draws of its seed are its lean; it
+      // tapers along its bole and is nine-sided): its centre and corner radius there, and `at`, where the hammock's axis goes in under the bark
+      const tie = s => {
+        const ez = s > 0 ? h.z0 : h.z1, p = TREES.filter(q => q.kind === 'maple').reduce((a, q) => (Math.hypot(q.x - h.x, q.z - ez) < Math.hypot(a.x - h.x, a.z - ez) ? q : a));
+        const q = rng(p.seed), lean = new T3.Vector3((q() - 0.5) * 0.22, 1, (q() - 0.5) * 0.22).normalize(), Ht = p.height ?? 44, t = (top - 0.9) / lean.y;
+        const r = (p.trunk ?? 1.5 * Ht / 44) * (1 - 0.28 * t / (Ht * 0.3)), x = p.x + lean.x * t, z = p.z + lean.z * t;
+        return { x, z, r, at: z - s * (Math.sqrt(Math.max(0, (r * 0.94) ** 2 - (h.x - x) ** 2)) - 0.08) };
+      };
       const geo = new T3.PlaneGeometry(len * 0.72, 3.2, 16, 4), p = geo.attributes.position;
       for (let i = 0; i < p.count; i++) { const u = p.getX(i) / (len * 0.72) * 2, v = p.getY(i) / 1.6; p.setZ(i, (1 - u * u) * -1.3 + v * v * 0.55); }
       geo.rotateX(-Math.PI / 2); geo.rotateY(Math.PI / 2); geo.computeVertexNormals();
@@ -493,7 +531,9 @@ export function plantGarden(B, items) {
       const grp = new T3.Group(); grp.position.set(h.x, top, cz); scene.add(grp);
       cloth.position.y = h.low + 1.3 - top; cloth.castShadow = true; grp.add(cloth);
       const ropeMat = new T3.MeshStandardMaterial({ color: 0xb8a57c, roughness: 1 });
-      for (const s of [-1, 1]) for (const dx of [-1.4, 0, 1.4]) { const a = new T3.Vector3(0, 0.6, s * len / 2), b = new T3.Vector3(dx, h.low + 1.3 - top + 0.55, s * len * 0.36); const d = b.clone().sub(a); const rope = new T3.Mesh(new T3.CylinderGeometry(0.025, 0.025, d.length(), 4), ropeMat); rope.position.copy(a).add(b).multiplyScalar(0.5); rope.quaternion.setFromUnitVectors(new T3.Vector3(0, 1, 0), d.normalize()); grp.add(rope); }
+      // each end's ropes run to one point on its tree, on the axis the hammock sways about (so that end never moves), with two turns round the trunk
+      for (const s of [-1, 1]) { const k = tie(s); for (const dy of [-0.04, 0.04]) { const ring = new T3.Mesh(new T3.TorusGeometry(k.r + 0.015, 0.025, 4, 9).rotateX(Math.PI / 2).rotateY(-Math.PI / 18), ropeMat); ring.position.set(k.x, top + dy, k.z); scene.add(ring); } }
+      for (const s of [-1, 1]) for (const dx of [-1.4, 0, 1.4]) { const a = new T3.Vector3(0, 0, tie(s).at - cz), b = new T3.Vector3(dx, h.low + 1.3 - top + 0.55, s * len * 0.36); const d = b.clone().sub(a); const rope = new T3.Mesh(new T3.CylinderGeometry(0.025, 0.025, d.length(), 4), ropeMat); rope.position.copy(a).add(b).multiplyScalar(0.5); rope.quaternion.setFromUnitVectors(new T3.Vector3(0, 1, 0), d.normalize()); grp.add(rope); }
       const seat = { x: h.x, y: h.low + 1.2, z: cz, yaw: Math.PI / 2, label: 'lie in the hammock' };
       ctx.interact.push({ x: h.x, y: h.low + 0.6, z: cz, reach: 6, seat, label: () => 'lie in the hammock' });
       let was = false;
@@ -505,6 +545,7 @@ export function plantGarden(B, items) {
     treehouseLife(ctx, K);
     chapelLife(ctx, K);
     airstopLife(ctx, K);      // its bell, gate and windsock, and Dandelion the airship (airship/)
+    smoresLife(ctx, K, items);      // the bell at the fire pit, and what it brings (garden/smores.js)
     for (const f of K.setups) f(ctx);    // the library door, the mailbox, the honey stall (little_library.js, mailbox.js, hives.js)
     chaplain(ctx, K);                    // Moth, who keeps the chapel (garden/chaplain.js)
     creatures(ctx, K);

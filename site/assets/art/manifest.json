@@ -509,5 +509,18 @@
       "bedroom",
       "bathroom"
     ]
+  },
+  {
+    "slug": "bach_prelude_c_bischoff",
+    "title": "Praeludium I in C major, BWV 846 (Das wohltemperirte Clavier, Erster Theil), pp. 8-9",
+    "artist": "Johann Sebastian Bach; edited by Hans Bischoff (Steingräber Verlag, Leipzig)",
+    "year": "1883",
+    "width_px": 1080,
+    "height_px": 704,
+    "source_url": "https://archive.org/details/31761034970749",
+    "licence": "Public domain (music 1722; edition published 1883, editor Hans Bischoff died 1889). Scan: University of Toronto Faculty of Music Library via Internet Archive; also on Wikimedia Commons marked Public domain",
+    "suggested_rooms": [
+      "living room (open on the piano)"
+    ]
   }
 ]

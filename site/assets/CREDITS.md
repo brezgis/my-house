@@ -105,3 +105,13 @@ All textures and the lighting environment are CC0 (public domain).
   The model is its author's; iMac is a trademark of Apple Inc., with which this house has no connection.
 - The chapel's stained glass windows, their lettering and the inscriptions over its door and on its
   table are drawn in code for this house (src/garden/chapel_glass.js, src/garden/chapel.js); no images are used.
+- The living-room piano is built in code for this house (src/rooms/living.js); no downloaded model. A search for a CC0
+  model of a real upright (Poly Haven, Sketchfab, BlenderKit, Poly Pizza, OpenGameArt, Sweet Home 3D, Wikimedia
+  Commons) found none that could be republished without conditions.
+  The score open on it (assets/art/bach_prelude_c_bischoff.jpg) is J. S. Bach, Praeludium I in C major, BWV 846, pages
+  8-9 of *Das wohltemperirte Clavier, Erster Theil* in Hans Bischoff's critical edition (Joh. Seb. Bach's Clavierwerke,
+  vol. 5; Steingräber Verlag, Leipzig, 1883). Public domain: the music dates from 1722, the edition from 1883, and
+  its editor died in 1889. Scan from the University of Toronto Faculty of Music Library via the Internet Archive:
+  https://archive.org/details/31761034970749 (the same file on Wikimedia Commons, marked public domain:
+  https://commons.wikimedia.org/wiki/File:Das_wohltemperirte_Klavier._Kritische_Ausg._mit_Fingersatz_und_Vortragsbezeichnungen_versehen_von_Hans_Bischoff_(IA_31761034970749).pdf).
+  The two pages were set side by side, levelled to greyscale and reduced to 1080 x 704.

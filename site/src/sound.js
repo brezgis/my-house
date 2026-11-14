@@ -163,7 +163,23 @@ export function makeSound() {
   const SCALE = [62, 64, 66, 67, 69, 71, 73, 74, 76, 78];
   const key = n => note(SCALE[n % SCALE.length], 0, 1.8);
 
-  return { start, update, playPhrase, key, note, next, setDuck: v => { ducked = v; }, toggleMute: () => { muted = !muted; tube?.player?.setVolume?.(muted ? 0 : 28 * vol); return muted; },
+  // Running water, for the taps (taps.js): a quiet loop of filtered noise, made when a tap is turned on and
+  // stopped when the last one is turned off. v: 0 (off) to 1 (standing at the basin).
+  let wet = null;
+  function water(v) {
+    if (!ctx || (!wet && v <= 0)) return;
+    if (!wet) {
+      const buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      const src = ctx.createBufferSource(), hp = ctx.createBiquadFilter(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+      src.buffer = buf; src.loop = true; hp.type = 'highpass'; hp.frequency.value = 1100; lp.type = 'lowpass'; lp.frequency.value = 5200; g.gain.value = 0;
+      src.connect(hp); hp.connect(lp); lp.connect(g); g.connect(master); src.start(); wet = { src, g, v: -1 };
+    }
+    const aim = muted || ducked ? 0 : v * 0.04;
+    if (Math.abs(aim - wet.v) > 0.001 || v <= 0) { wet.v = aim; wet.g.gain.setTargetAtTime(aim, ctx.currentTime, 0.12); }
+    if (v <= 0) { const w = wet; wet = null; setTimeout(() => { w.src.stop(); w.g.disconnect(); }, 900); }
+  }
+  return { water, start, update, playPhrase, key, note, next, setDuck: v => { ducked = v; }, toggleMute: () => { muted = !muted; tube?.player?.setVolume?.(muted ? 0 : 28 * vol); return muted; },
     isMuted: () => muted, volume: () => vol, setVolume: v => { vol = Math.max(0, Math.min(1, v)); if (master) master.gain.value = vol; },      // ui.js hook: the settings card
     set onNote(f) { onNote = f; }, nowPlaying: () => nowTitle || (music && !music.paused ? music.title : '') };
 }

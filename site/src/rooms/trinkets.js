@@ -104,8 +104,8 @@ export const DRAWN = {
     const snap = k => (cw, ch) => { const im = PHOTOS[k], b = cw * 0.07, W = cw - 2 * b, H = ch - b - ch * 0.2; g.fillStyle = '#7f95a3'; g.fillRect(-cw / 2 + b, -ch / 2 + b, W, H);
       if (im) { const sc = Math.max(W / im.width, H / im.height), sw = W / sc, sh = H / sc; g.drawImage(im, (im.width - sw) / 2, Math.max(0, (im.height - sh) * 0.35), sw, sh, -cw / 2 + b, -ch / 2 + b, W, H); } };
     const title = (t, ch, px = h * 0.032) => { g.fillStyle = '#333'; g.font = `bold ${px}px ${SANS}`; g.textAlign = 'center'; g.fillText(t, 0, -ch / 2 + px * 1.5); };
-    // top row: a deadline, a similarity matrix off the printer, two snapshots
-    card(w * 0.115, h * 0.22, w * 0.17, h * 0.26, -0.05, '#fff59a', text(['ablations', 'by Friday!'], h * 0.05));
+    // top row: a sentence, a similarity matrix off the printer, two snapshots
+    card(w * 0.115, h * 0.22, w * 0.17, h * 0.26, -0.05, '#fff59a', text(['colorless', 'green ideas', 'sleep furiously'], h * 0.036));
     card(w * 0.335, h * 0.29, w * 0.22, h * 0.44, 0.025, '#f7f4ec', (cw, ch) => { title('similarity', ch); const n = 8, c = cw * 0.1, x0 = -n * c / 2, y0 = -ch / 2 + h * 0.075;
       for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) { const same = Math.floor(a / 3) === Math.floor(b / 3), v = a === b ? 1 : same ? 0.55 + r() * 0.25 : r() * 0.3; g.fillStyle = `hsl(${250 - v * 200},65%,${88 - v * 48}%)`; g.fillRect(x0 + a * c, y0 + b * c, c - 1, c - 1); } });
     card(w * 0.585, h * 0.25, w * 0.2, h * 0.36, -0.04, '#fbf9f3', snap(3));
@@ -116,7 +116,7 @@ export const DRAWN = {
     card(w * 0.4, h * 0.77, w * 0.24, h * 0.32, -0.03, '#f7f4ec', (cw, ch) => { title('run 14', ch, h * 0.028); g.strokeStyle = '#555'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-cw * 0.4, -ch * 0.22); g.lineTo(-cw * 0.4, ch * 0.38); g.lineTo(cw * 0.42, ch * 0.38); g.stroke();
       for (const [col, f] of [['#2f6a8a', u => Math.exp(-u * 5)], ['#c0392b', u => 0.18 + 0.8 * Math.exp(-u * 6) + 0.25 * Math.max(0, u - 0.5)]]) { g.strokeStyle = col; g.lineWidth = 2; g.beginPath(); for (let k = 0; k <= 30; k++) { const u = k / 30, x = -cw * 0.38 + u * cw * 0.78, y = ch * 0.36 - f(u) * ch * 0.52 + (r() - 0.5) * 3; k ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); } });
     card(w * 0.615, h * 0.63, w * 0.14, h * 0.2, 0.08, '#c8f0c0', text(['more is', 'different'], h * 0.04));
-    card(w * 0.64, h * 0.87, w * 0.15, h * 0.17, -0.06, '#ffd1dc', text(['call mom', 'sun 11am'], h * 0.038));
+    card(w * 0.64, h * 0.87, w * 0.15, h * 0.17, -0.06, '#ffd1dc', text(['tea w/ Geneva', 'sun 11am'], h * 0.036));
     card(w * 0.86, h * 0.76, w * 0.2, h * 0.3, -0.05, '#f1ead8', (cw, ch) => { g.strokeStyle = '#3a4a5a'; g.lineWidth = 2; g.lineJoin = 'round'; const X = cw * 0.34, Y = ch * 0.3;      // the house, in pen
       g.beginPath(); g.moveTo(-X, Y); g.lineTo(-X, -Y * 0.1); g.lineTo(0, -Y * 0.95); g.lineTo(X, -Y * 0.1); g.lineTo(X, Y); g.closePath(); g.moveTo(-X * 1.25, -Y * 0.02); g.lineTo(0, -Y * 1.1); g.lineTo(X * 1.25, -Y * 0.02); g.stroke();
       g.strokeRect(-X * 0.16, Y * 0.3, X * 0.32, Y * 0.7); for (const sx of [-0.62, 0.38]) g.strokeRect(X * sx, Y * 0.2, X * 0.26, Y * 0.36);

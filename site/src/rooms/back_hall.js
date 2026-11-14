@@ -35,6 +35,7 @@ export default function (kit) {
     g.strokeStyle = '#3a3530'; g.lineWidth = 2; for (let i = 0; i < 5; i++) { g.beginPath(); g.moveTo(w * (0.22 + i * 0.14), h * 0.85); g.lineTo(w * (0.25 + i * 0.13), h * 0.62); g.lineTo(w * (0.3 + i * 0.13), h * 0.85); g.stroke(); }
   };
   pack(b, 0.75, 0.42, 1.69, 0.95, 0.5, 0.95, 'c#b08a5a/0.9', tj);
+  for (const sy of [-1, 1]) P.tube(b, 'c#a07a4c/0.9', [[0.58, 0.42 + sy * 0.22, 2.6], [0.6, 0.42 + sy * 0.25, 2.84], [0.75, 0.42 + sy * 0.27, 2.94], [0.9, 0.42 + sy * 0.25, 2.84], [0.92, 0.42 + sy * 0.22, 2.6]], 0.014);      // its two paper handles
   P.bouquet(b, 0.75, 0.42, 2.3, 0.75, ['c#f2c14a/0.8', 'c#f2ead8/0.8', 'c#e8a0a8/0.8'], 31, 9, 0.2);
   P.hat(b, -0.65, 0.52, 1.69, 'wool#7a3b5e', 'c#c9c0ac/0.8');                          // somebody's hat, put down on the way in
   // Mishima in the morning mist, between two sconces

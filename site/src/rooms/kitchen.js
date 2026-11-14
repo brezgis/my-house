@@ -163,10 +163,8 @@ export function tools(kit, seed = 1) {
       f.box(PORC, s0 + 0.08, s1 - 0.08, 0.53, d - 0.08, 2.1, 2.2);                               // nine inches deep
       f.cyl('c#9a9590/0.3/1', m, 1.25, 2.2, 2.21, 0.1, 0.1, 14); f.cyl('c#3a3632/0.5', m, 1.25, 2.205, 2.215, 0.05, 0.05, 10);
       // Bridge faucet in unlacquered brass
-      for (const s of [-0.38, 0.38]) { f.cyl(BRASS, m + s, 0.3, 3.02, 3.36, 0.045, 0.04, 12); f.box(BRASS, m + s - 0.14, m + s + 0.14, 0.27, 0.33, 3.4, 3.44); f.cyl('c#efe9dc/0.3', m + s, 0.3, 3.36, 3.42, 0.03, 0.03, 8); }
-      hcyl(f, BRASS, 'x', m, 0.3, 3.3, 0.76, 0.035);
-      tube(f, BRASS, [[m, 0.3, 3.28], [m, 0.3, 3.85], [m, 0.36, 4.1], [m, 0.55, 4.18], [m, 0.75, 4.05], [m, 0.82, 3.8], [m, 0.82, 3.62]], 0.035, 10);
-      f.cyl(BRASS, m + 0.55, 0.3, 3.02, 3.35, 0.03, 0.025, 8);                                  // side spray
+      // (the kit's tap: two valves with lever handles on china collars, a gooseneck from the bridge, a side spray; it runs, with E)
+      kit.tap(f, m, 0.3, 3.02, { mat: BRASS, style: 'bridge', handle: 'lever', spread: 0.38, height: 1.16, reach: 0.5, nose: 0.6, spray: 0.72, drop: 0.81 });
     }
     f.block(x0, x1, 0, d, 0, 3);
   }

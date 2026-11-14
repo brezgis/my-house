@@ -25,6 +25,7 @@
 import * as THREE from 'three';
 import { PAINT } from './tools.js';
 import { wind } from './cards.js';
+import { place, buildPart, swinger } from './little_library.js';
 import { WINDOWS, makeLife, poolCopy, w7Outline, FONT, rng, LOOP_EYE } from './chapel_glass.js';
 
 // ---- where it stands (world feet) -----------------------------------------------------------------
@@ -38,11 +39,12 @@ const FL = 1.0, PLATE = 9.5, PITCH = 1.28;                          // floor, to
 const yC = d => PLATE + (6 - d) * PITCH;                           // the ceiling, d feet from the middle line
 const yO = d => yC(d) + 1.0;                                        // the roof's top
 const DOOR = { x0: CX - 1.5, x1: CX + 1.5, h: 7 };
+const HINGE = { x: DOOR.x0 + 0.04, z: OZ1 + 0.08, w: DOOR.x1 - DOOR.x0 - 0.09, open: Math.PI - 1.25 };      // the door's hinge line, the leaf's width, how far round it stands open
 const TABLE = { x0: CX - 2.6, x1: CX + 2.6, z0: IZ0 + 0.9, z1: IZ0 + 2.5, y: FL + 2.7 };
 
 export const CHAPEL = {
   x: CX, z: CZ, floor: FL,
-  door: { x: CX, z: OZ1, yaw: Math.PI },                            // the doorway; yaw faces out of it (as walk.js: 0 looks toward -z)
+  door: { x: CX, z: OZ1, yaw: Math.PI, shut: false },               // the doorway; yaw faces out of it (as walk.js: 0 looks toward -z); shut: chapelDoor() keeps it
   inside: { x0: IX0 - 0.5, x1: IX1 + 0.5, y0: 0.5, y1: yO(0) + 0.2, z0: IZ0 - 0.5, z1: IZ1 + 0.5 },     // lit as indoors (lighting.js): the walls' inner faces in, outer faces out
   table: { x: CX, y: TABLE.y, z: (TABLE.z0 + TABLE.z1) / 2 },
   keeper: { x: CX + 3.6, y: FL, z: TABLE.z1 + 1.4, yaw: Math.atan2(3.6, 1.4 + (TABLE.z1 - TABLE.z0) / 2) },     // a spot by the candles for someone small to stand, facing the table
@@ -127,7 +129,7 @@ export function buildChapel(K, items) {
   K.collide(OX0, DOOR.x0, OZ1 - TH, OZ1, 12); K.collide(DOOR.x1, OX1, OZ1 - TH, OZ1, 12); K.collide(OX0, OX1, OZ0, OZ0 + TH, 12);
   K.collide(DOOR.x0, DOOR.x1, OZ1 - TH, OZ1, 30, FL + DOOR.h);
 
-  // the doorway: casings, the lintel (lettered in chapelLife), the door standing open
+  // the doorway: casings, the lintel (lettered in chapelLife), the door standing open (it can be shut: chapelDoor)
   // (the casings stand a little proud into the opening, so no face of theirs lies in the wall's)
   K.box(TRIM, DOOR.x0 - 0.22, DOOR.x0 + 0.03, FL + 0.02, FL + DOOR.h - 0.03, OZ1 - TH - 0.04, OZ1 + 0.08);
   K.box(TRIM, DOOR.x1 - 0.03, DOOR.x1 + 0.22, FL + 0.02, FL + DOOR.h - 0.03, OZ1 - TH - 0.04, OZ1 + 0.08);
@@ -135,14 +137,17 @@ export function buildChapel(K, items) {
   K.box('timber', DOOR.x0 - 0.9, DOOR.x1 + 0.9, FL + DOOR.h, FL + DOOR.h + 0.85, OZ1, OZ1 + 0.4);            // the lintel
   K.box('timber', DOOR.x0 - 1.0, DOOR.x1 + 1.0, FL + DOOR.h + 0.85, FL + DOOR.h + 1.0, OZ1, OZ1 + 0.5);            // its drip cap
   {
-    // the leaf, hinged on the south jamb, swung out and back toward the wall (clear of the lintel seen from the path)
-    const a = Math.PI - 1.25, ax = Math.cos(a), az = Math.sin(a), W = DOOR.x1 - DOOR.x0 - 0.05, hx = DOOR.x0 - 0.08, hz = OZ1 + 0.14, rot = [0, -a, 0];
-    const at = (along, half, y0, y1, thick, mat, o = {}) => { const cx = hx + ax * along, cz = hz + az * along; K.box(mat, cx - half, cx + half, y0, y1, cz - thick, cz + thick, { rot, ...o }); };
-    at(W / 2, W / 2, FL + 0.03, FL + DOOR.h - 0.05, 0.09, DOORPAINT);
-    for (const y of [FL + 0.8, FL + 3.4, FL + 6.0]) at(W / 2, W / 2 - 0.18, y, y + 0.42, 0.15, DOORPAINT);
-    for (const y of [FL + 1.0, FL + 6.15]) at(1.05, 1.0, y, y + 0.13, 0.17, PAINT.iron);
-    const ex = hx + ax * W, ez = hz + az * W;
-    K.collide(Math.min(hx, ex) - 0.2, Math.max(hx, ex) + 0.2, Math.min(hz, ez) - 0.2, Math.max(hz, ez) + 0.2, FL + DOOR.h, 0);
+    // the leaf, hinged on the south jamb in the doorway and opening outward. It is a part of its own (as the little
+    // library's door is), drawn here lying shut along +x from its hinge; chapelDoor() below hangs it, standing open.
+    const f = place(K, HINGE.x, 0, HINGE.z), d = f.part(0, 0, 0), W = HINGE.w, mid = -0.11;      // mid: the leaf's middle, back from the hinge line
+    const at = (x0, x1, y0, y1, thick, mat) => d.box(mat, x0, x1, y0, y1, mid - thick, mid + thick);
+    at(-0.02, W, FL + 0.03, FL + DOOR.h - 0.05, 0.09, DOORPAINT);
+    for (const y of [FL + 0.8, FL + 3.4, FL + 6.0]) at(0.18, W - 0.18, y, y + 0.42, 0.15, DOORPAINT);
+    for (const y of [FL + 1.0, FL + 6.15]) at(0.05, 2.05, y, y + 0.13, 0.17, PAINT.iron);
+    // what it shuts against: a stop inside the frame at the latch side and across the head
+    K.box(TRIM, DOOR.x1 - 0.2, DOOR.x1 - 0.03, FL + 0.02, FL + DOOR.h - 0.03, OZ1 - 0.3, OZ1 - 0.12);
+    K.box(TRIM, DOOR.x0 + 0.03, DOOR.x1 - 0.2, FL + DOOR.h - 0.13, FL + DOOR.h - 0.03, OZ1 - 0.3, OZ1 - 0.12);
+    K.setups.push(ctx => chapelDoor(ctx, d));
   }
 
   // a lantern on a bracket beside the door, north of it: black iron and amber glass that glows after
@@ -205,15 +210,21 @@ export function buildChapel(K, items) {
   // trees round it (none to the south: that is the edge, and the sun), a little planting
   K.trees.push({ kind: 'birch', x: -93, z: 3, seed: 501, height: 31 }, { kind: 'birch', x: -88.5, z: -3, seed: 502, height: 27 }, { kind: 'birch', x: -92, z: 9, seed: 507, height: 29 });
   K.trees.push({ kind: 'maple', x: -85, z: -33, seed: 503, height: 38 }, { kind: 'cherry', x: -92.5, z: -27, seed: 504, height: 19 }, { kind: 'oak', x: -78, z: -4, seed: 505, height: 42 });
-  F.drift('hydrangea', OX1 + 1.8, OZ1 + 2.2, 1.2, 1.2, 2, 1.1); F.drift('fern', OX0 - 1.0, OZ1 + 1.6, 1.0, 1.2, 3, 1);
+  F.drift('hydrangea', OX1 + 2.0, OZ1 + 1.2, 1.2, 1.2, 2, 1.1); F.drift('fern', OX0 - 1.0, OZ1 + 1.6, 1.0, 1.2, 3, 1);
   F.row('lavender', OX1 + 1.4, OZ1 - 2.5, OX1 + 1.4, OZ0 + 2, 2.4, 1); F.drift('fern', OX1 + 1.6, OZ0 - 1.2, 1.4, 1.2, 4, 1);
   F.drift('rose', OX0 - 1.2, OZ0 - 1.2, 1.2, 1.2, 2, 1.1);
-  // the way in: stepping stones on from the pond's, through long grass and flowers
-  // (a curve swinging wide of the pond, clear of the bank's ferns and grass, the gnome and the trees:
-  // every stone is at least 1.75 times the water's radius out, pond_shape.js sAt() >= 1.75)
-  const way = [[-61.5, -14], [-65.8, -15.1], [-70.2, -15.9], [-74.6, -16.2], [-79.2, -15.8], [-83.5, -14.7], [-87.6, -13], [-91.6, -11.1], [-95.6, -9.1], [-99.7, -7.4], [-104, -6.6]];
-  for (let i = 1; i < way.length; i++) { const [x, z] = way[i]; G.blob('flagstone', x, z, 1.35, 1.0, { y: 0.09, wobble: 0.2, seed: Math.round(x * 13 + z) }); }
-  const near = (x, z) => way.some(([wx, wz]) => Math.hypot(x - wx, z - wz) < 2.6);
+  // the way in: stepping stones on from the pond's, through long grass and flowers, a stride apart.
+  // They keep south of the pond's bank (clear of its ferns and grass, the gnome and the oak: pond_shape.js
+  // sAt() >= 1.5), lean north past the birch, and come round wide of the corner to end square on the door.
+  // Nothing is planted within three feet of the line, and nothing at all grows on a stone.
+  const way = [[-61.5, -14], [-64.5, -13.8], [-66.9, -13.6], [-69.3, -13.5], [-71.7, -13.3], [-74.1, -13.1], [-76.5, -12.9], [-78.9, -12.7], [-81.2, -12.2], [-83.5, -11.4], [-85.6, -10.3],
+    [-87.7, -9], [-89.6, -7.6], [-91.5, -6.1], [-93.4, -4.6], [-95.3, -3.2], [-97.3, -1.9], [-99.7, -1.6], [-101.9, -2.5], [-103.35, -4.15], [-104, -6.4]];
+  for (let i = 1; i < way.length; i++) {
+    const [x, z] = way[i], [px, pz] = way[i - 1], t = Math.abs(x - px) / (Math.abs(x - px) + Math.abs(z - pz));      // 1 where the way runs along x: each stone lies across it
+    G.blob('flagstone', x, z, 1.05 - 0.2 * t, 0.85 + 0.2 * t, { y: 0.09, wobble: 0.2, seed: Math.round(x * 13 + z) });
+    F.keepOut.push([x - 1.3, x + 1.3, z - 1.3, z + 1.3]);
+  }
+  const near = (x, z) => way.some(([wx, wz]) => Math.hypot(x - wx, z - wz) < 3.0);
   for (let x = -112; x < -76; x += 2.3) for (let z = -32; z < 10; z += 2.3) {
     const qx = x + (K.r() - 0.5) * 2, qz = z + (K.r() - 0.5) * 2, k = K.r();
     if (near(qx, qz) || (qx > OX0 - 2 && qx < OX1 + 2.2 && qz > OZ0 - 2 && qz < OZ1 + 3) || Math.hypot(qx + 68, qz - 4) < 24) continue;
@@ -395,7 +406,11 @@ void main() {
     const rectXY = (z, x0, x1, y0, y1, s) => quads.push(s > 0 ? [[x1, y0, z], [x0, y0, z], [x0, y1, z], [x1, y1, z]] : [[x0, y0, z], [x1, y0, z], [x1, y1, z], [x0, y1, z]]);
     rectXZ(IX0, IX1, IZ0, IZ1, FL + e);
     for (const [wall, x, s] of [['S', IX0 + e, 1], ['N', IX1 - e, -1]]) for (const [z0, z1, y0, y1] of around(IZ0, IZ1, FL, PLATE, GLASS.filter(g => g.n[0] === (wall === 'S' ? -1 : 1)).map(g => [g.c[2] - g.w / 2 - 0.1, g.c[2] + g.w / 2 + 0.1, SILL - 0.1, SILL + WH + 0.1]))) rectZY(x, z0, z1, y0, y1, s);
-    for (const [x0, x1, y0, y1] of around(IX0, IX1, FL, PLATE, [[DOOR.x0, DOOR.x1, FL - 1, FL + DOOR.h], [CX - Math.sqrt(Math.max(0, (ROUND.r + 0.12) ** 2 - (ROUND.y - PLATE) ** 2)) - 0.05, CX + Math.sqrt(Math.max(0, (ROUND.r + 0.12) ** 2 - (ROUND.y - PLATE) ** 2)) + 0.05, ROUND.y - ROUND.r - 0.15, PLATE + 1]])) rectXY(IZ1 - e, x0, x1, y0, y1, -1);
+    // the door's wall: either side of the doorway, and the piece between its head and the round window's foot. (The
+    // doorway and the round window overlap across the wall, which around() does not allow for: given both as holes
+    // it laid a strip from the floor to the window's foot across the open doorway, and the light hung there in the air.)
+    for (const [x0, x1, y0, y1] of around(IX0, IX1, FL, PLATE, [[DOOR.x0, DOOR.x1, FL - 1, PLATE + 1]])) rectXY(IZ1 - e, x0, x1, y0, y1, -1);
+    rectXY(IZ1 - e, DOOR.x0, DOOR.x1, FL + DOOR.h, ROUND.y - ROUND.r - 0.15, -1);
     for (const [x0, x1, y0, y1] of around(IX0, IX1, FL, PLATE, [[CX - 2.6, CX + 2.6, FL + 1.9, PLATE + 1]])) rectXY(IZ0 + e, x0, x1, y0, y1, 1);
     for (const s of [-1, 1]) { const xi = s < 0 ? IX0 : IX1, xf = xi - s * 1.55; rectXZ(Math.min(xi, xf), Math.max(xi, xf), IZ0 + 4.4, IZ1 - 0.8, FL + 1.55 + e); }
     rectXZ(TABLE.x0, TABLE.x1, TABLE.z0, TABLE.z1, TABLE.y + e);
@@ -490,6 +505,43 @@ void main() {
   });
   if (Q.has('lifesteps')) { const n = Number(Q.get('lifesteps')); const wait = () => { if (life) { for (let i = 0; i < n; i++) life.step(); panes.life.tex.needsUpdate = true; } else setTimeout(wait, 200); }; wait(); }
   weathervane(ctx);
+}
+
+// ---- the door ----------------------------------------------------------------------------------------
+// The leaf is hung as the little library's door is (buildPart, swinger: little_library.js). It stands open
+// whenever the garden is made; E shuts it and E opens it again, and nothing is remembered. Shut, it stops
+// the walker and what she could reach through the doorway; open, the leaf is in the way where it stands.
+// It waits until she is clear of the doorway and of its swing before it moves.
+function chapelDoor(ctx, part) {
+  const { x: hx, z: hz, w: W, open: A } = HINGE, yTop = FL + DOOR.h;
+  const leaf = buildPart(ctx, part, 'chapel door'), sw = swinger(ctx, leaf, 'y', -A, 0, 2.6);      // (the swinger starts at its first angle: here, open)
+  const ex = hx + Math.cos(A) * W, ez = hz + Math.sin(A) * W;
+  const stop = { x0: DOOR.x0, x1: DOOR.x1, z0: OZ1 - 0.3, z1: OZ1 + 0.12, y0: 0, y1: yTop, off: true };                    // the shut leaf
+  const ajar = { x0: Math.min(hx, ex) - 0.2, x1: hx + 0.2, z0: hz - 0.1, z1: ez + 0.2, y0: 0, y1: yTop, off: false };      // the open one
+  ctx.colliders?.push(stop, ajar);
+  const AT = [{ x: hx + Math.cos(A) * 0.9, y: FL + 3.6, z: hz + Math.sin(A) * 0.9 }, { x: CX, y: FL + 3.6, z: OZ1 - 0.03 }];      // where to look at it: open, shut
+  let shut = false, want = null, moving = false, sun;
+  const inWay = () => {
+    const w = ctx.walker; if (!w || ctx.mode !== 'walk') return false;
+    const { x, z } = w.pos;
+    if (x > DOOR.x0 - 0.4 && x < DOOR.x1 + 0.4 && z > OZ1 - 1.05 && z <= OZ1) return true;      // in the doorway
+    return z > OZ1 && x > hx - 1.8 && Math.hypot(x - hx, z - hz) < W + 0.2;                     // in the leaf's swing
+  };
+  const go = () => {
+    shut = want; want = null; moving = true; sw.set(shut); stop.off = !shut; ajar.off = shut; CHAPEL.door.shut = shut;
+    Object.assign(ent, AT[shut ? 1 : 0]);
+  };
+  const ent = { ...AT[0], reach: 7, size: 1.7, label: () => (shut ? 'open the chapel door' : 'close the chapel door'),
+    act: () => { want = !shut; if (inWay()) window.houseUI?.toast?.('The door needs room to swing.'); else go(); } };
+  ctx.interact?.push(ent);
+  ctx.animated.push(() => {
+    if (want !== null && !inWay()) go();
+    if (!moving || sw.value !== (shut ? 0 : -A)) return;
+    moving = false;                                   // it has come to rest: the sun's shadows are drawn again, once
+    if (!sun) { let top = leaf; while (top.parent) top = top.parent; top.traverse(o => { if (o.isDirectionalLight && o.castShadow) sun = o; }); }
+    if (sun) sun.shadow.needsUpdate = true;
+  });
+  if (new URLSearchParams(location.search).get('chapeldoor') === 'shut') { want = true; go(); }      // for still pictures
 }
 
 // ---- the weathervane -------------------------------------------------------------------------------

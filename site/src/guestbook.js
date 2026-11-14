@@ -1,4 +1,5 @@
-// The guest book, read and written at the mailbox by the gate (garden/mailbox.js).
+// The guest book, read and written at the mailbox by the gate (garden/mailbox.js), and on the pink
+// computer in the office (hands/screens.js), which shows and signs the same book.
 //
 // Notes live in a small service of Anna's own (guestbook/ at the top of the repository: one
 // Python file, with its deployment notes). GUESTBOOK_URL below is its address; while it is
@@ -73,8 +74,10 @@ async function load(page = 1) {
 }
 // A first look, made when a visitor comes near the mailbox: is there anything they have not read?
 export function peek() { return (state.loading ??= load(1)); }
+// Ask again, after the service could not be reached
+export function refresh() { state.reachable = null; changed(); return (state.loading = load(1)); }
 export function onChange(f) { listeners.add(f); return () => listeners.delete(f); }
-const markRead = () => { if (state.latest) store.set('guestbook.seen', state.latest); state.unread = false; changed(); };
+export const markRead = () => { if (state.latest) store.set('guestbook.seen', state.latest); state.unread = false; changed(); };
 
 // ---- The card -----------------------------------------------------------------------------------
 let card = null, el = null, shownAt = 0;
@@ -182,16 +185,13 @@ function render() {
   $('.gb-pageno').textContent = `${state.page} of ${state.pages}`;
 }
 
-async function post() {
-  const f = $('.gb-form'), msg = $('.gb-msg'), btn = $('.gb-post');
-  const name = $('#gb-name').value.trim().slice(0, 40), text = $('#gb-text').value.trim();
-  if (text.length < 2) { msg.textContent = 'Write a few words first.'; $('#gb-text').focus(); return; }
-  if (text.length > 400) { msg.textContent = 'That is a little long: 400 letters at most.'; return; }
-  btn.disabled = true; msg.textContent = 'Posting…';
-  // A form is good for one note within two hours, and not in its first few seconds: if this one is old
-  // (a card left open all afternoon) or comes back stale, fetch a fresh one quietly and send again.
+// Send one note into the book (the mailbox card and the pink computer in the office both sign this way).
+// A form is good for one note within two hours, and not in its first few seconds: if this one is old
+// (a card left open all afternoon) or comes back stale, a fresh one is fetched quietly and the note sent again.
+// Answers { ok, published } or { ok: false, form, error, offline }.
+export async function sendNote(name, text, trap = '') {
   const fresh = async () => { await load(state.page); await wait(4500); };
-  const send = () => call('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, text, place: 'house', form: state.form, website: f.elements['gb-leave-empty'].value }) });
+  const send = () => call('/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, text, place: 'house', form: state.form, website: trap }) });
   let res = null;
   try {
     if (!state.form || Date.now() - (state.formAt ?? 0) > 100 * 60e3) await fresh();
@@ -199,20 +199,32 @@ async function post() {
     res = await send();
     if (res?.status === 400 && res.body?.code === 'form') { await fresh(); res = await send(); }
   } catch { /* offline */ }
+  if (res?.status !== 202) return { ok: false, form: res?.status === 400 && res.body?.code === 'form', error: res?.body?.error ?? null, offline: !res };
+  const published = res.body?.status === 'published';
+  if (!published) { const mine = store.get('guestbook.mine', []); mine.push({ name, text, date: today(), at: Date.now() }); store.set('guestbook.mine', mine.slice(-20)); }
+  await load(1);                                                     // (and a fresh form: each is good for one note)
+  markRead();
+  return { ok: true, published };
+}
+
+async function post() {
+  const f = $('.gb-form'), msg = $('.gb-msg'), btn = $('.gb-post');
+  const name = $('#gb-name').value.trim().slice(0, 40), text = $('#gb-text').value.trim();
+  if (text.length < 2) { msg.textContent = 'Write a few words first.'; $('#gb-text').focus(); return; }
+  if (text.length > 400) { msg.textContent = 'That is a little long: 400 letters at most.'; return; }
+  btn.disabled = true; msg.textContent = 'Posting…';
+  const r = await sendNote(name, text, f.elements['gb-leave-empty'].value);
   btn.disabled = false;
-  if (res?.status === 202) {
-    const published = res.body?.status === 'published';
-    if (!published) { const mine = store.get('guestbook.mine', []); mine.push({ name, text, date: today(), at: Date.now() }); store.set('guestbook.mine', mine.slice(-20)); }
+  if (r.ok) {
     f.reset(); $('#gb-text').dispatchEvent(new Event('input')); msg.textContent = '';
-    $('.gb-thanks-text').textContent = published ? 'Thank you. It is in the book: there it is, at the top.' : 'Thank you. It is in the mailbox, and Anna will read it soon.';
+    $('.gb-thanks-text').textContent = r.published ? 'Thank you. It is in the book: there it is, at the top.' : 'Thank you. It is in the mailbox, and Anna will read it soon.';
     f.hidden = true; $('.gb-thanks').hidden = false;
-    await load(1);                                                   // (and a fresh form: each is good for one note)
-    markRead(); render(); $('.gb-again').focus({ preventScroll: true });
-    window.houseUI?.toast?.(published ? 'Your note is in the book. Thank you.' : 'Your note is in the mailbox. Thank you.');
+    render(); $('.gb-again').focus({ preventScroll: true });
+    window.houseUI?.toast?.(r.published ? 'Your note is in the book. Thank you.' : 'Your note is in the mailbox. Thank you.');
     return;
   }
-  if (res?.status === 400 && res.body?.code === 'form') { msg.textContent = 'The mailbox has jammed for a moment. Your words are still here; please try posting again.'; return; }
-  msg.textContent = res?.body?.error ?? (res ? 'The mailbox would not take it just now. Try again in a little while.' : 'The note could not be sent: the connection seems to be away. Your words are still here; try again in a moment.');
+  if (r.form) { msg.textContent = 'The mailbox has jammed for a moment. Your words are still here; please try posting again.'; return; }
+  msg.textContent = r.error ?? (r.offline ? 'The note could not be sent: the connection seems to be away. Your words are still here; try again in a moment.' : 'The mailbox would not take it just now. Try again in a little while.');
 }
 
 export async function open(onClose) {

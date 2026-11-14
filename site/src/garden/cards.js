@@ -33,7 +33,9 @@ function patch(mat, sway) {
   transformed.z += k * 0.6 * cos(uWind * 0.45 + ph * 1.3);
 }
 #endif`);
-    if (sh.fragmentShader.includes('gl_FrontFacing ? 1.0 : - 1.0')) sh.fragmentShader = sh.fragmentShader.replace('gl_FrontFacing ? 1.0 : - 1.0', '1.0');
+    // (the line sits inside a chunk that is not yet written out at this point, so the chunk is written out here
+    // with the change made; replacing it in the shader's own text never matched, and backs of cards were lit from below)
+    sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('gl_FrontFacing ? 1.0 : - 1.0', '1.0'));
   };
   mat.customProgramCacheKey = () => 'card2' + sway;
   return mat;

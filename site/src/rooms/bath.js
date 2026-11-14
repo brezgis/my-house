@@ -73,8 +73,8 @@ export default function (kit) {
   P.lathe(ws, PORC, 0, 0.86, H - 0.5, [[0.0, 0.005], [0.5, 0.06], [0.64, 0.22], [0.66, 0.38], [0.665, 0.49], [0.63, 0.49], [0.61, 0.38], [0.58, 0.24], [0.46, 0.1], [0.0, 0.06]], { sx: 1, sy: 0.5 / 0.66, seg: 28, both: true });
   ws.cyl('c#8a8580/0.2/1', 0, 0.86, H - 0.445, H - 0.43, 0.06, 0.06, 12);               // drain
   // bridge faucet in unlacquered brass
-  ws.cyl(BRASS, 0, 0.22, H, H + 0.55, 0.05, 0.04, 12); P.rod(ws, BRASS, [0, 0.22, H + 0.55], [0, 0.6, H + 0.6], 0.035, 8); ws.cyl(BRASS, 0, 0.6, H + 0.42, H + 0.62, 0.035, 0.03, 8);
-  for (const x of [-0.42, 0.42]) { ws.cyl(BRASS, x, 0.22, H, H + 0.22, 0.05, 0.05, 10); ws.box('c#f2efe8/0.2', x - 0.12, x + 0.12, 0.2, 0.24, H + 0.2, H + 0.26); }
+  // (the kit's tap: a low gooseneck between two valves with china levers; it runs, with E)
+  kit.tap(ws, 0, 0.22, H, { mat: BRASS, style: 'spread', handle: 'lever', arm: 'c#f2efe8/0.2', grip: 'c#f2efe8/0.2', spread: 0.42, height: 0.66, reach: 0.44, nose: 0.4, drop: 0.41 });
   ws.block(-W / 2, W / 2, 0, D, 0, H + 0.4);
   // on the counter: soap dish, hand soap, a cup of brushes, perfume, a tube of lotion, a jar of cream
   P.dish(ws, -1.2, 0.5, H, { mat: 'c#cfcbc4/0.2', r: 0.17 }); ws.soft('c#e8d0c8/0.6', -1.3, -1.1, 0.43, 0.57, H + 0.02, H + 0.1, 0.03);

@@ -6,7 +6,7 @@
 // so the gardeners use the same path-following as the indoor staff.
 
 import { POND } from '../garden/pond.js';
-import { ISLAND } from '../garden.js';
+import { ISLAND, islandEdge } from '../garden.js';
 
 const X0 = -256, Z0 = -281, NX = 502, NZ = 502, N = NX * NZ, CELL = 1;           // the whole island
 // Flower borders and beds that are planted but not solid (from garden.js)
@@ -27,7 +27,7 @@ export function makeOutdoor(ctx) {
   function rebuild() {
     for (let c = 0; c < N; c++) {
       const x = cx(c), z = cz(c);
-      let ok = Math.hypot(x - ISLAND.x, z - ISLAND.z) < ISLAND.r - 14;            // well inside the invisible barrier
+      let ok = Math.hypot(x - ISLAND.x, z - ISLAND.z) < islandEdge(Math.atan2(z - ISLAND.z, x - ISLAND.x)) * 0.965 - 8;      // well inside the invisible barrier, which follows the island's outline (as a circle of the widest radius, a third of these cells were in the air)
       if (ok && x > -36 && x < 24 && z > -50 && z < 15) ok = false;              // the house, terrace, porch and steps
       if (ok && x > 12 && x < 24 && z > -60 && z <= -50) ok = false;             // the screened porch and back steps
       if (ok && inEll(x, z, POND, 2)) ok = false;

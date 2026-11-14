@@ -223,8 +223,9 @@ export function buildRoomba() {
 
 // ---- The gardeners --------------------------------------------------------------------------------
 // Bramble: a terracotta flowerpot with a round green head growing out of it, a straw hat and a
-// galvanised watering can (carried in her left hand). Thistle: a squat, mossy, weatherproof dome in a
-// waxed bucket hat, with a leather satchel on his right hip for his small tools.
+// galvanised watering can (carried in her left hand). Thistle: a squat, mossy, sage-green dome crowned with a
+// thistle in flower (green calyx, purple tuft), in a worn leather belt with a satchel on his right hip for his
+// small tools and a hand fork stuck in beside it; the light under him is purple too.
 // Each hand is a group holding one mesh per thing it can hold (the glove alone, or the glove merged with
 // a tool); exactly one is visible, so a tool in the hand costs no draw call of its own. The tools' working
 // ends are given in the hand's frame (TOOL_TIPS), so gardeners.js can put them where the work is.
@@ -232,7 +233,7 @@ export const GARDENER_SPECS = {
   bramble: { key: 'bramble', name: 'Bramble', short: 'Bramble', hover: 3.0, radius: 0.8, speed: 2.1,
     face: { eye: '#ffe9c0', gap: 42, eyeW: 34, eyeH: 42, blush: 'rgba(255,140,110,.5)', bg: '#0f140c' }, ring: 0xffd9a0, chirp: [62, 66, 69] },
   thistle: { key: 'thistle', name: 'Thistle', short: 'Thistle', hover: 2.6, radius: 0.85, speed: 1.9,
-    face: { eye: '#d6f5b0', gap: 48, eyeW: 30, eyeH: 34, bg: '#0c120a' }, ring: 0xb8f0a0, chirp: [52, 55, 59] },
+    face: { eye: '#d6f5b0', gap: 48, eyeW: 30, eyeH: 34, bg: '#0c120a' }, ring: 0xc9a2ee, chirp: [52, 55, 59] },
 };
 const mud = (base, y0, y1) => p => { const n = Math.sin(p.x * 23 + p.z * 17) * Math.sin(p.y * 31 + p.x * 9); return p.y < y0 + (y1 - y0) * (0.5 + 0.5 * n) ? '#5f4630' : base; };
 const STEEL = '#c3c8cc', STEEL_D = '#8f969b', WOOD = '#9a7348', TIN = '#9aa4a8';
@@ -308,22 +309,33 @@ export function buildGardener(key) {
     tools = [['secateurs'], ['can']];
   } else {
     R = 0.62; const bs = [1.15, 0.85, 1.05];
-    parts.push(paint(T(sph(R, 24, 16), { s: bs }), p => { const m = Math.sin(p.x * 19) * Math.sin(p.z * 21 + p.y * 7); return p.y < -0.28 + 0.1 * m ? '#6a4f36' : m > 0.55 ? '#5d7d42' : '#84a062'; }));        // weathered green, mossy patches, mud below
-    parts.push(paint(T(new THREE.TorusGeometry(R * 1.15 * 0.985, 0.035, 8, 40), { p: [0, -0.12, 0], r: [Math.PI / 2, 0, 0], s: [1, 1.05 / 1.15, 1] }), BRASS));
+    parts.push(paint(T(sph(R, 24, 16), { s: bs }), p => { const m = Math.sin(p.x * 19) * Math.sin(p.z * 21 + p.y * 7); return p.y < -0.28 + 0.1 * m ? '#6a4f36' : m > 0.55 ? '#5f7f4a' : '#9bb09a'; }));        // weathered sage (greyer and cooler than Bramble's leaf green), mossy patches, mud below
+    parts.push(paint(T(new THREE.TorusGeometry(R * 1.15 * 0.985, 0.045, 8, 40), { p: [0, -0.12, 0], r: [Math.PI / 2, 0, 0], s: [1, 1.05 / 1.15, 1] }), '#6b4a2e'));      // a worn leather belt
+    parts.push(paint(T(new THREE.BoxGeometry(0.15, 0.12, 0.04), { p: [0, -0.12, R * 1.05 * 0.985 + 0.04] }), BRASS));                                                  // and its buckle
     parts.push(paint(T(new THREE.SphereGeometry(0.32, 16, 6, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), { p: [0, -0.46, 0], s: [1, 0.55, 1] }), '#3f4a32'));
-    // waxed bucket hat, a little battered
-    const hat = [paint(T(cyl(0.34, 0.42, 0.3, 20), { p: [0, 0.15, 0] }), '#5b5a3a'), paint(T(cyl(0.62, 0.44, 0.08, 24), { p: [0, 0.02, 0] }), '#55543a'), paint(T(cyl(0.425, 0.425, 0.05, 20), { p: [0, 0.07, 0] }), '#3e3d29')]
-      .map(g => T(g, { r: [-0.08, 0, -0.08] })).map(g => T(g, { p: [0, R * 0.85 - 0.08, 0] }));
-    parts.push(...hat);
+    // His own crown, where the bucket hat was: a thistle in flower. The ribbed green calyx, two rings of bracts
+    // standing out from it, and a soft tuft of purple bristles: he is told from Bramble (and from the lawn) by
+    // his outline and by the purple, from as far off as he can be seen.
+    {
+      const crown = [], v2 = ([a, b]) => new THREE.Vector2(a, b), spike = (r, h, tilt, a, rad, y) => new THREE.ConeGeometry(r, h, 4).translate(0, h / 2, 0).rotateZ(-tilt).translate(rad, y, 0).rotateY(-a);
+      crown.push(paint(new THREE.LatheGeometry([[0.001, 0], [0.2, 0], [0.3, 0.09], [0.32, 0.21], [0.25, 0.33], [0.18, 0.4], [0.001, 0.4]].map(v2), 12), p => (Math.floor((Math.atan2(p.z, p.x) / (Math.PI * 2) + 0.5) * 12) % 2 ? '#47703f' : '#5f8a50')));
+      for (const [y, rad, n, off] of [[0.1, 0.27, 8, 0], [0.24, 0.27, 8, 0.39]]) for (let i = 0; i < n; i++) crown.push(paint(spike(0.04, 0.17, 1.0, (i / n) * Math.PI * 2 + off, rad, y), '#3f6638'));
+      const purple = p => (p.y > 0.66 ? '#c9a0ea' : '#8f52bd');
+      crown.push(paint(new THREE.ConeGeometry(0.17, 0.44, 8).translate(0, 0.58, 0), purple));
+      for (const [tilt, n, off] of [[0.16, 6, 0.2], [0.42, 12, 0]]) for (let i = 0; i < n; i++) crown.push(paint(spike(0.045, 0.5, tilt, (i / n) * Math.PI * 2 + off, 0.1, 0.36), purple));
+      parts.push(...crown.map(g => T(g, { r: [-0.06, 0, -0.07] })).map(g => T(g, { p: [0, R * 0.85 - 0.07, 0] })));
+    }
     // a leather satchel on the belt, right hip: secateurs, trowel, smoker, the koi food
     const pa = -1.03, px = -0.52, pz = 0.31;
     parts.push(paint(T(new THREE.BoxGeometry(0.34, 0.3, 0.14), { p: [px, -0.3, pz], r: [0.1, pa, 0] }), '#6b4a2e'));
     parts.push(paint(T(new THREE.BoxGeometry(0.35, 0.12, 0.155), { p: [px, -0.19, pz + 0.004], r: [0.1, pa, 0] }), '#5a3d25'));
     parts.push(paint(T(new THREE.BoxGeometry(0.05, 0.05, 0.03), { p: [px + 0.07, -0.22, pz + 0.07], r: [0.1, pa, 0] }), BRASS));
     parts.push(paint(T(cyl(0.022, 0.022, 0.16, 6), { p: [px + 0.04, -0.06, pz - 0.02], r: [0.15, 0, 0.2] }), WOOD));          // the trowel's handle
+    for (const k of [-1, 0, 1]) parts.push(paint(T(new THREE.BoxGeometry(0.016, 0.17, 0.016), { p: [px - 0.07 + k * 0.035, -0.03, pz + 0.0 - k * 0.02], r: [0.1, 0, -0.12] }), STEEL));      // a hand fork, tines up
+    parts.push(paint(T(new THREE.BoxGeometry(0.1, 0.022, 0.02), { p: [px - 0.07, -0.115, pz], r: [0.1, 0.5, -0.12] }), STEEL_D));
     holster = [px + 0.08, -0.12, pz + 0.12];
     face = makeFace(S.face); face.mesh = mesh(visor(R + 0.008, 0.95, 1.0, 1.55, bs), face.mat);
-    ringY = -0.6; handL = [-0.9, -0.1, 0.15]; handR = [0.9, -0.1, 0.15]; trayAt = [0.6, -0.1, 0.55]; top = S.hover + 0.9;
+    ringY = -0.6; handL = [-0.9, -0.1, 0.15]; handR = [0.9, -0.1, 0.15]; trayAt = [0.6, -0.1, 0.55]; top = S.hover + 1.35;
     tools = [['secateurs', 'trowel', 'smoker', 'broom'], []];
   }
   const body = mesh(merge(parts)); bob.add(body, face.mesh);

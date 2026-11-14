@@ -23,24 +23,17 @@ export default function (kit) {
     for (let x = -CW / 2 + 0.3; x < CW / 2 - 0.1; x += 0.3) P.rod(ct, IRON, [x, y, lo], [x, y, h], 0.018, 5);
   }
   for (const x of [-CW / 2, CW / 2]) P.rod(ct, IRON, [x, 0.1, 1.0], [x, CL, 1.0], 0.04, 8);
-  ct.soft('c#efe8d8/0.9', -CW / 2 + 0.06, CW / 2 - 0.06, 0.18, CL - 0.08, 1.0, 1.75, 0.16);                   // mattress
-  ct.soft('curtain#ece7dc', -CW / 2 + 0.02, CW / 2 - 0.02, 1.4, CL - 0.06, 1.68, 1.84, 0.1);                   // sheet turned down
-  ct.soft('linen#c9ad9a', -CW / 2 - 0.03, CW / 2 + 0.03, 2.3, CL - 0.04, 1.74, 1.9, 0.08);                    // quilt
-  for (const x of [-CW / 2 - 0.03, CW / 2 - 0.05]) ct.soft('linen#c9ad9a', x, x + 0.08, 2.3, CL - 0.04, 1.15, 1.88, 0.03);   // its sides falling
-  kit.sign(ct, 0, (2.3 + CL - 0.04) / 2, 1.915, CW + 0.02, CL - 2.36, (g, w, h) => {
-    const C = ['#b8504a', '#e8d8b8', '#4f7f86', '#c9a24a', '#8a9a7b', '#d8a8a0', '#2a3549', '#efe6d2'];
-    const n = 6, m = 12, cw = w / n, ch = h / m;
-    for (let i = 0; i < n; i++) for (let j = 0; j < m; j++) {
-      g.fillStyle = C[(i * 3 + j * 5 + (i * j) % 3) % C.length]; g.fillRect(i * cw, j * ch, cw, ch);
-      g.fillStyle = C[(i + j * 2 + 3) % C.length]; g.beginPath(); g.moveTo(i * cw, j * ch); g.lineTo((i + 1) * cw, (j + 1) * ch); g.lineTo(i * cw, (j + 1) * ch); g.fill();
-    }
-    g.strokeStyle = 'rgba(240,232,215,0.7)'; g.lineWidth = 2; for (let i = 0; i <= n; i++) { g.beginPath(); g.moveTo(i * cw, 0); g.lineTo(i * cw, h); g.stroke(); } for (let j = 0; j <= m; j++) { g.beginPath(); g.moveTo(0, j * ch); g.lineTo(w, j * ch); g.stroke(); }
-  }, { flat: true, cw: 240, ch: 480 });
+  // soft kit pieces, not boxes: a crowned mattress, the sheet turned down, and the patchwork quilt as real cloth
+  // (pieced from the same eight colours) lying over the mattress with some loft and falling in folds down both sides
+  ct.cushion('curtain#efe8d8', -CW / 2 + 0.06, CW / 2 - 0.06, 0.18, CL - 0.08, 1.0, 1.72, 0.14, { n: [3, 7, 1], crown: 0.035, bulge: 0.02, welt: 0.012 });   // mattress
+  kit.cloth(ct, 'curtain#ece7dc', { cx: 0, cy: 1.95, z: 1.8, a: CW / 2 - 0.03, b: 0.55, l: 0.4, r: 0.4, bk: 0.1, rho: 0.07, folds: 0.03, freq: 1.0, ph: 2, thick: 0.05, res: 0.26 });   // sheet turned down
+  kit.cloth(ct, 'linen#c9ad9a', { cx: 0, cy: (2.3 + CL - 0.1) / 2, z: 1.87, a: CW / 2, b: (CL - 0.1 - 2.3) / 2, l: 0.62, r: 0.62, rho: 0.1, folds: 0.06, freq: 0.75, lumps: 0.05, wrinkle: 0.012, ph: 4, thick: 0.06, res: 0.28,
+    patch: { size: 0.5, colours: ['linen#b8504a', 'linen#e8d8b8', 'linen#4f7f86', 'linen#c9a24a', 'linen#8a9a7b', 'linen#d8a8a0', 'linen#2a3549', 'linen#efe6d2'] } });
   // pillows: stuffed kit cushions, one lying flat and one propped on the head rail, a teal one in front
   kit.cushion(ct, 0, 0.95, 1.72, 2.3, 1.15, 'curtain#ece7dc', { tilt: 1.35, thick: 0.4 });
   kit.cushion(ct, -0.35, 0.42, 1.78, 1.5, 1.0, 'curtain#ece7dc', { tilt: 0.45, thick: 0.42, turn: 0.08 });
   kit.cushion(ct, 0.55, 0.62, 1.8, 0.95, 0.85, 'linen#4f7f86', { tilt: 0.5, thick: 0.32, turn: -0.15 });
-  ct.soft('wool#efe8d8', -1.5, 1.5, 5.85, 6.65, 1.9, 2.18, 0.08);                                             // a wool blanket folded at the foot
+  kit.throwBlanket(ct, -CW / 2 - 0.1, CW / 2 + 0.1, 5.45, 6.6, 1.97, 'wool#efe8d8', { over: 'foot', rho: 0.13 });   // a wool blanket folded across the foot, its ends hanging
   ct.block(-CW / 2, CW / 2, 0.05, CL + 0.05, 0, 1.9);
   seats.push({ x: wx(22.3), y: F2 + 1.84 + 2.45, z: wz(34.2), yaw: Math.atan2(-1, 0), label: 'sit on the cot' });
   picture(fr(20.55, 30.0, F2, 0), 'hokusai_great_wave', 0, 4.75, 1.3, 0.89, { frame: BLACK, border: 0.06, mat: 0.14 });

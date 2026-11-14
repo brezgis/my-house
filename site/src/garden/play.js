@@ -111,6 +111,32 @@ export function buildPlay(K) {
     K.tube(PAINT.iron, [ax0 + 1.1, 1.15, az0 + 1.4], [ax0 + 1.9, 1.15, az0 + 1.4], 0.02, 4);
     K.box('c#3a7ad9/0.5', ax0 + 2.0, ax0 + 2.15, 0.52, 0.56, az0 + 4.4, az0 + 5.4);
     K.box('c#3a7ad9/0.5', ax0 + 1.85, ax0 + 2.3, 0.52, 0.6, az0 + 5.4, az0 + 5.9);
+    // E turns out a bucket of sand beside the bucket: three towers, a fourth on top of them with a flag; once more
+    // and it is patted flat to start again. Built here and hidden; nothing runs except for a moment after a press.
+    K.setups.push(ctx => {
+      const sand = new THREE.MeshStandardMaterial({ color: new THREE.Color(0xd9c79f).multiplyScalar(0.78), roughness: 0.78, envMapIntensity: 0.7 });
+      const turned = new THREE.LatheGeometry([[0.001, 0], [0.4, 0], [0.38, 0.07], [0.3, 0.6], [0.001, 0.6]].map(([a, b]) => new THREE.Vector2(a, b)), 12);
+      const towers = [[0.95, 0.5, 2.75, 1], [1.85, 0.5, 2.7, 1], [1.4, 0.5, 3.5, 1], [1.4, 1.08, 2.98, 0.82]].map(([x, y, z, s]) => {
+        const m = new THREE.Mesh(turned, sand); m.position.set(ax0 + x, y, az0 + z); m.userData.s = s; m.visible = false; m.castShadow = m.receiveShadow = true; m.name = 'sand tower'; ctx.scene.add(m); return m;
+      });
+      const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.55, 5), sand); stick.position.y = 0.6 + 0.26;
+      const pennant = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0.25, 0), new THREE.Vector3(0, 0.05, 0), new THREE.Vector3(0.3, 0.15, 0.04)]), new THREE.MeshStandardMaterial({ color: 0xc23b30, roughness: 0.8, side: THREE.DoubleSide }));
+      pennant.geometry.computeVertexNormals(); stick.add(pennant); towers[3].add(stick);
+      let n = 0, run = 0;
+      // a tower comes out of the bucket with a little bounce; the lot slumps flat
+      const move = (list, up) => {
+        const t0 = performance.now(), id = ++run;
+        const step = () => {
+          const k = Math.min(1, (performance.now() - t0) / (up ? 320 : 420));
+          for (const m of list) { const s = m.userData.s; if (up) { const e = 1 + 2.2 * (k - 1) ** 3 + 1.2 * (k - 1) ** 2; m.scale.setScalar(s * (0.35 + 0.65 * e)); } else m.scale.set(s * (1 + 0.5 * k), s * (1 - 0.97 * k), s * (1 + 0.5 * k)); }
+          if (k < 1 && id === run) requestAnimationFrame(step); else for (const m of list) { m.scale.setScalar(m.userData.s); if (!up) m.visible = false; }
+        };
+        step();
+      };
+      ctx.interact.push({ x: ax0 + 1.4, y: 1.0, z: az0 + 3.0, reach: 6, size: 0.9,
+        label: () => (n < 3 ? 'turn out a bucket of sand' : n === 3 ? 'one more on top, and the flag' : 'pat the sandcastle flat'),
+        act: () => { if (n < 4) { const m = towers[n++]; m.visible = true; move([m], true); } else { n = 0; move(towers, false); } } });
+    });
   }
   K.model('football', X + 15, Z - 12, 0.4, { scale: 1 });
 }

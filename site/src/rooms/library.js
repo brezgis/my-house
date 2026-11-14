@@ -80,9 +80,9 @@ export default function (kit) {
     gl.cyl(BRASS, 0, 0, 1.9, 1.98, 0.06, 0.04, 10); }
   B.block(3.75, 5.65, 20.05, 21.95, F2, F2 + 3.5);
   kit.pottedPlant(fr(17.1, 27.6, F2), 0, 0, 0, 'snake', { size: 1.27, pot: 'c#2f4a5a/0.35' }); B.block(16.7, 17.5, 27.2, 28.0, F2, F2 + 3);
-  B.pbox('fir', 0.5, 2.3, 19.9, 26.7, F2, F2 + 1.3, G); B.prbox(OAT, 0.54, 2.26, 19.94, 26.66, F2 + 1.28, F2 + 1.66, 0.1); B.block(0.5, 2.3, 19.9, 26.7, F2, F2 + 1.6);
+  B.pbox('fir', 0.5, 2.3, 19.9, 26.7, F2, F2 + 1.3, G); kit.seatPads(fr(0.5, 19.9, F2), OAT, 0.04, 1.76, 0.04, 6.76, 1.28, 1.64); B.block(0.5, 2.3, 19.9, 26.7, F2, F2 + 1.6);
   seats.push({ x: wx(1.4), y: F2 + 1.66 + 2.45, z: wz(23.3), yaw: Math.atan2(-1, 0), label: 'sit in the window' });
-  B.prbox(MUSTARD, 0.7, 1.9, 20.1, 21.2, F2 + 1.62, F2 + 2.1, 0.2); B.prbox(NAVY, 0.7, 1.9, 25.4, 26.5, F2 + 1.62, F2 + 2.1, 0.2);
+  for (const [Y, c, tilt, turn] of [[20.65, MUSTARD, 0.36, -0.1], [25.95, NAVY, 0.3, 0.13]]) kit.cushion(fr(0.5, Y, F2, 3), 0, 0.64, 1.65, 1.25, 1.15, c, { tilt, turn, thick: 0.42 });   // stuffed cushions propped against the window
   throwBlanket(fr(1.4, 22.6, F2 + 1.66, 3), -0.9, 0.9, -0.7, 0.94, 0.01, 'wool#6c7a60', { over: 'front' });   // its fall clear of the seat front (X 2.3)
   jarCandle(tt, 2.25, -1.05, 2.5, { label: 'c#a8b8a0/0.6', r: 0.15, tall: 0.32 });
 }

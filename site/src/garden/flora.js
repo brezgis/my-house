@@ -15,6 +15,7 @@ export const KINDS = {
   squash: ['squash', 'r', 1.6, 1.8], hosta: ['hosta', 'r', 1.3, 1.3], lilypad: ['lilypad', 'f', 1.6, 1.6], waterlily: ['waterlily', 'f', 0.8, 0.8],
   carrot: ['carrot', 'x', 1.0, 1.1], leek: ['leek', 'x', 0.8, 1.7], herbs: ['herbs', 'x', 1.8, 1.4], marigold: ['marigold', 'x', 1.4, 1.1], catmint: ['catmint', 'x', 2.6, 1.9],
   coneflower: ['coneflower', 'x', 2.4, 3.0], strawberry: ['strawberry', 'x', 1.3, 0.8],
+  clover: ['clover', 'g', 2.0, 2.0], dandelion: ['dandelion', 'w', 1.0, 0.85], dandelionClock: ['dandelionClock', 'w', 1.0, 1.0],      // weeds of the rough lawn
 };
 
 export class Flora {
@@ -69,22 +70,36 @@ export class Flora {
     const tex = atlasTexture(atlas.canvas, Object.values(atlas.rects));
     const mats = cardMaterials(tex, { sway: 0.06, roughness: 0.8, env: 0.7, alphaTest: 0.45 });
     const flat = cardMaterials(tex, { sway: 0.0, roughness: 0.5, env: 0.8, alphaTest: 0.45 });
-    const shapes = { x: crossGeo(3), r: rosetteGeo(7, 0.62), f: flatGeo(), star: starGeo(), hang: (() => { const g = crossGeo(2); g.translate(0, -1, 0); return g; })() };
+    const shapes = { x: crossGeo(3), r: rosetteGeo(7, 0.62), f: flatGeo(), g: flatGeo(), w: skyward(crossGeo(3)),      // (g, w: lawn weeds, flat and crossed, matte; they throw no shadows)
+      star: starGeo(), hang: (() => { const g = crossGeo(2); g.translate(0, -1, 0); return g; })() };
     const cells = {}; for (const [n, rect] of Object.entries(atlas.rects)) cells[n] = cellUV(W, W, rect, 2);
-    const sets = { main: new CardSet({ region: 160 }), flat: new CardSet({ region: 400 }) };
+    const sets = { main: new CardSet({ region: 160 }), flat: new CardSet({ region: 400 }), low: new CardSet({ region: 400 }) };
     const m = new THREE.Matrix4(), c = new THREE.Color();
     for (const p of this.list) {
       const k = KINDS[p.kind]; c.setScalar(p.tint);
-      if (p.shape === 'f') sets.flat.push('f', cells[k[0]], place(m, p.x, p.y, p.z, p.w, 1, p.w, p.rot), c);
+      if (p.shape === 'g') sets.low.push('g', cells[k[0]], place(m, p.x, p.y, p.z, p.w, 1, p.w, p.rot), c);
+      else if (p.shape === 'w') sets.low.push('w', cells[k[0]], place(m, p.x, p.y, p.z, p.w, p.h, p.w, p.rot), c);
+      else if (p.shape === 'f') sets.flat.push('f', cells[k[0]], place(m, p.x, p.y, p.z, p.w, 1, p.w, p.rot), c);
       else if (p.shape === 'r') sets.main.push('r', cells[k[0]], place(m, p.x, p.y, p.z, p.w, p.h, p.w, p.rot), c);
       else if (p.shape === 'hang') sets.main.push('hang', cells[k[0]], place(m, p.x, p.y, p.z, p.w, p.h, p.w, p.rot), c);
       else sets.main.push('x', cells[k[0]], place(m, p.x, p.y, p.z, p.w, p.h, p.w, p.rot, p.tilt, p.tilt * 0.7), c);
     }
-    const meshes = [...sets.main.build(scene, shapes, mats), ...sets.flat.build(scene, shapes, flat, { shadow: false })];
+    const meshes = [...sets.main.build(scene, shapes, mats), ...sets.flat.build(scene, shapes, flat, { shadow: false }), ...sets.low.build(scene, shapes, weedMats(tex), { shadow: false })];
     for (const mesh of meshes) mesh.name = 'plants';
     return { meshes, count: this.list.length };
   }
 }
+
+// Lawn weeds are lit as the ground is, from whichever side they are seen. A card seen from behind has its normal turned
+// away and is lit from below (cards.js means to stop that, but the line it looks for is inside a shader chunk that has not
+// been expanded when it looks), and a yellow head at a third of the light reads brown, a white clock grey.
+function weedMats(tex) {
+  const m = cardMaterials(tex, { sway: 0.06, roughness: 0.8, env: 0.7, alphaTest: 0.45 }), base = m.material.onBeforeCompile;
+  m.material.onBeforeCompile = sh => { base(sh); sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('gl_FrontFacing ? 1.0 : - 1.0', '1.0')); };
+  m.material.customProgramCacheKey = () => 'cardweed';
+  return m;
+}
+function skyward(g) { const n = g.attributes.normal; for (let i = 0; i < n.count; i++) n.setXYZ(i, 0, 1, 0); return g; }
 
 export function inPoly(x, z, poly) {
   let inside = false;

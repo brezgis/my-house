@@ -343,7 +343,7 @@ export function makeWood(K) {
       K.coatOnPeg(f, hx[2], 0.18, 5.75, 'wool#3f4a56', 'jacket');
       K.scarf(f, hx[1], 0.32, 5.74, 'wool#8a3b2c', { l1: 1.5, l2: 1.1 });
       K.hat(f, hx[3], 0.42, 5.72, 'fedora', 'wool#6a5848', { tilt: -0.5 });
-      K.toteBag(f, hx[3], 0.6, 0.38, 'linen#d8ccb4', { w: 1.0, h: 1.1 });
+      K.toteBag(f, hx[3], 0.6, 0.38, 'linen#d8ccb4', { w: 1.0, h: 0.62, loop: 0.34 });      // slumped on the shelf, under the seat (it stood 1.85 ft tall there, and its handles came up through the cushion)
     }
     if (o.shoes !== false) { K.shoes(f, -w / 4, 0.85, 0.38, 'boot'); K.shoes(f, w / 4 - 0.3, 0.85, 0.38, 'loafer'); }
     K.seat(f, 0, 0.9, sz + 0.2, 'sit on the bench');
@@ -421,7 +421,7 @@ export function makeWood(K) {
       bd(f, top, sx - sw / 2 - 0.01, sx + sw / 2 + 0.01, cy0, by0, T0, T1, 0.02, { grain: 'x' });
       if (!apron) bd(f, top, sx - sw / 2 - 0.01, sx + sw / 2 + 0.01, by1, cy1, T0, T1, 0.02, { grain: 'x' });
       basin(f, sink.basin ?? (apron ? PORCELAIN : 'c#d9d6cf/0.2/0.9'), sx, (by0 + by1) / 2, apron ? T1 - 0.005 : T0 - 0.005, sw / 2 - (apron ? 0.0 : -0.05), (by1 - by0) / 2 + (apron ? 0.0 : 0.05), depth, { rim: apron ? 0.09 : 0.03, apron });
-      tap(f, sx, by0 - 0.22, T1, { mat: sink.tap ?? BRASS, reach: (by1 - by0) / 2 + 0.05, height: 1.25 });
+      tap(f, sx, by0 - 0.22, T1, { mat: sink.tap ?? BRASS, reach: (by1 - by0) / 2 + 0.05, height: 1.25, drop: depth + (apron ? 0 : 0.14) });
     }
     f.block(-w / 2, w / 2, 0, d, 0, 3);
   }
@@ -433,19 +433,46 @@ export function makeWood(K) {
     put(f, m, loft(rows, { seg: 32, e }), { at: [x, y, 0] });
     put(f, 'c#8f8a82/0.25/1', lathe([[0, 0], [0.07, 0], [0.075, 0.008], [0.06, 0.01], [0, 0.004]], { seg: 12 }), { at: [x, y, z0 + rim + 0.022] });
   }
-  // A bridge or gooseneck tap standing at (x, y) on a surface at z, spout reaching toward +y.
+  // A tap standing at (x, y) on a surface at z, spout reaching toward +y: turned valve bodies, a gooseneck swept
+  // along a smooth arc, handles that look made. o: { mat, height, reach, nose (height of the spout's mouth),
+  // style: 'bridge' (two valves joined by a bridge, the spout rising from its middle) | 'spread' (a spout and two
+  // separate valves), spread (how far out the valves stand), handle: 'cross' | 'lever', grip (the china button
+  // or collar), arm (a lever's material), spray (x of a side spray), drop (how far below z the water lands: this
+  // makes it a working tap, turned on and off with E; the +x handle is then left out for taps.js to hang and turn) }
   function tap(f, x, y, z, o = {}) {
     const m = o.mat ?? BRASS, H = o.height ?? 1.1, reach = o.reach ?? 0.6, s = f.sub(x, y, z);
-    put(s, m, lathe([[0, 0], [0.09, 0], [0.09, 0.03], [0.055, 0.06], [0.045, 0.3], [0.05, 0.32], [0.04, 0.34], [0, 0.34]], { seg: 12 }));
-    const p = [[0, 0, 0.3], [0, 0, H * 0.75], [0, reach * 0.15, H * 0.97], [0, reach * 0.5, H], [0, reach * 0.85, H * 0.9], [0, reach, H * 0.72], [0, reach, H * 0.62]];
-    put(s, m, sweep(p, 0.032, { seg: 8 }));
-    put(s, m, lathe([[0.035, 0], [0.04, -0.04], [0, -0.045]], { seg: 8 }), { at: [0, reach, H * 0.62] });
+    const bridge = (o.style ?? 'bridge') === 'bridge', sp = o.spread ?? 0.3, lever = o.handle === 'lever', grip = o.grip ?? PORCELAIN, arm = lever ? o.arm ?? m : m;
+    const vz = bridge ? 0.34 : 0.2, bz = vz - 0.075, hz = vz + 0.04, z0 = bridge ? bz + 0.04 : 0.1, N = 10, metal = [], china = [];
+    // the spout: up, over in half an ellipse, and straight down into a slightly fatter mouth
+    const Rz = Math.min(reach / 2, (H - z0) * 0.55), nose = Math.min(o.nose ?? H * 0.6, H - Rz - 0.07), p = [[0, 0, z0]];
+    for (let i = 0; i <= 12; i++) { const a = i / 12 * Math.PI; p.push([0, reach / 2 * (1 - Math.cos(a)), H - Rz + Rz * Math.sin(a)]); }
+    p.push([0, reach, nose + 0.05], [0, reach, nose + 0.044], [0, reach, nose]);
+    metal.push(sweep(p, (t, j) => (j >= p.length - 2 ? 0.035 : 0.029), { seg: N, caps: true }));
+    if (bridge) {
+      metal.push(sweep([[-sp, 0, bz], [sp, 0, bz]], 0.028, { seg: N }));
+      metal.push(lathe([[0, bz - 0.05], [0.04, bz - 0.036], [0.044, bz + 0.02], [0.034, bz + 0.045], [0.031, bz + 0.07]], { seg: N }));
+    } else metal.push(lathe([[0.075, 0], [0.075, 0.016], [0.05, 0.034], [0.04, 0.06], [0.036, 0.11], [0.031, 0.15]], { seg: 12 }));
+    // a handle's turning part, about its own spindle: four spokes with ball ends, or one tapered lever
+    const spoke = q => xf(sweep([-0.115, -0.1, -0.078, 0.078, 0.1, 0.115].map(v => [v, 0, 0.028]), (t, j) => [0.007, 0.018, 0.011, 0.011, 0.018, 0.007][j], { seg: 6, caps: true }), { rz: q });
+    const turning = sx => lever ? xf(sweep([[0.02, 0, 0.03], [0.07, 0, 0.032], [0.15, 0, 0.045], [0.2, 0, 0.056], [0.222, 0, 0.06]], (t, j) => [0.017, 0.015, 0.012, 0.018, 0.008][j], { seg: 6, caps: true }), { rz: sx < 0 ? Math.PI : 0 })
+      : merge([spoke(0.5), spoke(0.5 + Math.PI / 2)]);
     for (const sx of [-1, 1]) {
-      put(s, m, sweep([[0, 0, 0.22], [sx * 0.25, 0, 0.22]], 0.025, { seg: 6 }));
-      put(s, m, lathe([[0, 0], [0.05, 0], [0.045, 0.12], [0.03, 0.14], [0.03, 0.2], [0, 0.2]], { seg: 10 }), { at: [sx * 0.3, 0, 0.0] });
-      put(s, m, merge([0, 1, 2, 3].map(k => { const a = k / 4 * TAU + Math.PI / 4; return sweep([[0, 0, 0.2], [Math.cos(a) * 0.1, Math.sin(a) * 0.1, 0.22]], 0.012, { seg: 4 }); })), { at: [sx * 0.3, 0, 0] });
-      put(s, PORCELAIN, lathe([[0, 0], [0.025, 0], [0.025, 0.03], [0, 0.03]], { seg: 8 }), { at: [sx * 0.3, 0, 0.215] });
+      const at = [sx * sp, 0, 0], top = [sx * sp, 0, hz];
+      metal.push(xf(lathe([[0.07, 0], [0.07, 0.016], [0.04, 0.045], [0.036, vz - 0.14], [0.05, vz - 0.11], [0.05, vz - 0.035], [0.034, vz], ...(lever ? [] : [[0.027, vz + 0.012], [0.027, hz]])], { seg: 12 }), { at }));
+      if (lever) {
+        china.push(xf(lathe([[0.03, vz], [0.037, vz + 0.006], [0.037, hz - 0.006], [0.03, hz]], { seg: N }), { at }));
+        metal.push(xf(lathe([[0.03, 0], [0.037, 0.012], [0.035, 0.05], [0.018, 0.068], [0, 0.07]], { seg: N }), { at: top }));
+      } else {
+        metal.push(xf(lathe([[0.027, 0], [0.033, 0.01], [0.033, 0.045], [0.024, 0.056]], { seg: N }), { at: top }));
+        china.push(xf(lathe([[0.024, 0.056], [0.024, 0.066], [0.014, 0.076], [0, 0.078]], { seg: 8 }), { at: top }));
+      }
+      if (sx > 0 && o.drop != null) continue;
+      const g = xf(turning(sx), { at: top });
+      if (arm === m) metal.push(g); else if (arm === grip) china.push(g); else put(s, arm, g);
     }
+    if (o.spray != null) metal.push(xf(lathe([[0.05, 0], [0.05, 0.015], [0.03, 0.03], [0.026, 0.2], [0.034, 0.24], [0.03, 0.33], [0.018, 0.36], [0, 0.362]], { seg: 8 }), { at: [o.spray, 0, 0] }));
+    put(s, m, merge(metal)); put(s, grip, merge(china));
+    if (o.drop != null) (K.taps ??= []).push({ frame: K.frameMatrix(s).clone(), pivot: [sp, 0, hz], geo: turning(1), mat: arm, turn: lever ? 0.95 : 0.8, mouth: [0, reach, nose], fall: nose + o.drop, at: [0, reach * 0.5, Math.max(vz, H * 0.5)] });
   }
   // Upper cabinets on the wall, bottom at o.z (4.6), tall (2.6), d (1.1); shaker or glazed doors
   // (o.glass: true or 'prairie') with plates and glasses inside; crown moulding.

@@ -17,9 +17,11 @@ export default function (kit) {
   // ---- The bed along the north wall under the window, heaped like a daybed ----
   const lb = fr(40.6, 21.2, F2, 0);                                    // head to the hall wall, foot toward the back
   model('oak_mission_bed_twin_procedural', lb, 0, 3.56, 0, 0, { seat: 2.0, collide: true });
+  // a soft rust throw across the foot, folded double, its ends hanging down the sides (it lies over the model's own flat one)
+  kit.throwBlanket(lb, -1.81, 1.81, 4.66, 6.46, 2.36, 'wool#b9785c', { over: 'foot', drop: { l: 0.6, r: 0.5, f: 0.12, b: 0.12 } });
   // cushions along the window side, so it reads as a sofa by day
   // (stuffed kit cushions leaning on the wall, not boxes)
-  for (const [y, c, s] of [[1.45, 'linen#2a3549', 1.3], [2.85, 'linen#b48530', 1.2], [4.2, 'velvet#96492f', 1.15], [5.5, 'linen#7a9a6a', 1.25]]) kit.cushion(lb, 1.38, y, 2.12, s, s * 0.9, c, { tilt: 0.28, thick: 0.42, turn: Math.PI / 2 });
+  for (const [y, c, s] of [[1.45, 'linen#2a3549', 1.3], [2.85, 'linen#b48530', 1.2], [4.2, 'velvet#96492f', 1.15], [5.5, 'linen#7a9a6a', 1.25]]) kit.cushion(lb, 1.38, y, y > 4.6 ? 2.42 : 2.12, s, s * 0.9, c, { tilt: 0.28, thick: 0.42, turn: Math.PI / 2 });
   kit.cushion(lb, 0, 0.62, 2.12, 2.3, 1.15, 'linen#efe8d8', { tilt: 0.35, thick: 0.45 });
   // a book left face down (the bed's own rust throw is across the foot: no second blanket)
   P.openBook(lb.sub(-0.3, 3.6, 2.27, 0), 0, 0, 0, 'c#6b2a25/0.7');
@@ -78,5 +80,5 @@ export default function (kit) {
   seat(fr(39.25, 23.1, F2, 1), 0, 0, 2.0, 'sit and watch');
 
   // ---- On the floor: a big cushion by the bed ----
-  const fc = fr(37.95, 25.4, F2); fc.soft('linen#4f7f86', -0.65, 0.65, -0.65, 0.65, 0.0, 0.55, 0.22); fc.soft('linen#4f7f86', -0.55, 0.55, -0.55, 0.55, 0.45, 0.62, 0.18);
+  const fc = fr(37.95, 25.4, F2); fc.cushion('linen#4f7f86', -0.65, 0.65, -0.65, 0.65, 0.0, 0.56, 0.22, { crown: 0.07, bulge: 0.04, welt: 0.012, sag: [[0.1, -0.1, 0.03, 0.6]] });
 }

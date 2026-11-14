@@ -357,7 +357,7 @@ export default function (kit) {
   // Between the two bedroom doors: a bench under the Willow Bough, with a cushion and a basket
   const bn = fr(19.2, 15.4, F2, 3);
   P.legs(bn, -1.9, 1.9, 0.06, 1.36, 1.5, 'oak_light#8a6a48', { leg: 0.17 });
-  bn.soft('linen#7a9a6a', -1.85, 1.85, 0.08, 1.34, 1.5, 1.72, 0.08); kit.cushion(bn, -1.2, 0.38, 1.72, 1.1, 1.0, RUST, { tilt: 0.3, thick: 0.4 });
+  kit.seatPads(bn, 'linen#7a9a6a', -1.85, 1.85, 0.08, 1.34, 1.5, 1.7, { n: 1 }); kit.cushion(bn, -1.2, 0.38, 1.72, 1.1, 1.0, RUST, { tilt: 0.3, thick: 0.4 });
   seat(bn, 0.4, 0.9, 1.72, 'sit on the bench');
   kit.toteBag(bn, 1.05, 0.75, 0, 'linen#c9b48a', { w: 1.0, h: 0.6 }); P.slippers(bn, -0.9, 0.95, 0.0, 'wool#8a8580');
   picture(bn, 'morris_willow_bough', 0, 4.9, 1.75, 2.26, { frame: 'c#2a2622/0.4', border: 0.1, mat: 0.18 });

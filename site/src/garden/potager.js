@@ -10,6 +10,8 @@
 import * as THREE from 'three';
 import { PAINT, GLOW } from './tools.js';
 import { buildHives } from './hives.js';
+import { buildPuddle } from './puddle.js';
+import { ownPlants, place } from './little_library.js';
 
 export const POT = { x0: 26, x1: 66, z0: -104, z1: -56, cx: 46, cz: -80 };
 
@@ -20,7 +22,7 @@ export function buildPotager(K) {
   // ---- Ground: gravel throughout, soil in the beds ----
   G.rect('gravel', P.x0, P.x1, P.z0, P.z1);
   G.ribbon('gravel', [[15, -50.5], [20, -53.2], [32, -53.5], [44, -53.6], [46, -56.5]], 5);
-  G.rect('gravel', 9.5, 21.5, -58, -49.2);
+  G.rect('gravel', 9.5, 21.5, -58, -49.2, { hard: 'z1' });
   G.ribbon('gravel', [[46, -103], [46, -107.5]], 5);
   G.ribbon('flagstone', [[26.5, -80], [16, -80], [7, -80]], 4.2);
 
@@ -42,8 +44,30 @@ export function buildPotager(K) {
     const z = P.z1, R = 2.7;
     for (const x of [43.3, 48.7]) { K.box(PAINT.iron, x - 0.09, x + 0.09, 0, 6.6, z - 0.09, z + 0.09); K.box(PAINT.iron, x - 0.09, x + 0.09, 0, 6.6, z - 1.3, z - 1.12); }
     for (const dz of [0, -1.2]) for (let i = 0; i < 12; i++) { const a0 = Math.PI * i / 12, a1 = Math.PI * (i + 1) / 12; K.tube(PAINT.iron, [46 + Math.cos(a0) * R, 6.6 + Math.sin(a0) * R * 0.7, z + dz], [46 + Math.cos(a1) * R, 6.6 + Math.sin(a1) * R * 0.7, z + dz], 0.06, 5); }
-    for (let i = 0; i < 9; i++) { const a = Math.PI * (i + 0.5) / 9; F.add('rose', 46 + Math.cos(a) * R, z - 0.6, 0.55, { y: 5.2 + Math.sin(a) * R * 0.7, w: 2.6, h: 2.4 }); }
-    for (const x of [43.3, 48.7]) for (let y = 0; y < 5; y += 1.7) F.add('rose', x, z - 0.6, 0.5, { y, w: 2.4, h: 2.6 });
+    for (let i = 0; i < 75; i++) F.r();      // (fifteen rose bushes hung in the air inside the arch; these keep everything sown after them where it was)
+    // rungs between the two hoops, for the rose to be tied in to
+    for (const x of [43.3, 48.7]) for (const y of [1.7, 3.4, 5.1]) K.tube(PAINT.iron, [x, y, z], [x, y, z - 1.21], 0.035, 4);
+    for (let i = 1; i < 12; i += 2) { const a = Math.PI * i / 12, x = 46 + Math.cos(a) * R, y = 6.6 + Math.sin(a) * R * 0.7; K.tube(PAINT.iron, [x, y, z], [x, y, z - 1.2], 0.035, 4); }
+    // The climbing rose: at each foot two stems come out of the ground, wind up the front and the back upright and
+    // on over the hoops to meet at the top; the leaf and flower sit on the frame, thickest over the crown.
+    // on(d): the middle of the frame d feet along it from the ground on side s (up the upright, then round the hoop)
+    const UP = 6.6, OVER = 3.9, on = (s, d) => { if (d < UP) return [46 + s * R, d, s, 0]; const a = Math.min(1.75, (d - UP) / 3.64 * Math.PI / 2); return [46 + s * Math.cos(a) * R, 6.6 + Math.sin(a) * R * 0.7, s * Math.cos(a), Math.sin(a)]; };
+    for (const s of [-1, 1]) for (const [dz, ph] of [[0, 0.4], [-1.21, 3.3]]) {
+      let was = null;
+      for (let i = 0; i <= 30; i++) {
+        const d = (UP + OVER) * i / 30, [x, y, ux, uy] = on(s, d), a = d * 2.6 + ph + s, rad = d < UP ? 0.15 : 0.11, k = Math.min(1, d / 0.5);
+        const post = !dz && d < 4.3;      // the front upright stands against the gatepost: that stem keeps to its outer face until it is clear of it
+        const p = [x + ux * (post ? 0.14 : Math.cos(a) * rad) * k + (1 - k) * s * 0.3, y + uy * Math.cos(a) * rad, z + dz + Math.sin(a) * (post ? 0.05 : rad) * k + (1 - k) * (dz ? 0.3 : -0.3)];
+        if (was) K.tube(d < 2.4 ? 'c#5b4a36/1' : 'c#4f6a3a/1', was, p, d < 2.4 ? 0.045 : d < UP ? 0.032 : 0.024, 3);
+        was = p;
+      }
+    }
+    ownPlants(K, 4603, F => {
+      for (const s of [-1, 1]) for (let d = 0.2; d < UP + 3.9; d += d < 5 ? 1.05 : 0.6) {
+        const [x, y] = on(s, d), k = d < 5 ? 0.5 + 0.03 * d : 0.72, h = 1.8 * k;
+        F.add('rose', x + (F.r() - 0.5) * 0.12, z - 0.6 + (F.r() - 0.5) * 0.3, k, { y: Math.max(0, y - h * (d < UP ? 0.35 : 0.55)), w: 1.9, h: 1.8 });
+      }
+    });
   }
 
   // ---- Raised beds ----
@@ -106,7 +130,7 @@ export function buildPotager(K) {
     K.cyl(PAINT.bark, x, 0, 6.4, z, 0.16, 0.1, 6);
     for (const y of [1.8, 3.6, 5.4]) for (const s of [-1, 1]) {
       K.tube(PAINT.bark, [x, y - 0.3, z], [x, y, z + s * 0.6], 0.09, 5); K.tube(PAINT.bark, [x, y, z + s * 0.6], [x, y, z + s * 4.3], 0.07, 5);
-      for (let d = 0.8; d < 4.3; d += 0.9) { F.add('rose', x - 0.25, z + s * d, 0.32, { y: y - 0.55, w: 1.5, h: 1.3, tint: 0.95 }); if (r() < 0.55) K.sphere(r() < 0.8 ? 'c#b82a22/0.45' : 'c#d8c040/0.45', x - 0.35, y - 0.25 - r() * 0.3, z + s * d + (r() - 0.5) * 0.4, 0.17, 1, 1); }
+      for (let d = 0.8; d < 4.3; d += 0.9) { F.add('rose', x - 0.25, z + s * d, 0.32, { y: y - 0.3, w: 2.2, h: 1.9, tint: 0.95 }); if (r() < 0.55) K.sphere(r() < 0.8 ? 'c#b82a22/0.45' : 'c#d8c040/0.45', x - 0.35, y - 0.25 - r() * 0.3, z + s * d + (r() - 0.5) * 0.4, 0.17, 1, 1); }
     }
   }
   for (const [za, zb] of [[-101, -83.5], [-76.5, -59.5]]) F.fill([[62.8, za], [64.6, za], [64.6, zb], [62.8, zb]], [['chard', 1, 1.6], ['strawberry', 3, 1], ['herbs', 1, 1]], 1.6);
@@ -118,12 +142,26 @@ export function buildPotager(K) {
   // ---- At the crossing: an old rain barrel and the hose, left where it was dropped ----
   {
     const x = P.cx + 1.6, z = P.cz + 1.6;
-    K.lathe('c#6e5e4c/1', x, 0, z, [[0.01, 0], [1.0, 0], [1.12, 0.6], [1.18, 1.5], [1.12, 2.4], [1.02, 3.0], [0.95, 3.0], [0.01, 2.9]], 16);
-    for (const y of [0.35, 1.5, 2.65]) K.cyl(PAINT.iron, x, y, y + 0.12, z, 1.13 + (y === 1.5 ? 0.07 : 0), 1.13 + (y === 1.5 ? 0.07 : 0), 16);
-    K.cyl('c#22302a/0.1', x, 2.86, 2.9, z, 0.92, 0.92, 16);
+    // an oak cask stood on two blocks: eighteen staves (every other one a shade darker), four iron hoops, open at the
+    // top and full to a hand below the rim, its lid pushed half off; a brass tap low on the side toward the arch
+    const Y0 = 0.42, prof = [[0.98, 0], [1.1, 0.6], [1.16, 1.5], [1.1, 2.4], [0.98, 3.0]], rad = y => { const i = Math.min(3, prof.findIndex(q => q[1] > y) - 1), [a, ya] = prof[i], [b, yb] = prof[i + 1]; return a + (b - a) * (y - ya) / (yb - ya); };
+    for (const dz of [-0.55, 0.55]) K.box(PAINT.stone, x - 1.0, x + 1.0, 0, Y0, z + dz - 0.33, z + dz + 0.33);
+    for (let i = 0; i < 18; i++) { const g = new THREE.LatheGeometry(prof.map(([a, b]) => new THREE.Vector2(a, b)), 1, i * Math.PI / 9, Math.PI / 9).toNonIndexed(); g.deleteAttribute('normal'); g.translate(x, Y0, z); K.put(i % 2 ? 'c#6e5e4c/1' : 'c#5f5040/1', g); }
+    K.cyl('c#4a3e32/1', x, Y0, Y0 + 0.04, z, 0.97, 0.97, 12);
+    K.lathe('c#5f5040/1', x, Y0, z, [[0.98, 3.0], [0.9, 3.0], [0.9, 2.7]], 18);
+    for (const y of [0.28, 1.0, 1.95, 2.66]) K.cyl(PAINT.iron, x, Y0 + y, Y0 + y + 0.11, z, rad(y) + 0.012, rad(y + 0.11) + 0.012, 18);
+    K.cyl('c#22302a/0.1', x, Y0 + 2.74, Y0 + 2.78, z, 0.91, 0.91, 16);
+    K.cyl('c#7a6a55/1', x, Y0 + 3.0, Y0 + 3.07, z - 0.42, 1.02, 1.02, 18);
+    for (const dx of [-0.45, 0.45]) K.box('c#6e5e4c/1', x + dx - 0.08, x + dx + 0.08, Y0 + 3.07, Y0 + 3.12, z - 0.42 - 0.85, z - 0.42 + 0.85);
+    {
+      const ty = Y0 + 0.5, R0 = rad(0.5) - 0.02, d = [-0.35, 0.937], at = (k, dy = 0, side = 0) => [x + d[0] * k - d[1] * side, ty + dy, z + d[1] * k + d[0] * side];
+      K.tube(PAINT.brass, at(R0), at(R0 + 0.34), 0.045, 6); K.tube(PAINT.brass, at(R0 + 0.3), at(R0 + 0.3, -0.16), 0.04, 6);
+      K.tube(PAINT.brass, at(R0 + 0.16), at(R0 + 0.16, 0.13), 0.025, 5); K.tube(PAINT.brass, at(R0 + 0.16, 0.13, -0.11), at(R0 + 0.16, 0.13, 0.11), 0.022, 5);
+      K.cyl(PAINT.brass, ...(([a, , c]) => [a, ty - 0.045, ty + 0.045, c])(at(R0 + 0.34)), 0.045, 0.045, 6);
+    }
     K.collide(x - 1.2, x + 1.2, z - 1.2, z + 1.2, 4);
-    const hose = []; for (let i = 0; i <= 90; i++) { const t = i / 90, a = t * Math.PI * 7, rr = 0.9 + t * 0.6; hose.push([x - 2.4 + Math.cos(a) * rr, 0.14 + 0.05 * Math.sin(t * 40), z - 1.0 + Math.sin(a) * rr]); }
-    for (let i = 0; i < 40; i++) { const t = i / 40; hose.push([x - 2.4 + 1.5 - t * 4, 0.12, z - 1.0 - t * 9 + Math.sin(t * 6) * 1.5]); }
+    const hose = []; for (let i = 0; i <= 90; i++) { const t = i / 90, a = t * Math.PI * 7, rr = 0.9 + t * 0.6; hose.push([x - 2.8 + Math.cos(a) * rr, 0.14 + 0.05 * Math.sin(t * 40), z - 1.0 + Math.sin(a) * rr]); }
+    for (let i = 1; i <= 40; i++) { const t = i / 40; hose.push([x - 2.8 - 1.5 + t * 1.6 + Math.sin(t * 6) * 0.4, 0.14 - 0.02 * Math.min(1, t * 8), z - 1.0 - t * 9]); }      // on from the end of the coil, down the middle path (it used to cut back across the coil and end inside a bed)
     for (let i = 0; i < hose.length - 1; i++) K.tube('c#3d6b45/0.6', hose[i], hose[i + 1], 0.07, 5);
     K.model('metal_jug', x + 1.6, z - 1.2, 0.4);
   }
@@ -147,7 +185,7 @@ export function buildPotager(K) {
     K.collide(x - 1.8, x + 1.8, z - 1.6, z + 1.6, 2.5);
   }
   // ---- Tools and small things ----
-  K.model('watering_can_metal_01', 44.6, -65.2, 0.7, { scale: 1.35 });
+  K.model('watering_can_metal_01', 47.75, -76.15, 2.5, { scale: 1.35 });      // by the tap of the barrel
   K.model('trowel_01', 42.7, -70.5, 1.2, { y: 1.25 });
   K.model('garden_gloves_01', 42.6, -72.5, 0.4, { y: 1.25 });
   K.model('rusted_spade_01', 41.1, -90.1, 0.35, { y: Y - 0.5, scale: 1.05 });
@@ -169,8 +207,18 @@ export function buildPotager(K) {
     K.box('glass', gx0 + 0.2, gx1 - 0.2, 1.6, eave - 0.2, gz0 + 0.22, gz0 + 0.28); K.box('glass', gx0 + 0.22, gx0 + 0.28, 1.6, eave - 0.2, gz0, gz1); K.box('glass', gx1 - 0.28, gx1 - 0.22, 1.6, eave - 0.2, gz0, gz1);
     K.box('glass', gx0, cx - 1.6, 1.6, eave - 0.2, gz1 - 0.28, gz1 - 0.22); K.box('glass', cx + 1.6, gx1, 1.6, eave - 0.2, gz1 - 0.28, gz1 - 0.22);
     K.box(frame, cx - 1.7, cx - 1.5, 0, 7.0, gz1 - 0.3, gz1 - 0.1); K.box(frame, cx + 1.5, cx + 1.7, 0, 7.0, gz1 - 0.3, gz1 - 0.1); K.box(frame, cx - 1.7, cx + 1.7, 6.8, 7.0, gz1 - 0.3, gz1 - 0.1);
-    // the open door, swung back against the glass
-    K.box(frame, cx + 1.7, cx + 4.6, 0.1, 6.8, gz1 + 0.05, gz1 + 0.2); K.box('glass', cx + 1.9, cx + 4.4, 1.0, 6.5, gz1 + 0.1, gz1 + 0.15);
+    // the door, standing wide open on its hinges: stiles and rails, a boarded panel below the lock rail, four panes
+    // above it, a brass knob on each side (it was a blank white slab laid against the wall)
+    {
+      const d = place(K, cx + 1.62, 0.14, gz1 - 0.04, -1.5), W = 2.9, H = 6.62, T = 0.06;
+      d.box(frame, 0, 0.22, 0, H, -T, T); d.box(frame, W - 0.22, W, 0, H, -T, T);
+      d.box(frame, 0.22, W - 0.22, 0, 0.32, -T, T); d.box(frame, 0.22, W - 0.22, 2.9, 3.14, -T, T); d.box(frame, 0.22, W - 0.22, H - 0.22, H, -T, T);
+      d.box(frame, 0.22, W - 0.22, 0.32, 2.9, -0.025, 0.025);
+      d.box(frame, W / 2 - 0.035, W / 2 + 0.035, 3.14, H - 0.22, -0.04, 0.04); d.box(frame, 0.22, W - 0.22, 4.74, 4.81, -0.04, 0.04);
+      d.box('glass', 0.22, W - 0.22, 3.14, H - 0.22, -0.012, 0.012);
+      d.tube(PAINT.brass, [W - 0.11, 3.35, -0.17], [W - 0.11, 3.35, 0.17], 0.022, 5); for (const s of [-1, 1]) d.sphere(PAINT.brass, W - 0.11, 3.35, s * 0.19, 0.06, 1, 1);
+      d.collide(0, W, -0.1, 0.1, 6.8);
+    }
     // gables and the roof
     for (const z of [gz0 + 0.25, gz1 - 0.25]) {
       const g = new THREE.BufferGeometry(), pos = [gx0, eave, z, gx1, eave, z, cx, ridge, z];
@@ -180,15 +228,24 @@ export function buildPotager(K) {
     K.box(frame, cx - 0.15, cx + 0.15, ridge - 0.1, ridge + 0.2, gz0, gz1);
     for (const s of [-1, 1]) {
       const ex = s < 0 ? gx0 : gx1, len = Math.hypot(cx - ex, ridge - eave), ang = Math.atan2(ridge - eave, Math.abs(cx - ex));
-      const roof = new THREE.BoxGeometry(len, 0.05, gz1 - gz0 + 0.6); roof.rotateZ(s < 0 ? ang : -ang); roof.translate((cx + ex) / 2, (ridge + eave) / 2 + 0.03, (gz0 + gz1) / 2);      // the glazing bars stand a clear quarter inch proud of the glass K.put('glass', roof);
+      const roof = new THREE.PlaneGeometry(len, gz1 - gz0 + 0.6); roof.rotateX(-Math.PI / 2); roof.rotateZ(s < 0 ? ang : -ang); roof.translate((cx + ex) / 2, (ridge + eave) / 2 + 0.03, (gz0 + gz1) / 2); K.put('glass', roof);      // the glazing bars stand a clear quarter inch proud of the glass
       for (let z = gz0; z <= gz1 + 0.01; z += 2) K.beam(frame, [ex, eave, z], [cx, ridge, z], 0.12, 0.16);
-      for (let k = 0; k < 9; k++) K.sphere(frame, cx, ridge + 0.35, gz0 + 0.5 + k * 1.6, 0.12, 1, 1);
+      if (s < 0) for (let k = 0; k < 9; k++) K.sphere(frame, cx, ridge + 0.3, gz0 + 0.6 + k * 1.6, 0.12, 1, 1);      // the cresting, once (it was made twice over, a hair above the ridge)
+    }
+    // one roof light on the south slope, propped open on its stay
+    {
+      const z0 = gz0 + 6.08, z1 = gz0 + 7.92, dx = -0.894, dy = -0.447, hx = cx + dx * 0.5, hy = ridge + dy * 0.5 + 0.12, lx = hx - 2.3 * 0.998, ly = hy - 2.3 * 0.043;
+      for (const z of [z0, z1]) K.beam(frame, [hx, hy, z], [lx, ly, z], 0.1, 0.1);
+      K.box(frame, hx - 0.05, hx + 0.05, hy - 0.05, hy + 0.05, z0, z1); K.box(frame, lx - 0.05, lx + 0.05, ly - 0.05, ly + 0.05, z0, z1);
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([hx, hy, z0, lx, ly, z0, lx, ly, z1, hx, hy, z0, lx, ly, z1, hx, hy, z1], 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1], 2)); g.computeVertexNormals(); K.put('glass', g);
+      K.tube(PAINT.iron, [lx + 0.05, ly, gz0 + 7], [lx + 0.3, eave + (lx + 0.3 - gx0) * (ridge - eave) / (cx - gx0) + 0.08, gz0 + 7], 0.02, 4);
     }
     // staging and pots of seedlings, a potting bench at the back
     for (const [sx0, sx1] of [[gx0 + 0.5, gx0 + 3], [gx1 - 3, gx1 - 0.5]]) {
-      K.box('c#9a7a58/0.9', sx0, sx1, 2.75, 2.9, gz0 + 1, gz1 - 1.5, G0);
-      for (const z of [gz0 + 1.2, gz1 - 1.7]) for (const x of [sx0 + 0.2, sx1 - 0.2]) K.box('c#9a7a58/0.9', x - 0.08, x + 0.08, 0, 2.75, z - 0.08, z + 0.08);
-      K.box('c#9a7a58/0.9', sx0, sx1, 0.6, 0.7, gz0 + 1, gz1 - 1.5, G0);
+      // slatted benching: six laths along the top on bearers, three legs a side, three boards for the shelf below
+      for (let i = 0; i < 6; i++) K.box('c#9a7a58/0.9', sx0 + i * 0.43, sx0 + i * 0.43 + 0.35, 2.82, 2.9, gz0 + 1, gz1 - 1.5, G0);
+      for (const z of [gz0 + 1.2, (gz0 + gz1) / 2 - 0.25, gz1 - 1.7]) { for (const x of [sx0 + 0.2, sx1 - 0.2]) K.box('c#8a6c4e/0.9', x - 0.08, x + 0.08, 0, 2.7, z - 0.08, z + 0.08); for (const y of [0.5, 2.7]) K.box('c#8a6c4e/0.9', sx0 + 0.04, sx1 - 0.04, y, y + 0.12, z - 0.07, z + 0.07); }
+      for (let i = 0; i < 3; i++) K.box('c#9a7a58/0.9', sx0 + 0.1 + i * 0.8, sx0 + 0.1 + i * 0.8 + 0.7, 0.62, 0.69, gz0 + 1, gz1 - 1.5, G0);
       K.collide(sx0, sx1, gz0 + 1, gz1 - 1.5, 3.2);
       for (let z = gz0 + 1.6; z < gz1 - 1.8; z += 1.15) { const x = (sx0 + sx1) / 2 + (r() - 0.5) * 0.8; K.pot(x, 2.9, z, 0.38, [[K.pick(['herbs', 'marigold', 'lettuce', 'strawberry', 'catmint', 'tomato']), K.pick([1.1, 1.3])]], { collide: false }); }
     }
@@ -198,22 +255,57 @@ export function buildPotager(K) {
     K.model('seeding_tray_01', cx - 1.2, gz0 + 1.5, 0.1, { y: 3.2, scale: 1.4 });
     K.model('planter_box_02', cx + 1.6, gz0 + 1.6, 0, { y: 3.2, scale: 0.55 }); F.drift('herbs', cx + 1.6, gz0 + 1.6, 0.8, 0.2, 4, 0.5, { y: 3.65 });
     K.model('wooden_lantern_01', cx + 0.2, gz0 + 1.3, 0.3, { y: 3.2, scale: 0.9 }); K.lamp(cx, 4.4, gz0 + 1.6, 0.3);
-    K.pot(gx0 + 1.4, 0.1, gz1 - 1.1, 1.3, [['tomato', 0.9]]); K.pot(gx1 - 1.4, 0.1, gz1 - 1.1, 1.3, [['fern', 0.9]]);
+    K.pot(cx - 3.2, 0.1, gz1 - 1.85, 1.2, [['tomato', 0.8]]); K.pot(cx + 3.2, 0.1, gz1 - 1.85, 1.2, [['fern', 0.9]]);      // either side of the door, inside (in the corners they stood through the walls and the benching)
     // walls are solid; the door is open
     K.collide(gx0, gx1, gz0, gz0 + 0.5, 8); K.collide(gx0, gx0 + 0.5, gz0, gz1, 8); K.collide(gx1 - 0.5, gx1, gz0, gz1, 8);
     K.collide(gx0, cx - 1.6, gz1 - 0.5, gz1, 8); K.collide(cx + 1.6, gx1, gz1 - 0.5, gz1, 8);
     K.glasshouse = { x: cx, z: (gz0 + gz1) / 2 };
   }
 
-  // ---- Compost bays ----
+  // ---- Compost bays: three slatted bays, the heap moving west as it rots. The barrow is tipped into the east
+  // one: dry browns, then grass, the kitchen scraps on top. The middle one is half way there (the mouse lives in
+  // the front of it: creatures_more.js). The west one is dark, crumbly and ready, with the fork left in it ----
   {
     const z0 = -114, z1 = -108;
     for (let i = 0; i < 3; i++) {
       const x0 = 57 + i * 3.2, x1 = x0 + 3;
       for (let y = 0.1; y < 3; y += 0.55) { K.box('timber', x0 + 0.15, x1 - 0.15, y, y + 0.42, z0, z0 + 0.15, G0); K.box('timber', x0, x0 + 0.15, y, y + 0.42, z0, z1, G0); K.box('timber', x1 - 0.15, x1, y, y + 0.42, z0, z1, G0); }
-      K.sphere('soil', (x0 + x1) / 2, 0.2, (z0 + z1) / 2 - 0.4, 1.4, 0.5 + i * 0.25, 1);
+    }
+    for (const [a, b] of [[56.95, 57.2], [59.95, 60.4], [63.15, 63.6], [66.2, 66.45]]) K.box('timber', a, b, 0, 3.25, z1 - 0.28, z1 + 0.02, G0);      // a post at the front of each wall
+    // a lump of a heap, h tall, sitting on y (K.rock: a dented ball with a flat underside)
+    // a heap: a soft lumpy mound that fills its bay, in a ground texture (K.G kinds: compostDark fine and dark, compost
+    // mid-brown and chunky, meadow for straw, lawn for mowings)
+    const heap = (kind, x, z, sx, h, sz, y = 0, seed = 1, seg = 16) => {
+      const g = new THREE.SphereGeometry(1, seg, Math.max(4, seg * 3 / 8), 0, Math.PI * 2, 0, Math.PI / 2), p = g.attributes.position, n = g.attributes.normal, q = v => Math.sign(v) * Math.abs(v) ** 0.85;
+      for (let i = 0; i < p.count; i++) {
+        const px = p.getX(i), py = p.getY(i), pz = p.getZ(i), k = 0.92 + 0.08 * Math.sin(px * 3.1 + seed) * Math.cos(pz * 2.7 + seed * 1.7) + 0.04 * Math.sin(px * 7 + pz * 9 + seed * 3);
+        p.setXYZ(i, x + q(px) * sx * k, y + py * h * (0.88 + 0.16 * Math.sin(px * 4.3 + pz * 3.1 + seed * 2.3)), z + q(pz) * sz * k);
+      }
+      for (let i = 0; i < p.count; i++) g.attributes.uv.setXY(i, p.getX(i) + p.getY(i) * 0.6, -p.getZ(i));      // the texture in feet, like the ground
+      g.computeVertexNormals();
+      for (let i = 0; i < n.count; i++) { const a = n.getX(i) * 0.5, b = n.getY(i) * 0.5 + 0.5, c = n.getZ(i) * 0.5, l = Math.hypot(a, b, c); n.setXYZ(i, a / l, b / l, c / l); }      // lit softly, as a mound
+      K.G.parts[kind].push(g);
+    };
+    heap('compostDark', 58.5, -111.3, 1.3, 1.1, 2.45, 0, 1); heap('compostDark', 58.7, -108.75, 0.9, 0.35, 0.6, 0, 2, 10);                              // west: finished, a little spilt at the front
+    heap('compost', 61.7, -111.3, 1.3, 1.65, 2.45, 0, 3); heap('compost', 61.9, -108.95, 0.95, 0.6, 0.65, 0, 4, 10);                                    // middle: half way, straw still showing
+    heap('meadow', 61.3, -112.0, 0.8, 0.45, 0.9, 1.3, 5, 10); heap('meadow', 62.2, -110.6, 0.55, 0.3, 0.7, 1.35, 9, 10);
+    heap('compost', 64.9, -111.3, 1.3, 1.3, 2.45, 0, 6); heap('meadow', 64.75, -112.2, 1.15, 1.2, 1.3, 0.7, 7, 10); heap('lawn', 65.0, -110.9, 1.1, 0.8, 1.5, 1.1, 8, 10);      // east: this week's
+    // the scraps: eggshells, orange peel, an apple core, outer cabbage leaves, a banana skin
+    for (const [mat, x, y, z, rad, sy, sx, sz] of [
+      ['c#efe6d6/0.8', 64.8, 1.95, -110.75, 0.1, 0.8, 1, 1], ['c#efe6d6/0.8', 65.35, 1.88, -111.2, 0.09, 0.8, 1, 1], ['c#d98a2b/0.9', 65.15, 1.93, -110.6, 0.17, 0.35, 1, 1], ['c#d98a2b/0.9', 64.6, 1.86, -111.25, 0.14, 0.4, 1, 1],
+      ['c#b8433a/0.8', 64.95, 2.0, -111.05, 0.09, 1.3, 1, 1], ['c#a9c078/0.9', 65.4, 1.8, -110.65, 0.24, 0.25, 1, 1], ['c#a9c078/0.9', 64.55, 1.86, -110.5, 0.21, 0.25, 1, 1], ['c#d9c04a/0.9', 65.0, 1.96, -111.4, 0.18, 0.3, 1.6, 0.5],
+    ]) K.sphere(mat, x, y, z, rad, sy, 0, sx, sz);
+    // the fork, left standing in the finished heap: four tines, a socket, an ash shaft, a D grip
+    {
+      const o = [58.75, 0.55, -110.8], d = [-0.07, 0.985, 0.155], u = [0.92, 0, 0.39], WOOD = 'c#a5855a/0.8';
+      const at = (s, k = 0) => [o[0] + d[0] * s + u[0] * k, o[1] + d[1] * s + u[1] * k, o[2] + d[2] * s + u[2] * k];
+      for (const k of [-0.27, -0.09, 0.09, 0.27]) K.tube(PAINT.iron, at(0, k), at(0.8, k), 0.018, 4);
+      K.tube(PAINT.iron, at(0.8, -0.28), at(0.8, 0.28), 0.028, 4); K.tube(PAINT.iron, at(0.8), at(1.15), 0.04, 5);
+      K.tube(WOOD, at(1.1), at(3.05), 0.05, 6);
+      K.tube(WOOD, at(3.05), at(3.32, -0.16), 0.032, 4); K.tube(WOOD, at(3.05), at(3.32, 0.16), 0.032, 4); K.tube(WOOD, at(3.32, -0.19), at(3.32, 0.19), 0.04, 5);
     }
     K.collide(57, 66.6, z0, z1, 4);
+    buildPuddle(K);      // behind the bays: a puddle with tadpoles in it, and a frog (garden/puddle.js)
   }
 
   // ---- The orchard and the beehives, through the gate and north ----

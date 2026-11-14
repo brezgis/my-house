@@ -283,7 +283,7 @@ export function buildPond(K) {
     const bz = spanAt(P.x - 9)[1] + 4.4;
     K.bench(P.x - 9, bz, Math.PI);
     K.seat(P.x - 9, 1.6, bz - 0.4, 0, 'sit by the pond');
-    K.model('garden_gnome', P.x - 14, P.z - 11.2, 1.2, { scale: 0.8 });          // half lost in the ferns
+    K.model('garden_gnome', P.x - 14, P.z - 11.2, 1.2 + Math.PI, { scale: 0.8 });          // half lost in the ferns, looking out at the lawn (he stood with his nose to the rock)
     F.drift('fern', P.x - 14.5, P.z - 11.6, 1.5, 1.5, 3, 0.9);
   }
 }

@@ -17,7 +17,7 @@ export default function (kit) {
   // the kit's bed with a channelled, upholstered headboard (our bedroom has the oak Mission bed: not the same bed twice)
   bed(gb.sub(0, 0.08), 5.0, 'wool#a9b8a8', { headboard: 'upholstered', fabric: 'linen#8a8f7a', sham: 'linen#c9ad9a', accent: 'linen#efe8d8' });
   // the welcome: towels folded at the foot, a chocolate and a sprig of lavender tied with twine on top
-  const tz = P.towels(gb, 0.0, 5.7, 2.26, 3, ['wool#e6e0d4', 'wool#e6e0d4', 'wool#a9b8a8'], 1.25, 0.9, 0.14);
+  const tz = P.towels(gb, 0.0, 5.7, 2.36, 3, ['wool#e6e0d4', 'wool#e6e0d4', 'wool#a9b8a8'], 1.25, 0.9, 0.14);
   P.chocolate(gb, 0.38, 5.9, tz);
   for (let i = 0; i < 7; i++) {                                         // stems lying together, each with a spike of buds
     const x0 = -0.32 + i * 0.035, x1 = x0 + 0.16 + ((i % 3) - 1) * 0.05, y0 = 5.32, y1 = 6.08 - (i % 2) * 0.05, zz = tz + 0.012 + (i % 2) * 0.012;

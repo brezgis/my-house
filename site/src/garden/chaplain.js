@@ -556,7 +556,7 @@ export function chaplain(ctx, K) {
         head.set(S.x, FL + S.built.top + 0.25, S.z);
         const cp = ctx.camera.position, dx = S.x - cp.x, dz = S.z - cp.z, cin = cp.x > IX0 && cp.x < IX1 && cp.z > IZ0 && cp.z < IZ1;
         let vis = ctx.mode === 'walk' && Math.hypot(dx, dz) < 30;
-        if (vis && !cin) { const tz = (DOOR.z - cp.z) / (S.z - cp.z), xd = cp.x + (S.x - cp.x) * tz; vis = cp.z > DOOR.z && tz > 0 && tz < 1 && xd > DOOR.x0 + 0.2 && xd < DOOR.x1 - 0.2; }
+        if (vis && !cin) { const tz = (DOOR.z - cp.z) / (S.z - cp.z), xd = cp.x + (S.x - cp.x) * tz; vis = !CHAPEL.door.shut && cp.z > DOOR.z && tz > 0 && tz < 1 && xd > DOOR.x0 + 0.2 && xd < DOOR.x1 - 0.2; }      // (from outside: only through the open door)
         H.bubbles.place(bubble, head, H.now, vis);
       }
     }

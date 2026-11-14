@@ -62,7 +62,7 @@ export default function (kit) {
   const sl = fr(40.45, 33.4, F2);
   for (const [x, y] of [[-0.38, -0.38], [0.3, -0.38], [-0.38, 0.3], [0.3, 0.3]]) sl.box(OAKW, x, x + 0.08, y, y + 0.08, 0, 1.24, G);
   for (const [a, b] of [[-0.38, 0.38], [-0.38, -0.38]]) sl.box(OAKW, -0.36, 0.36, b < 0 ? -0.36 : 0.3, b < 0 ? -0.32 : 0.34, 0.5, 0.56, G);   // stretchers
-  sl.soft('linen#a8756f', -0.48, 0.48, -0.48, 0.48, 1.22, 1.55, 0.12); sl.block(-0.48, 0.48, -0.48, 0.48, 0, 1.6);
+  sl.cushion('linen#a8756f', -0.48, 0.48, -0.48, 0.48, 1.22, 1.52, 0.12, { crown: 0.045, bulge: 0.02, welt: 0.012, noBottom: true }); sl.block(-0.48, 0.48, -0.48, 0.48, 0, 1.6);
   seats.push({ x: wx(40.45), y: F2 + 1.55 + 2.45, z: wz(33.4), yaw: Math.atan2(-DIRS[3][0], DIRS[3][1]), label: 'sit at the dressing table' });
   candle(vt, -0.95, 0.42, vz, 0.75);                                    // a taper (a table lamp here put its shade through the glass's stand)
 

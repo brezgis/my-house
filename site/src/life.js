@@ -3,10 +3,11 @@
 // steam off a cup, koi, bees, the swing, sitting down.
 
 import * as THREE from 'three';
-import { makeFlames, NOISE } from './flame.js';
+import { makeFlames, makeCandleFlame, NOISE } from './flame.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { shuffle } from './shuffle.js';
+import { setupTaps } from './taps.js';
 
 const FT = 3.28084;
 // Labels and pictures lie a hair in front of what they are printed on or framed in; drawn a touch
@@ -209,10 +210,22 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
           const title = rec.spine_title ?? rec.title, author = (rec.author ?? '').split(/[ ,]+/).filter(Boolean).pop() ?? '';
           g.save(); g.translate(cx + CW / 2, cy + CH / 2); g.rotate(Math.PI / 2); g.textAlign = 'center'; g.textBaseline = 'middle';
           const font = FONTS[Math.floor(r() * FONTS.length)], weight = r() < 0.5 ? 'bold ' : '';
-          let px = 17; g.font = `${weight}${px}px ${font}`;
-          while (g.measureText(title).width > CH - 108 && px > 8) { px -= 1; g.font = `${weight}${px}px ${font}`; }
-          g.fillText(title, -18, 1);
-          g.font = `${Math.max(8, px - 5)}px ${font}`; g.globalAlpha = 0.85; g.textAlign = 'right'; g.fillText(author.toUpperCase().slice(0, 14), CH / 2 - 22, 1);
+          // The author sits at the foot and the title in what is left, so the two never meet. (The title used
+          // to be centred in a fixed stretch and the author set at the foot whatever its length: a long name ran
+          // back up into the title, and a long title ran on at its smallest size.) A long title takes two lines.
+          const width = t => g.measureText(t).width, fit = (t, max, hi, lo, w = weight) => { let p = hi; g.font = `${w}${p}px ${font}`; while (width(t) > max && p > lo) { p--; g.font = `${w}${p}px ${font}`; } return p; };
+          const END = CH / 2 - 22, by = author.toUpperCase().slice(0, 14);
+          const aPx = by ? fit(by, style === 2 ? 38 : 84, 10, 7, '') : 0, aW = by && width(by) <= (style === 2 ? 38 : 84) ? width(by) : 0;      // no room at the foot (the label panel ends 44 px short of it): no author
+          const T0 = style === 2 ? -92 : -END, T1 = style === 2 ? 56 : aW ? END - aW - 10 : END, room = T1 - T0;
+          let lines = [title], px = fit(title, room, 17, 8);
+          if ((px < 11 || width(title) > room) && title.includes(' ')) {
+            let cut = -1; for (let k = 0; k < title.length; k++) if (title[k] === ' ' && (cut < 0 || Math.abs(k - title.length / 2) < Math.abs(cut - title.length / 2))) cut = k;
+            lines = [title.slice(0, cut), title.slice(cut + 1)]; px = Math.min(fit(lines[0], room, 12, 7), fit(lines[1], room, 12, 7));
+          }
+          g.font = `${weight}${px}px ${font}`;
+          lines = lines.map(t => { while (t.length > 4 && width(t) > room) t = t.slice(0, -2).trimEnd() + '…'; return t; });
+          lines.forEach((t, k) => g.fillText(t, (T0 + T1) / 2, 1 + (k - (lines.length - 1) / 2) * (px + 1)));
+          if (aW) { g.font = `${aPx}px ${font}`; g.globalAlpha = 0.85; g.textAlign = 'right'; g.fillText(by, END, 1); }
           g.restore(); g.globalAlpha = 1;
 
           // The box, with its spine face mapped to this cell
@@ -515,16 +528,17 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
 
   // ---- Candles --------------------------------------------------------------------------------
   const saved = (() => { try { return JSON.parse(localStorage.getItem('candles') ?? '[]'); } catch { return []; } })();
-  const flameGeo = new THREE.SphereGeometry(0.045, 10, 8); flameGeo.scale(1, 2.3, 1); flameGeo.translate(0, 0.09, 0);
-  const flameMat = new THREE.MeshBasicMaterial({ color: 0xffc56a, toneMapped: false });
+  // A flame is one small card that turns to face the eye, drawn by a shader (flame.js): a teardrop with a
+  // blue foot and a pale heart, whose tip leans and wanders. (It was a stretched yellow ball that pulsed.)
+  const candleT = { value: 0 }, flameGeo = new THREE.PlaneGeometry(0.14, 0.24).translate(0, 0.108, 0), flameMat = makeCandleFlame(THREE, candleT);
+  animated.push(t => { candleT.value = t; });
   candles.forEach((c, i) => {
-    const flame = new THREE.Mesh(flameGeo, flameMat); flame.userData.cat = 'candles'; flame.position.set(c.x, c.y, c.z); if (c.big) flame.scale.setScalar(1.25); scene.add(flame);
+    const flame = new THREE.Mesh(flameGeo, flameMat); flame.renderOrder = 3; flame.userData.cat = 'candles'; flame.position.set(c.x, c.y, c.z); if (c.big) flame.scale.setScalar(1.25); scene.add(flame);
     const lamp = { x: c.x, y: c.y + 0.25, z: c.z, power: 0, kind: 'candle' }; lamps.push(lamp);
     track(flame, zoneAt(c.x, c.y, c.z, 0.2), () => c.lit);
     const set = lit => { c.lit = lit; flame.visible = lit; lamp.power = lit ? 0.42 : 0; };
     set(saved.includes(i));
     interact.push({ x: c.x, y: c.y, z: c.z, reach: 6.5, label: () => (c.lit ? 'blow out the candle' : 'light the candle'), act: () => { set(!c.lit); try { localStorage.setItem('candles', JSON.stringify(candles.map((k, j) => (k.lit ? j : -1)).filter(j => j >= 0))); } catch { /* private window */ } } });
-    animated.push(t => { if (c.lit) { const k = 1 + 0.12 * Math.sin(t * 11 + i) + 0.08 * Math.sin(t * 27 + i * 3); flame.scale.set(1, k, 1); flame.position.x = c.x + 0.004 * Math.sin(t * 7 + i); } });
   });
 
   // ---- The fire ---------------------------------------------------------------------------------
@@ -667,6 +681,7 @@ void main() {
   }
   function chalkSave() { try { localStorage.setItem('chalkboard2', chalk.canvas.toDataURL('image/jpeg', 0.7)); } catch { /* too big or private */ } }
 
+  setupTaps({ scene, camera, materials, taps: items.taps, interact, animated, track, zoneAt });      // the taps run (taps.js)
   return { update: (t, dt = 0.016) => { for (const f of animated) f(t, dt); }, cull: cullModels, track, zoneAt, pending: () => left, target, interact, animated, get chalk() { return chalk; }, chalkStroke, chalkWipe, chalkSave,
     // A fresh copy of a collected model, scaled to feet, for things that move (staff, pets)
     loadModel: async id => { const o = (await load(id)).clone(true); o.scale.setScalar(FT); o.traverse(n => { if (n.isMesh) n.castShadow = n.receiveShadow = true; }); return o; } };

@@ -268,10 +268,25 @@ export const FLORA_PAINT = {
     for (let i = 0; i < 6; i++) daisy(g, bx + (r() - 0.5) * S * 0.7, S * (0.55 + r() * 0.2), 6, '#f7f5ee', '#e6c030', 5, 0.85, 0, 0.5);
   },
   hosta(g, S, r) { leaf(g, S / 2, S, S * 0.92, S * 0.42, 0, hsl(150, 30, 34), { heart: true, base: 0.4, rib: hsl(140, 20, 55), veins: hsl(140, 20, 45), edge: hsl(60, 55, 78), edgeW: 7 }); },
-  clover(g, S, r) {                                   // low ground cover with tiny flowers, for lawns' edges and paths
-    for (let i = 0; i < 60; i++) { const x = S * r(), y = S * (0.35 + r() * 0.65); for (let k = 0; k < 3; k++) leaf(g, x, y, 9, 5, k * 2.1, hsl(110, 35, 26 + r() * 10)); }
-    for (let i = 0; i < 18; i++) daisy(g, S * r(), S * (0.4 + r() * 0.5), 5, '#f6f4ee', '#e8c030', 9, 0.6, 0, 0.35);
+  clover(g, S, r) {                                   // a patch of clover in a lawn, seen from above: trefoils, a few white heads
+    const u = S / 128, c = S / 2;
+    for (let i = 0; i < 44; i++) {
+      const a = r() * 6.28, d = r() ** 0.7 * S * 0.42 * (0.75 + 0.25 * Math.sin(a * 3 + 1)), x = c + Math.cos(a) * d, y = c + Math.sin(a) * d, t = r() * 6.28, col = hsl(74 + r() * 14, 50 + r() * 10, 22 + r() * 9);
+      for (let k = 0; k < 3; k++) leaf(g, x, y, 9 * u, 6.5 * u, t + k * 2.094, col, { base: 0.5, tip: 0.95, light: hsl(72, 50, 36, 0.35) });
+    }
+    for (let i = 0; i < 4 + r() * 3; i++) { const a = r() * 6.28, d = r() * S * 0.32, x = c + Math.cos(a) * d, y = c + Math.sin(a) * d; g.beginPath(); g.arc(x, y, 3.2 * u, 0, 7); g.fillStyle = hsl(70, 25, 90); g.fill(); g.beginPath(); g.arc(x, y, 1.4 * u, 0, 7); g.fillStyle = hsl(330, 25, 84); g.fill(); }
   },
+  dandelion(g, S, r, clock) {                         // a flat rosette of toothed leaves, flowers on hollow stalks (or clocks)
+    const bx = S / 2;
+    for (let i = 0; i < 9; i++) { const a = (i - 4) / 4 * 1.25 + (r() - 0.5) * 0.2, col = hsl(88 + r() * 14, 48, 36 + r() * 9); leaf(g, bx, S, S * (0.34 + r() * 0.12), S * 0.055, a, col, { base: 0.6, tip: 0.9 }); for (let k = 1; k < 4; k++) for (const s of [-1, 1]) leaf(g, bx + Math.sin(a) * S * 0.1 * k, S - Math.cos(a) * S * 0.1 * k, S * 0.06, S * 0.022, a + s * 1.9, col); }
+    for (let i = 0; i < 3; i++) {
+      const x = bx + (i - 1) * S * 0.24 + (r() - 0.5) * S * 0.08, y = S * (clock ? 0.24 + r() * 0.14 : 0.42 + r() * 0.2), rad = S * (clock ? 0.17 : 0.15);
+      stem(g, bx + (i - 1) * S * 0.04, S, x, y, (r() - 0.5) * S * 0.1, S * 0.022, hsl(80, 30, 46));
+      if (!clock) { daisy(g, x, y, rad, hsl(50, 96, 54), hsl(44, 96, 48), 20, 0.7, r(), 0.16); daisy(g, x, y, rad * 0.62, hsl(52, 98, 60), hsl(46, 96, 52), 14, 0.7, r(), 0.2); }
+      else { g.beginPath(); g.arc(x, y, rad, 0, 7); g.fillStyle = hsl(60, 12, 92); g.fill(); g.strokeStyle = hsl(60, 10, 97, 0.9); g.lineWidth = Math.max(1, S * 0.008); for (let k = 0; k < 22; k++) { const a = k / 22 * 6.28; g.beginPath(); g.moveTo(x + Math.cos(a) * rad * 0.2, y + Math.sin(a) * rad * 0.2); g.lineTo(x + Math.cos(a) * rad, y + Math.sin(a) * rad); g.stroke(); } g.beginPath(); g.arc(x, y, rad * 0.2, 0, 7); g.fillStyle = hsl(70, 20, 60); g.fill(); }
+    }
+  },
+  dandelionClock(g, S, r) { FLORA_PAINT.dandelion(g, S, r, true); },
   wisteria(g, S, r) {                                  // a hanging raceme cluster (hang the card upside down)
     for (let i = 0; i < 14; i++) {
       const x = S * (0.1 + r() * 0.8), len = S * (0.35 + r() * 0.5);
@@ -289,7 +304,8 @@ export const FLORA_CELLS = {
   fern: [0, 0, 2, 2], hydrangea: [2, 0, 2, 2], rose: [4, 0, 2, 2], shrub: [6, 0, 2, 2],
   grass: [0, 2, 2, 2], wildflowers: [2, 2, 2, 2], lavender: [4, 2, 2, 2], tomato: [6, 2, 2, 2],
   sunflower: [0, 4, 2, 2], spires: [2, 4, 2, 2], cosmos: [4, 4, 2, 2], bean: [6, 4, 1, 2], wisteria: [7, 4, 1, 2],
-  lettuce: [0, 6, 1, 1], lettuceRed: [1, 6, 1, 1], kale: [2, 6, 1, 1], chard: [3, 6, 1, 1], cabbage: [4, 6, 1, 1], squash: [5, 6, 1, 1], lilypad: [6, 6, 1, 1], waterlily: [7, 6, 1, 1],
+  lettuce: [0, 6, 1, 1], lettuceRed: [1, 6, 1, 1], kale: [2, 6, 1, 1], chard: [3, 6, 1, 1], cabbage: [4, 6, 1, 1], squash: [5, 6, 1, 1], lilypad: [6, 6, 1, 1],
+  waterlily: [7, 6, 0.5, 0.5], clover: [7.5, 6, 0.5, 0.5], dandelion: [7, 6.5, 0.5, 0.5], dandelionClock: [7.5, 6.5, 0.5, 0.5],      // four small things in one cell
   carrot: [0, 7, 1, 1], leek: [1, 7, 1, 1], herbs: [2, 7, 1, 1], marigold: [3, 7, 1, 1], catmint: [4, 7, 1, 1], coneflower: [5, 7, 1, 1], strawberry: [6, 7, 1, 1], hosta: [7, 7, 1, 1],
 };
 // clover and boxwood share cells with nothing; they get their own small atlas row below if needed

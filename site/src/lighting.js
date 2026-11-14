@@ -247,11 +247,18 @@ export function makeLampPool({ scene, lamps, vis, size, day, camera }) {
     const n = size - (lantern ? 1 : 0);
     const near = choose(eye, n, new Set(pool.map(s => s.lamp).filter(Boolean)));
     const slots = lantern ? pool.slice(0, n) : pool;
+    // Coming into a room, its lamps must not wait their turn: a lamp of the room you stand in that has no
+    // light yet takes one from a lamp elsewhere at once if that lamp's room is out of sight, and in a
+    // fifth of a second if not. (Each light used to fade out over a second and a half first, and the
+    // room stood dark, with only its shades glowing, while the eye had already adjusted to indoors.)
+    const urgent = near.some(l => here(l) && !pool.some(o => o.lamp === l));
+    const inSight = l => here(l) || (zoneOf(l) === 'o:' ? vis.state.out : vis.state.seen.has(l.zone));
     for (const s of slots) {
       if (s.lamp === 'lantern') { s.lamp = null; s.level = 0; }
-      const wanted = s.lamp && near.includes(s.lamp);
-      s.level += ((wanted ? 1 : 0) - s.level) * Math.min(1, dt * (wanted ? 5.5 : 2.4));      // slow, so a change of lamp is a drift, not a blink
-      if (!wanted && s.level < 0.02) {
+      const wanted = s.lamp && near.includes(s.lamp), mine = s.lamp && here(s.lamp), hurry = urgent && s.lamp && !wanted && !mine;
+      if (hurry && !inSight(s.lamp)) s.level = 0;
+      s.level += ((wanted ? 1 : 0) - s.level) * Math.min(1, dt * (wanted ? (mine ? 10 : 5.5) : hurry ? 14 : 2.4));      // otherwise slow, so a change of lamp is a drift, not a blink
+      if (!wanted && s.level < (hurry ? 0.06 : 0.02)) {
         const free = near.find(l => !pool.some(o => o.lamp === l));
         s.lamp = free ?? null; s.level = free ? s.level : 0;
         if (free) { s.light.position.set(free.x, free.y - (DROP[free.kind] ?? 0), free.z); s.light.color.set(TINT[free.kind]); [s.light.distance, s.light.decay] = SHAPE[free.kind]; }

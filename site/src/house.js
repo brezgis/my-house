@@ -489,7 +489,10 @@ export function buildHouse(B) {
     B.pbox('roof', KX - 1.7, W + 2.3, KIT, SCR + 2.3, top + 0.1, top + 0.3);
     for (let X = KX + 0.6; X < W + 1; X += 2) timberY(X, KIT, SCR + 2, top, 0.17, 0.42);
     // Back steps down to the garden
-    for (let i = 0; i < 3; i++) B.pbox('timber', 35.0, 38.4, SCR + i * 1.0, SCR + (i + 1) * 1.0, 0, fl - (i + 1) * (fl / 4), { grain: 'long' });
+    // (the top step runs back under the door sill, with a board closing the space between them: the sill stops
+    // a few inches short of the wall line, and grass showed through a gap between it and the step)
+    for (let i = 0; i < 3; i++) B.pbox('timber', 35.0, 38.4, SCR + i * 1.0 - (i ? 0 : 0.8), SCR + (i + 1) * 1.0, 0, fl - (i + 1) * (fl / 4), { grain: 'long' });
+    B.pbox('timber', 35.2, 38.2, SCR - 0.8, SCR - 0.45, fl - fl / 4, fl - 0.2, { grain: 'long' });
     surfaces.push({ x0: wx(35.0), x1: wx(38.4), z0: wz(SCR + 3), z1: wz(SCR), h: fl, h2: fl / 4, ramp: true });
     room('Screened porch', KX, W, KIT, SCR, fl); lamp(37, 40.8, fl + 6, 1.1); lamp(34, 44, fl + 5, 0.6);
   }

@@ -75,7 +75,7 @@ export function makeBath(K) {
     put(s, m, loft(rows, { seg: 36, e: 2.8 }));
     put(s, m, lathe([[0, 0], [0.4, 0], [0.42, 0.04], [0.32, 0.18], [0.23, 0.55], [0.205, 1.4], [0.23, zt - 0.65], [0.27, zt - 0.55], [0, zt - 0.55]], { seg: 24, sy: 0.82, y: cy - 0.08 }));
     put(s, 'c#8f8a82/0.25/1', lathe([[0, 0], [0.06, 0], [0.065, 0.006], [0, 0.004]], { seg: 10 }), { at: [0, cy + 0.1, zt - 0.415] });
-    K.tap(s, 0, cy - B + 0.17, zt, { mat: o.tap ?? BRASS, reach: 0.42, height: 0.62 });
+    K.tap(s, 0, cy - B + 0.17, zt, { mat: o.tap ?? BRASS, reach: 0.42, height: 0.62, spread: 0.26, drop: 0.39 });
     s.block(-A, A, 0, cy + B, 0, zt);
   }
   // A washstand vanity w wide: painted cabinet on legs, marble top and splash, a sunk basin with a
@@ -91,7 +91,7 @@ export function makeBath(K) {
     put(f, top, bev(-ha - 0.01, ha + 0.01, by + hb, d + ov, T0, T1, 0.02, { grain: 'x' }));
     put(f, top, bev(-w / 2 - ov, w / 2 + ov, 0, 0.08, T1, T1 + 0.45, 0.015, { grain: 'x' }));
     K.basin(f, o.basin ?? PORCELAIN, 0, by, T1 + 0.02, a, b, 0.42, { rim: 0.15, e: 4 });
-    K.tap(f, 0, 0.32, T1, { mat: o.tap ?? BRASS, reach: by - 0.3, height: 0.7 });
+    K.tap(f, 0, 0.32, T1, { mat: o.tap ?? BRASS, reach: by - 0.3, height: 0.7, drop: 0.37 });
     f.block(-w / 2, w / 2, 0, d, 0, T1);
     return T1;
   }

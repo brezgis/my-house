@@ -15,6 +15,8 @@ export default function (kit) {
   // ---- The bed, head to the north wall, facing the street ----
   const b = fr(9.5, 13.8, F2, 2);
   model('oak_mission_bed_queen_procedural', b, 0, 3.56, 0, 0, { seat: 2.0, collide: true });
+  // a soft rust throw across the foot, folded double, its ends hanging down the sides (it lies over the model's own flat one)
+  kit.throwBlanket(b, -2.76, 2.76, 4.66, 6.46, 2.36, 'wool#b9785c', { over: 'foot', drop: { l: 0.75, r: 0.55, f: 0.12, b: 0.12 } });
   // dressed deeper: Euro shams against the headboard, a lumbar cushion, a mustard pillow
   // (stuffed kit cushions, not boxes)
   for (const x of [-1.23, 1.23]) kit.cushion(b, x, 0.55, 2.1, 2.2, 1.45, 'linen#d8d0bd', { tilt: 0.25, thick: 0.5 });
@@ -66,7 +68,7 @@ export default function (kit) {
   // ---- Bench at the foot of the bed ----
   const bn = fr(9.5, 5.95, F2, 2);
   P.legs(bn, -2.2, 2.2, -0.65, 0.65, 1.35, 'oak_light#8a6a48', { leg: 0.16, apron: false });
-  bn.soft('linen#b3a892', -2.18, 2.18, -0.63, 0.63, 1.35, 1.62, 0.1); bn.block(-2.2, 2.2, -0.65, 0.65, 0, 1.7);   // solid to the walker
+  kit.seatPads(bn, 'linen#b3a892', -2.18, 2.18, -0.63, 0.63, 1.35, 1.6, { n: 1 }); bn.block(-2.2, 2.2, -0.65, 0.65, 0, 1.7);   // solid to the walker
   P.towels(bn, -1.3, 0.0, 1.62, 2, ['wool#c9ad9a', 'wool#7a9a6a'], 1.3, 0.95, 0.14);
   bookStack(bn, 0.9, 0.0, 1.62, 2);
   seat(bn, 0.4, 0.5, 1.62, 'sit on the bench');

@@ -49,8 +49,8 @@ import { POND, feedKoi } from '../garden/pond.js';
 import { ISLAND, islandEdge } from '../garden.js';
 
 const TRAITS = {
-  bramble: { host: 1.0, greeter: 2, chat: 1, rest: 0.7, home: 0, likes: [], work: { water: 6, deadhead: 4, hives: 1.5, koi: 2, bench: 2, rim: 1.5, ponder: 1 } },
-  thistle: { host: 0.6, greeter: 1, chat: 0.7, rest: 0.8, home: 0, likes: [], work: { deadhead: 2, cart: 7, hives: 4, koi: 3, bench: 2, rim: 2, ponder: 1 } },
+  bramble: { host: 1.0, greeter: 2, chat: 1, rest: 0.7, home: 0, likes: [], work: { water: 5, deadhead: 4, tend: 10, hives: 1.5, koi: 2, bench: 2, rim: 1.5, ponder: 1 } },
+  thistle: { host: 0.6, greeter: 1, chat: 0.7, rest: 0.8, home: 0, likes: [], work: { deadhead: 3, cart: 3, tend: 14, hives: 3, koi: 2, bench: 2, rim: 2, ponder: 1 } },
 };
 // Places the garden's plan does not hand us (garden/potager.js builds them; numbers copied from there):
 // the compost bays' open fronts, where the barrow is tipped, the barrow's own place beside them, the
@@ -62,11 +62,48 @@ const GATES = [[46, -56], [46, -104], [26, -80], [46, -108]];
 const WAYS = [[[26.5, -80], [7, -80], 2.4], [[48, -106], [62, -106.5], 2.6], [[62, -106.5], [72, -104], 2.6], [[72, -104], [82, -108], 2.6], [[72, -104], [80, -92], 2.4], [[80, -92], [86, -76], 2.4],
   [[46, -103], [46, -107.5], 2.8], [[15, -50.5], [46, -56.5], 2.8]];
 const SWEEPS = [{ a: [23, -80], b: [12, -80] }, { a: [77.5, -96], b: [83, -82] }];
+// The land ends at the island's outline, which is not round (garden.js; the barrier she meets stands at 0.965
+// of it, main.js). A last resort, whatever the garden plan says is open ground: 0 on the land, otherwise the
+// scale, about the island's centre, that brings (x, z) back to 6 ft inside the edge (islandEdge joins the
+// outline's points with straight lines, up to 3.7 ft outside the curve main.js draws through them).
+const RIM_SAFE = Math.min(...ISLAND.outline) * 0.965 - 6;
+function offLand(x, z) {
+  const dx = x - ISLAND.x, dz = z - ISLAND.z, d2 = dx * dx + dz * dz;
+  if (d2 < RIM_SAFE * RIM_SAFE) return 0;
+  const lim = islandEdge(Math.atan2(dz, dx)) * 0.965 - 6, d = Math.sqrt(d2);
+  return d > lim ? lim / d : 0;
+}
+// The garden plan (outdoor.js) takes the island for a circle of its greatest radius, so its open ground ran up
+// to 44 ft out over the sky where the outline falls short of that, and paths were planned across the bays. Until
+// outdoor.js asks islandEdge itself, the plan is trimmed to the land here each time it is rebuilt (staff.js calls
+// gardenSpots straight after): nothing is open within 8 ft of the barrier, and clearance counts the edge as a wall.
+function trimToLand(nav) {
+  const F = nav.floors[0], { walk, clear } = F, near = (RIM_SAFE - 8) ** 2; let cut = false;
+  for (const c of F.cells) {
+    const dx = nav.cx(c) - ISLAND.x, dz = nav.cz(c) - ISLAND.z, d2 = dx * dx + dz * dz; if (d2 < near) continue;
+    const room = islandEdge(Math.atan2(dz, dx)) * 0.965 - 8 - Math.sqrt(d2);
+    if (room <= 0) { walk[c] = 0; clear[c] = 0; cut = true; } else if (room < clear[c]) clear[c] = room;
+  }
+  if (cut) F.cells = F.cells.filter(c => walk[c]);
+}
+// The glasshouse (potager.js; numbers copied from there): its inside, its door (in the wall toward the potager,
+// 3.2 ft wide with the leaf standing open beside it: too tight for the garden plan's 1.2 ft of clearance, so it
+// is walked through in a straight line down its middle), the staging down both sides, the potting bench across
+// the back, the tomato in its pot inside the door. And the two bean teepees in the potager.
+const GLASS = { x0: 38.5, x1: 53.5, z0: -121.5, z1: -108.2, door: { x: 46, out: -105.6, sill: -107.2, in: -111.6 } };
+const GLASS_JOBS = [
+  { job: 'pot', x: 46, z: -117.6, fx: 46, fz: -120.5, y: 3.3 },                          // potting on at the bench
+  { job: 'stage', x: 49.6, z: -114.5, fx: 52.2, fz: -114.5, y: 3.0, top: 3.7 },          // the staging, either side
+  { job: 'stage', x: 42.7, z: -116.5, fx: 39.8, fz: -116.5, y: 3.0, top: 3.7 },
+  { job: 'pinch', x: 45.2, z: -112.2, fx: 42.8, fz: -109.85, y: 3.9 },                   // pinching out the tomato
+];
+const TEEPEES = [[50.9, -67.2], [50.9, -73.0]];
 const onWay = (x, z) => WAYS.some(([[ax, az], [bx, bz], w]) => { const dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz, t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2)); return Math.hypot(ax + dx * t - x, az + dz * t - z) < w + 0.6; });
 
 // Where the work is, found on the garden's own plan at run time
 export function gardenSpots(out, ctx) {
   const S = { beds: [], borders: [], hives: [], pond: [], benches: [], rim: [] };
+  trimToLand(out);
   const snap = (x, z, r = 5, need = 1.2) => { const c = out.nearest(0, x, z, need, r); return c < 0 ? null : { x: out.cx(c), z: out.cz(c) }; };
   // raised beds in the potager: solid boxes about 2.4 ft high (y: the soil; top: the plants)
   for (const c of ctx.colliders) {
@@ -91,9 +128,24 @@ export function gardenSpots(out, ctx) {
     const rimSeat = Math.hypot(s.x - ISLAND.x, s.z - ISLAND.z) > ISLAND.r * 0.75;
     (rimSeat ? S.rim : S.benches).push({ ...p, fx: s.x - Math.sin(s.yaw) * 8, fz: s.z - Math.cos(s.yaw) * 8, seat: c >= 0 ? { x: s.x, z: s.z, h: s.y - 2.45 } : null });
   }
-  for (const a of [0.3, 1.9, 3.3, 4.6]) { const d = ISLAND.r - 22, p = snap(ISLAND.x + Math.cos(a) * d, ISLAND.z + Math.sin(a) * d, 6); if (p) S.rim.push({ ...p, fx: ISLAND.x + Math.cos(a) * (ISLAND.r + 40), fz: ISLAND.z + Math.sin(a) * (ISLAND.r + 40) }); }
+  // (the edge in that direction, not the island's greatest radius: the outline is not round, and 22 ft in from
+  // the far point of it was up to 29 ft out over the sky in three of these four directions)
+  for (const a of [0.3, 1.9, 3.3, 4.6]) { const d = islandEdge(a) - 22, p = snap(ISLAND.x + Math.cos(a) * d, ISLAND.z + Math.sin(a) * d, 6); if (p) S.rim.push({ ...p, fx: ISLAND.x + Math.cos(a) * (ISLAND.r + 40), fz: ISLAND.z + Math.sin(a) * (ISLAND.r + 40) }); }
   // paths that want sweeping (and that a barrow can be parked beside)
   S.sweeps = SWEEPS.map(w => { const p = snap((w.a[0] + w.b[0]) / 2, (w.a[1] + w.b[1]) / 2, 3); return p ? { ...p, fx: w.b[0], fz: w.b[1], a: w.a, b: w.b, y: 0.05, sweep: true } : null; }).filter(Boolean);
+  // Tending (Gardener.tend): each raised bed from its other long side too (weeding, picking), the bean poles
+  // (tying in), and the jobs in the glasshouse (in: reached through its door)
+  S.tend = [];
+  for (const b of S.beds) {
+    const c = b.box, long = c.z1 - c.z0 > c.x1 - c.x0;
+    for (const sg of [-1, 1]) for (const k of [0.3, 0.7]) {
+      const ex = long ? (sg < 0 ? c.x0 : c.x1) : c.x0 + (c.x1 - c.x0) * k, ez = long ? c.z0 + (c.z1 - c.z0) * k : (sg < 0 ? c.z0 : c.z1);
+      const p = snap(ex + (long ? sg * 1.6 : 0), ez + (long ? 0 : sg * 1.6), 2.5); if (!p) continue;
+      S.tend.push({ ...p, fx: long ? b.fx : p.x, fz: long ? p.z : b.fz, y: b.y, top: b.top, box: c, job: 'bed' });
+    }
+  }
+  for (const [tx, tz] of TEEPEES) { const b = S.beds.find(b => tx > b.box.x0 && tx < b.box.x1 && tz > b.box.z0 && tz < b.box.z1); if (!b) continue; for (const sg of [-1, 1]) { const p = snap((sg < 0 ? b.box.x0 : b.box.x1) + sg * 1.6, tz, 2); if (p) S.tend.push({ ...p, fx: tx + sg * 1.25, fz: tz, y: 4.2 + sg * 0.3, job: 'tie' }); } }
+  for (const j of GLASS_JOBS) if (out.freeAt(0, j.x, j.z, 1.2)) S.tend.push({ ...j, in: true });
   S.kitchenDoor = snap(15, -54, 6); if (S.kitchenDoor) Object.assign(S.kitchenDoor, { fx: 15, fz: -46 });
   S.night = { bramble: snap(46, -104, 5), thistle: snap(17, -58, 6) ?? snap(22, -60, 8) };
   return S;
@@ -216,6 +268,7 @@ const STATIONS = [0, 0.5, 1, 1.5, 2, 2.5, 2.8], LATS = [-0.55, 0, 0.55], PIVOTS 
 // (front: how much of it, from the wheel back, may hang over something low: a bay's lip, when tipping)
 function fits(nav, x, z, yaw, a, front = 0) {
   const ux = Math.sin(yaw), uz = Math.cos(yaw), d = gripH(a) + REACH;
+  if (offLand(x, z) || offLand(x - ux * d, z - uz * d)) return false;      // never rolled out past the island's edge
   // the footprint itself, wheel to grips, its whole width, on open ground
   for (const s of STATIONS) if (s >= front) for (const l of LATS) if (!nav.freeAt(0, x - ux * s + uz * l, z - uz * s - ux * l, l ? 0.01 : 0.9)) return false;
   return nav.freeAt(0, x - ux * d, z - uz * d, 0.75);
@@ -248,7 +301,7 @@ export class Gardener extends Robot {
     };
     // ?gardenjob=thistle.cart,bramble.water: that job, over and over, near where she stands (for pictures and checks)
     const job = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('gardenjob') : null;
-    for (const p of (job ?? '').split(',')) { const [who, k] = p.split('.'); if (who === key && k) this.stageJob = k; }
+    for (const p of (job ?? '').split(',')) { const [who, k, what] = p.split('.'); if (who === key && k) { this.stageJob = k; this.stageWhat = what; } }      // (thistle.tend.pot: that kind of tending)
     // Speech bubbles outdoors. staff.js decides whether a bubble is in view with the house plan's line of sight
     // (nav.see), and that plan ends at the walls, so out here the answer was always "no" and the gardeners were
     // mute. Until staff.js asks the garden plan instead, a gardener's bubble answers for itself.
@@ -325,6 +378,7 @@ export class Gardener extends Robot {
     // The day begins with Bramble in the front garden, where a guest first looks out or steps out, and Thistle
     // up by the orchard (staff.js sets both down in the potager; this is before anyone has seen them)
     if (!this.begun) { this.begun = true; const s = this.key === 'bramble' && H.now < 5 && this.spots.borders.find(b => b.z > 25 && b.x < -5); if (s) this.m.place(s.x, s.z, 0); }
+    if (this.inGlass()) return this.run('tend', this.leaveGlass());      // whatever comes next, out through the door first
     if (this.carrying) return this.run('deliver', this.deliver(), false);
     if (this.wantsToGreet()) return this.run('greet', this.greet(), false);
     const empty = H.empties.find(e => !e.claimed && e.outside && !(e.skipUntil > H.now));
@@ -344,7 +398,8 @@ export class Gardener extends Robot {
   planWork(night, toward) {
     const H = this.H, v = H.visitor, S = this.spots;
     let w = this.traits.work;
-    const lists = { water: S.beds.length ? S.beds : S.borders, deadhead: S.borders, hives: S.hives, koi: S.pond, bench: S.benches, rim: S.rim, cart: this.barrow ? [...S.beds, ...S.borders.slice(0, 4), ...S.sweeps] : [] };
+    const lists = { water: S.beds.length ? S.beds : S.borders, deadhead: S.borders, hives: S.hives, koi: S.pond, bench: S.benches, rim: S.rim, tend: S.tend ?? [], cart: this.barrow ? [...S.beds, ...S.borders.slice(0, 4), ...S.sweeps] : [] };
+    const o = this.other;
     if (this.barrow && Math.hypot(this.barrow.x - BARROW_HOME.x, this.barrow.z - BARROW_HOME.z) > 2) w = { ...w, cart: w.cart * 3 };      // it is not where it lives: see to it
     const mine = this.attending(), opts = [], off = H.host && H.host !== this ? 26 : KEEP_OFF;       // well clear while the other has her company
     for (const k in lists) {
@@ -352,7 +407,9 @@ export class Gardener extends Robot {
       if (!base || !list.length) continue;
       for (const s of list) {
         const ds = Math.hypot(s.x - this.x, s.z - this.z);
-        let q = (ds < 6 ? 0.15 : 1) / (1 + (ds / 70) ** 2);
+        if (o && (o.site === s || Math.hypot(s.x - o.x, s.z - o.z) < 5)) continue;      // the other one is at it
+        if (s.in && o && (o.inGlass() || o.site?.in)) continue;                              // one at a time in the glasshouse: its door is narrow
+        let q = (ds < 6 ? 0.15 : 1) / (1 + (ds / 45) ** 2);
         if (v.present) {
           const dv = Math.hypot(s.x - v.x, s.z - v.z);
           if (v.outside && dv < off) q *= 0.05;
@@ -659,7 +716,7 @@ export class Gardener extends Robot {
       this.drop = s.y > 1 ? 0 : 0.65; w.top = s.top ?? 1.4;
       this.line2('water', 0.6);
       let along = -0.8 + H.rnd() * 0.4, dir = 1;
-      yield* this.work_('water', 7 + H.rnd() * 5, s, { step: ww => {
+      yield* this.work_('water', 20 + H.rnd() * 14, s, { step: ww => {
         const k = ((H.now - ww.t0) % 4.6);
         ww.pour = k < 3.6 ? 1 : 0;                                         // pour, then lift the can and move along
         if (k < 3.6) along += dir * H.dt * 0.35; if (Math.abs(along) > 1.1) dir = -dir;
@@ -676,7 +733,7 @@ export class Gardener extends Robot {
       yield* this.ready(0, 'secateurs');
       this.drop = s.y > 1 ? 0 : 0.45;
       this.line2('deadhead', 0.6);
-      const n = 3 + Math.floor(H.rnd() * 3);
+      const n = 10 + Math.floor(H.rnd() * 8);
       w.kind = 'snip'; w.t0 = H.now;
       for (let i = 0; i < n; i++) {
         this.workPoint(s, w.T, 0.4 + H.rnd() * 0.4, (H.rnd() - 0.5) * 1.6); w.T.y = (s.top ?? 1.4) - 0.1 - H.rnd() * 0.4;
@@ -695,7 +752,7 @@ export class Gardener extends Robot {
       w.T.set(s.ex + s.nx * 0.5, s.ey + 0.15, s.ez + s.nz * 0.5);
       if (this.key === 'thistle') yield* this.ready(0, 'smoker');
       this.line2('hives', 0.6);
-      yield* this.work_(this.key === 'thistle' ? 'smoke' : 'look', 8 + H.rnd() * 6, { fx: s.ex, fz: s.ez });
+      yield* this.work_(this.key === 'thistle' ? 'smoke' : 'look', 18 + H.rnd() * 10, { fx: s.ex, fz: s.ez });
     } finally { this.doneWork(); }
   }
   // Feeding the koi: a pinch from the pouch, thrown out over the water where they gather
@@ -739,6 +796,87 @@ export class Gardener extends Robot {
     this.drop = 0.9;
     try { while (H.day.light < 0.35) { this.expr = 'sleepy'; this.exprUntil = H.now + 1; if (this.wantsToGreet()) break; yield; } }
     finally { this.drop = 0; }
+  }
+
+  // ---- tending: a bout of 20 to 50 seconds at a bed, the bean poles or in the glasshouse ----------------------
+  // At a bed: weeding (Thistle with his trowel, Bramble by hand) or, Thistle, picking into his trug. At the
+  // teepees: tying in the beans. In the glasshouse: potting on at the bench, watering the staging (Bramble, who
+  // has the can; Thistle looks the pots over by hand), pinching out the tomato.
+  inGlass() { return this.x > GLASS.x0 && this.x < GLASS.x1 && this.z > GLASS.z0 && this.z < GLASS.z1; }
+  // A few straight steps where the plan's clearance is too tight for its paths (the glasshouse door)
+  *stepTo(x, z) {
+    const H = this.H, m = this.m; m.stop();
+    for (let t = 0; t < 14; t += H.dt) {
+      const dx = x - m.x, dz = z - m.z, d = Math.hypot(dx, dz); if (d < 0.08) { m.v = 0; return true; }
+      const st = Math.min(d, 1.5 * H.dt), nx = m.x + (dx / d) * st, nz = m.z + (dz / d) * st;
+      m.faceTo(x, z, H.dt * 1.5);
+      if (!m.avoid(nx, nz) && this.nav.freeAt(0, nx, nz, 0.8)) { m.x = nx; m.z = nz; m.v = 1.5; } else m.v = 0;
+      yield;
+    }
+    m.v = 0; return false;
+  }
+  *enterGlass() {
+    if (this.inGlass()) return true;
+    const o = this.other; if (o && (o.inGlass() || o.site?.in)) return false;
+    const D = GLASS.door, c = this.nav.nearest(0, D.x, D.out, 1.2, 3); if (c < 0) return false;
+    if (!(yield* this.go(0, this.nav.cx(c), this.nav.cz(c)))) return false;
+    return (yield* this.stepTo(D.x, D.sill)) && (yield* this.stepTo(D.x, D.in));
+  }
+  *leaveGlass() {
+    const D = GLASS.door;
+    if (Math.abs(this.x - D.x) > 0.6 || this.z < D.in - 0.5) yield* this.go(0, D.x, D.in, { tries: 2 });
+    if ((yield* this.stepTo(D.x, D.in)) && (yield* this.stepTo(D.x, D.sill))) yield* this.stepTo(D.x, D.out);
+  }
+  *tend(s) {
+    const H = this.H, w = this.work, b = this.body, thistle = this.key === 'thistle';
+    try {
+      this.site = s;
+      if (s.in) { if (!(yield* this.enterGlass()) || !(yield* this.go(0, s.x, s.z, { tries: 2 }))) return; for (let t = 0; t < 0.8; t += H.dt) { this.m.faceTo(s.fx, s.fz, H.dt); yield; } }
+      else if (!(yield* this.goWork(s))) return;
+      const end = H.now + 22 + H.rnd() * 26, job = s.job === 'bed' ? (thistle && H.rnd() < 0.45 ? 'pick' : 'weed') : s.job;
+      const at = (inset, along, y) => { this.workPoint(s, w.T, inset, along); w.T.y = y; };
+      this.line2(job === 'pick' || job === 'stage' ? 'water' : 'deadhead', 0.25);
+      if (job === 'weed') {
+        if (thistle) yield* this.ready(0, 'trowel');
+        this.drop = 0.15; this.lean = 0.08;
+        while (H.now < end) { at(0.5, (H.rnd() - 0.5) * 1.6, s.y - 0.02); yield* this.work_(thistle ? 'dig' : 'hands', 3.2 + H.rnd() * 1.5, s); if (thistle) { w.kind = 'drop'; w.T2.copy(w.T).y += 0.1; w.T2.x += (this.x - w.T.x) * 0.3; w.T2.z += (this.z - w.T.z) * 0.3; w.fire = 'weed'; yield* this.wait(0.7); } }
+      } else if (job === 'pick') {
+        yield* this.ready(0, 'secateurs'); b.tray.visible = true; w.kind = 'snip'; w.t0 = H.now;
+        while (H.now < end) { at(0.4 + H.rnd() * 0.3, (H.rnd() - 0.5) * 1.6, (s.top ?? 2.9) - 0.1 - H.rnd() * 0.3); w.cut = -1; yield* this.wait(1.3, () => { this.lookIdle(s); return false; }); w.cut = H.now; yield* this.wait(1.2, () => { this.lookIdle(s); return false; }); }
+      } else if (job === 'stage' && !thistle) {
+        yield* this.ready(1, 'can'); w.top = s.top; let along = -0.8, dir = 1;
+        yield* this.work_('water', end - H.now, s, { step: ww => { const k = (H.now - ww.t0) % 4.6; ww.pour = k < 3.6 ? 1 : 0; if (k < 3.6) along += dir * H.dt * 0.35; if (Math.abs(along) > 1.3) dir = -dir; w.T.set(s.fx + (s.x - s.fx) * 0.35, s.y, s.fz + along); } });
+      } else {
+        // by hand: tying in, firming the compost round a seedling, turning the pots, pinching out
+        const dx = s.fx - s.x, dz = s.fz - s.z, L = Math.hypot(dx, dz) || 1, reach = Math.min(L, 1.9);
+        while (H.now < end) { const side = (H.rnd() - 0.5) * (job === 'tie' || job === 'pinch' ? 0.3 : 1.6); w.T.set(s.x + (dx / L) * reach - (dz / L) * side, s.y + (H.rnd() - 0.5) * (job === 'tie' ? 1.2 : 0.2), s.z + (dz / L) * reach + (dx / L) * side); yield* this.work_(job === 'pot' && thistle && H.rnd() < 0.5 ? 'dig' : 'hands', 3 + H.rnd() * 2, s); }
+      }
+      H.events.tidies++;
+    } finally { b.tray.visible = false; this.site = null; this.lean = 0; this.doneWork(); }
+  }
+
+  // ---- rung for at the fire pit (garden/smores.js) ----------------------------------------------------
+  // Free to come? Not while seeing to her, carrying for her, or tucked up for the night.
+  canBring() {
+    const H = this.H;
+    return !this.inGlass() && !this.carrying && !this.fetching && !this.engaged && H.host !== this && H.talk.robot !== this && !['tuck', 'greet', 'fetch', 'deliver', 'clear', 'smores', 'demo', 'staged'].includes(this.taskName);
+  }
+  // Walk over with the board of s'mores things (job.things, carried where the trug is), set it down by the
+  // fire, say a word. Whatever becomes of the errand, the board ends up by the fire (job.arrive).
+  *smores(job) {
+    const H = this.H, b = this.body, trug = b.tray.children[0];
+    try {
+      trug.visible = false; b.slot.add(job.things); b.tray.visible = true;
+      const c = this.nav.nearest(0, job.x, job.z, 1.2, 6);
+      if (c >= 0 && (yield* this.go(0, this.nav.cx(c), this.nav.cz(c), { speed: 1.4 }))) {
+        for (let t = 0; t < 0.7; t += H.dt) { this.m.faceTo(job.tx, job.tz, H.dt); yield; }
+        this.drop = 0.35; this.lean = 0.12; yield* this.wait(0.5);                 // bend, and set it down
+      }
+      b.slot.remove(job.things); b.tray.visible = false; trug.visible = true; job.arrive();
+      yield* this.wait(0.4); this.drop = 0; this.lean = 0;
+      this.say(this.key === 'bramble' ? 'S’mores things, love. The chocolate’s the good kind, and the sticks are hazel.' : 'Marshmallows. Sticks. Don’t burn them.', { expr: 'happy' });
+      yield* this.wait(2.5);
+    } finally { b.slot.remove(job.things); b.tray.visible = false; trug.visible = true; this.drop = 0; this.lean = 0; job.arrive(); }
   }
 
   // ---- the wheelbarrow -------------------------------------------------------------------------------
@@ -1072,7 +1210,7 @@ export class Gardener extends Robot {
   // for it to where she stands, over and over, and nothing else
   *staged(k) {
     const H = this.H, S = this.spots, v = H.visitor;
-    const lists = { water: S.beds, deadhead: S.borders, hives: S.hives, koi: S.pond, bench: S.benches, rim: S.rim, cart: [...S.beds, ...S.borders.slice(0, 4)], sweep: S.sweeps, weed: S.beds, mulch: S.beds };
+    const lists = { water: S.beds, deadhead: S.borders, hives: S.hives, koi: S.pond, bench: S.benches, rim: S.rim, tend: (S.tend ?? []).filter(t => !this.stageWhat || t.job === this.stageWhat), cart: [...S.beds, ...S.borders.slice(0, 4)], sweep: S.sweeps, weed: S.beds, mulch: S.beds };
     for (;;) {
       const list = lists[k] ?? [], s = list.slice().sort((a, b) => Math.hypot(a.x - v.x, a.z - v.z) - Math.hypot(b.x - v.x, b.z - v.z))[0];
       if (!s) return;
@@ -1106,6 +1244,8 @@ export class Gardener extends Robot {
     // (the lean and the bend are this gardener's own, on top of what Robot.update does with the body)
     if (!m.path && !bw?.held) m.v = Math.max(0, m.v - dt * 3);
     b.bob.rotation.x -= this.leanNow ?? 0;
+    // nobody stands out past the island's edge: brought back to the nearest ground safely inside it (see offLand)
+    { const k = offLand(m.x, m.z); if (k) { m.x = ISLAND.x + (m.x - ISLAND.x) * k; m.z = ISLAND.z + (m.z - ISLAND.z) * k; } }
     super.update(dt, t, draw);
     this.leanNow = (this.leanNow ?? 0) + ((bw?.held || this.work.kind ? this.lean : 0) - (this.leanNow ?? 0)) * Math.min(1, dt * 3);
     b.bob.rotation.x += this.leanNow;
@@ -1173,6 +1313,11 @@ export class Gardener extends Robot {
       T1.copy(w.T); T1.y += d; this.toBody(T1, T2);
       this.aim(right, T2, TOOL_TIPS.trowel, 1.05 - d * 1.2);
       T1.copy(w.T); T1.y += 0.15 + Math.max(0, d) * 0.6; this.toBody(T1, T3); tg[left].copy(T3); tg[left].x += 0.35;   // pulling the loosened weeds
+    } else if (w.kind === 'hands') {
+      // both hands busy at the work (Bramble's left keeps her can, lowered)
+      const ph = (H.now - w.t0) * 3.4; this.toBody(w.T, T2);
+      tg[right].copy(T2); tg[right].x -= 0.15; tg[right].y += 0.07 * Math.sin(ph); tg[right].z += 0.05 * Math.cos(ph);
+      if (!bram) { tg[left].copy(T2); tg[left].x += 0.15; tg[left].y -= 0.07 * Math.sin(ph); tg[left].z -= 0.05 * Math.cos(ph); } else tg[left].y -= 0.12;
     } else if (w.kind === 'drop') {
       this.toBody(w.T2, T2); T2.y += 0.35; tg[left].copy(T2);
       if (w.fire === 'weed') { w.fire = null; hands[left].updateMatrixWorld(); hands[left].getWorldPosition(T1); for (let k = 0; k < 4; k++) fx.spawn(FX.CLOD, T1.x, T1.y - 0.1, T1.z, (H.rnd() - 0.5) * 0.4, 0, (H.rnd() - 0.5) * 0.4, COL.weed, 1.2, w.T2.y - 0.05); }

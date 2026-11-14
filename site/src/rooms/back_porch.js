@@ -51,9 +51,9 @@ export default function (kit) {
   { const sw = fr(30.8, 37.6, PH, 3);                       // x = 37.6 - Y (-1.75..1.55), y = X - 30.8
     for (const x of [-1.75, 1.48]) sw.box(OAKW, x, x + 0.07, 0.02, 1.25, 0, 1.45, G);
     sw.box(OAKW, -1.78, 1.58, 0.02, 1.28, 1.38, 1.48, G); sw.box(OAKW, -1.68, 1.48, 1.12, 1.2, 1.15, 1.38, G); sw.box(OAKW, -1.68, 1.48, 0.02, 0.1, 1.0, 1.38, G);
-    sw.soft('linen#7d8b96', -1.72, 1.52, 0.05, 1.24, 1.48, 1.68, 0.08);
+    kit.seatPads(sw, 'linen#7d8b96', -1.72, 1.52, 0.05, 1.24, 1.48, 1.66, { n: 1 });
     for (let x = -1.6; x < 1.45; x += 0.28) sw.box('linen#e6dccb', x, x + 0.07, 1.243, 1.248, 1.52, 1.64);
-    sw.soft('linen#c96f4a', 0.25, 1.25, 0.06, 0.42, 1.65, 2.6, 0.18); sw.soft('linen#d9c79a', -0.65, 0.35, 0.08, 0.4, 1.65, 2.45, 0.18);
+    kit.cushion(sw, 0.75, 0.44, 1.67, 1.0, 0.95, 'linen#c96f4a', { tilt: 0.3, thick: 0.36, turn: -0.06 }); kit.cushion(sw, -0.2, 0.42, 1.67, 1.0, 0.82, 'linen#d9c79a', { tilt: 0.24, thick: 0.34, turn: 0.1 });
     kit.throwBlanket(sw, -1.7, -0.95, 0.15, 1.15, 1.68, 'wool#8a9a7a');
     seat(sw, 0.2, 0.8, 1.68, 'sit on the bench'); sw.block(-1.78, 1.58, 0, 1.28, 0, 1.6);
     kit.shoes(sw, -0.9, 0.3, 0.015, 'boot', 'c#3a6a4a'); kit.shoes(sw, 0.0, 0.3, 0.015, 'boot', 'c#26364f'); kit.shoes(sw, 0.9, 0.3, 0.015, 'sneaker', 'c#e8e2d4');   // toes under the bench, out of the doorway

@@ -31,25 +31,41 @@ export default function (kit) {
   picture(fr(18.8, 13.43, F1, 1), 'fantin_latour_roses', 0, 5.2, 1.15, 0.96, { frame: 'c#8a6b33/0.45/0.6', border: 0.08 }); // beside the chimney breast
   // Piano against the north partition, west of the fireplace
   const p = fr(18.75, 25.5, F1, 1);
-  p.box(BLACK, -2.5, 2.5, 0, 1.15, 0, 4.1); p.box(BLACK, -2.55, 2.55, 0, 1.3, 4.1, 4.2);
-  p.box(BLACK, -2.5, 2.5, 1.15, 2.1, 2.05, 2.5); p.box(BLACK, -2.5, -2.3, 1.15, 2.1, 0, 2.05); p.box(BLACK, 2.3, 2.5, 1.15, 2.1, 0, 2.05);
-  p.box('c#f4f0e6/0.3', -2.28, 2.28, 1.3, 2.08, 2.5, 2.56);
-  for (let i = 0; i < 36; i++) { const x = -2.2 + i * 0.124; if ([0, 1, 3, 4, 5].includes(i % 7)) p.box(BLACK, x + 0.085, x + 0.165, 1.3, 1.8, 2.56, 2.62); }
-  p.box(BLACK, -1.3, 1.3, 1.1, 1.22, 2.9, 3.75); p.box('c#f6f2e8/0.9', -0.75, 0.75, 1.2, 1.26, 2.95, 3.7);     // music desk, score open
-  for (const x of [-0.25, 0, 0.25]) p.box(BRASS, x - 0.04, x + 0.04, 1.15, 1.5, 0.2, 0.26);
-  p.block(-2.5, 2.5, 0, 2.1, 0, 4);
-  const pb = p.sub(0, 3.2); pb.box(BLACK, -1.4, 1.4, -0.55, 0.55, 1.45, 1.6); for (const x of [-1.25, 1.1]) for (const y of [-0.45, 0.3]) pb.box(BLACK, x, x + 0.15, y, y + 0.15, 0, 1.45);
+  // An upright in dark mahogany, built in code (no CC0 model of a real upright could be found): 5 ft wide, 4.2 high,
+  // 88 keys (52 white, 36 black) at 2.5, three brass pedals, the fallboard's shelf as the music desk.
+  const PW = 'fir#7c4a36', pbd = (x0, x1, y0, y1, z0, z1, e = 0.012, grain = 'x', mat = PW) => kit.put(p, mat, kit.geom.bev(x0, x1, y0, y1, z0, z1, e, { grain }));
+  for (const s of [-1, 1]) {
+    pbd(s * 2.36, s * 2.5, 0.03, 1.16, 0, 4.1, 0.015, 'z');                                          // the case sides
+    pbd(s * 2.3, s * 2.5, 1.16, 2.16, 0, 0.26, 0.02, 'y'); pbd(s * 2.33, s * 2.47, 1.96, 2.1, 0.26, 2.1, 0.012, 'z');      // toe block and leg under the key bed
+    pbd(s * 2.02, s * 2.5, 1.16, 2.14, 2.28, 2.66, 0.02, 'y');                                       // cheek block at the end of the keys
+    pbd(s * 1.6, s * 2.2, 1.1, 1.122, 3.2, 3.92, 0.01, 'z');                                         // side panel of the upper front
+  }
+  pbd(-2.36, 2.36, 0.03, 0.09, 0.1, 4.1, 0.005); pbd(-2.36, 2.36, 0.09, 1.2, 0, 0.34);              // back, plinth
+  pbd(-2.36, 2.36, 1.04, 1.1, 0.34, 2.1, 0.006); pbd(-1.9, 1.9, 1.1, 1.125, 0.6, 1.85, 0.012);      // knee board and its panel
+  pbd(-2.5, 2.5, 1.0, 2.14, 2.1, 2.28, 0.02); pbd(-2.02, 2.02, 2.06, 2.14, 2.28, 2.44, 0.01);       // key bed, key slip
+  pbd(-2.02, 2.02, 1.42, 1.5, 2.28, 2.96, 0.01); pbd(-2.36, 2.36, 1.1, 1.53, 2.96, 3.02, 0.012); pbd(-1.5, 1.5, 1.49, 1.53, 3.02, 3.065, 0.008);      // fallboard, its shelf (the music desk) and the lip that holds the score
+  pbd(-2.36, 2.36, 1.04, 1.1, 3.02, 4.1, 0.006); pbd(-1.45, 1.45, 1.1, 1.122, 3.2, 3.92, 0.01);     // upper front and its centre panel
+  pbd(-2.56, 2.56, 0.12, 1.26, 4.1, 4.2, 0.02);                                                     // lid (clear of the picture frame behind)
+  for (let i = 0, kw = 4 / 52; i < 52; i++) { const x = -2 + i * kw; p.box('c#efe9da/0.35', x + 0.003, x + kw - 0.003, 1.505, 2.05, 2.3, 2.5); if (i < 51 && [0, 2, 3, 5, 6].includes(i % 7)) p.box('c#1a1716/0.4', x + kw - 0.024, x + kw + 0.024, 1.505, 1.84, 2.5, 2.555); }      // A0 to C8
+  for (const x of [-0.25, 0, 0.25]) pbd(x - 0.045, x + 0.045, 1.2, 1.52, 0.17, 0.21, 0.015, 'y', BRASS);
+  // The score on the desk: Bach, Praeludium I in C (BWV 846), both pages, from Hans Bischoff's edition (Steingräber, 1883); see CREDITS.md
+  kit.put(p, 'c#d8d0bc/0.9', kit.geom.bev(-0.715, 0.715, -0.02, -0.004, -0.465, 0.465, 0.003), { rx: 0.3, at: [0, 1.304, 3.47] });      // the open book, leaning back on the desk
+  { const [a, c] = world(p, 0, 1.304); extras.push({ file: 'bach_prelude_c_bischoff', x: a, y: F1 + 3.47, z: c, rotY: yawOf(p.dir), w: 1.41, h: 0.92, tilt: 0.3 }); }
+  p.block(-2.5, 2.5, 0, 2.14, 0, 4);
+  const pb = p.sub(0, 3.2); pb.box(PW, -1.4, 1.4, -0.55, 0.55, 1.45, 1.6); for (const x of [-1.25, 1.1]) for (const y of [-0.45, 0.3]) pb.box(PW, x, x + 0.15, y, y + 0.15, 0, 1.45);
   pb.soft(RUST, -1.35, 1.35, -0.5, 0.5, 1.58, 1.74, 0.07); pb.block(-1.4, 1.4, -0.55, 0.55, 0, 1.6);
   seats.push({ x: wx(15.4), y: F1 + 1.74 + 2.45, z: wz(25.5), yaw: Math.atan2(-1, 0), label: 'sit at the piano' });
   picture(p, 'hunters', 0, 5.5, 3.45, 2.45, { border: 0.15 });                       // its top clear of the picture rail
   tableLamp(p, -1.9, 0.6, 4.2, 'c#3d4b44/0.4'); posy(p, 1.8, 0.6, 4.2);
   // Window seat round the south-west corner, under the band of casements
   const ws = (X0, X1, Y0, Y1, sx, sy, q) => {
-    B.pbox('fir', X0, X1, Y0, Y1, F1, F1 + 1.3, G); B.prbox(LINEN, X0 + 0.04, X1 - 0.04, Y0 + 0.04, Y1 - 0.04, F1 + 1.28, F1 + 1.66, 0.1); B.block(X0, X1, Y0, Y1, F1, F1 + 1.6);
+    B.pbox('fir', X0, X1, Y0, Y1, F1, F1 + 1.3, G); kit.seatPads(fr(X0, Y0, F1), LINEN, 0.04, X1 - X0 - 0.04, 0.04, Y1 - Y0 - 0.04, 1.28, 1.64); B.block(X0, X1, Y0, Y1, F1, F1 + 1.6);   // loose crowned seat cushions
     seats.push({ x: wx(sx), y: F1 + 1.66 + 2.45, z: wz(sy), yaw: Math.atan2(-DIRS[q][0], DIRS[q][1]), label: 'sit in the window' });
   };
   ws(0.5, 2.5, 19.2, 29.5, 1.5, 23.5, 3); ws(2.5, 10.8, 27.5, 29.5, 6.5, 28.5, 2);
-  for (const [X, Y, c] of [[1.35, 20.4, MUSTARD], [1.35, 26.6, SAGE], [1.35, 28.6, RUST], [4.2, 28.65, CREAM], [9.6, 28.65, NAVY]])   /* clear of the window stools */ B.prbox(c, X - 0.55, X + 0.55, Y - 0.55, Y + 0.55, F1 + 1.62, F1 + 2.1, 0.2);
+  // scatter cushions (the kit's stuffed ones) propped against the windows, each at its own angle, clear of the window stools
+  for (const [Y, c, w, tilt, turn] of [[20.4, MUSTARD, 1.25, 0.38, 0.1], [26.5, SAGE, 1.35, 0.3, -0.14]]) kit.cushion(fr(0.5, Y, F1, 3), 0, 0.64, 1.65, w, w * 0.95, c, { tilt, turn, thick: 0.42 });
+  for (const [X, c, w, tilt, turn] of [[1.55, RUST, 1.2, 0.44, 0.3], [4.2, CREAM, 1.3, 0.33, -0.08], [9.6, NAVY, 1.25, 0.42, 0.16]]) kit.cushion(fr(X, 29.5, F1, 2), 0, 0.64, 1.65, w, w * 0.95, c, { tilt, turn, thick: 0.42 });
   bookStack(fr(7.5, 28.6, F1 + 1.66, 2), 0, 0, 0, 4);
   P.folded(fr(5.75, 28.55, F1 + 1.66, 2), 0, 0, 0, 1.1, 0.8, ['wool#6c7a60', 'wool#c9c0ac']);   // spare throws on the window seat
   floorLamp(fr(3.3, 26.6, F1), 0, 0); B.block(3.0, 3.6, 26.3, 26.9, F1, F1 + 5.5);

@@ -3,9 +3,9 @@
 //
 //   the oak       old and broad, right at the brink, its roots over the lip (the TREES entry in garden.js; its
 //                 limbs are grown again here, treehouse_bits.js oakBones, so the floor sits on the real fork)
-//   the frame     three heavy beams lashed and bolted across the limbs, a few knee braces back to the trunk;
+//   the frame     three heavy beams, the first let into the limb and bolted, knee braces let into the trunk;
 //                 no posts to the ground. Two limbs come up through the porch boards
-//   the way up    one steep ship's stair from the lawn, rope handrails; you climb it at a climbing pace
+//   the way up    one steep ship's stair from the lawn, rope handrails; you climb it at a walk
 //   the cabin     brown shingles in the house's own manner, rafter tails, the great limb sweeping past its
 //                 north eave (the shingles cut round it); a green Dutch door with a hood and its sign, a round
 //                 casement with a brass telescope trained on the house; inside, a window seat with cushions,
@@ -40,10 +40,10 @@ const ROUND = { z: -7.45, y: D + 4.6, r: 0.5 };                                 
 const SEATWIN = { x0: 3.3, x1: 5.9, y0: D + 2.4, y1: D + 5.0 };                     // south, over the window seat
 const BALC = { x0: 6.8, x1: 10.8, z0: -9.2, z1: -4.0 };                             // the balcony, out past the lip (its south end clear of the cabin: the view back to the house)
 const STAIR = { x0: -3.9, x1: -1.7, z0: -19.6, z1: -8.6 };                          // the ship's stair, from the lawn to the porch
-const NET = { x0: 7.3, x1: 10.9, z0: -3.7, z1: 0.3, sag: 1.15 };
-const BEAMS = [[-1.9, -4.4, 2.4], [-3.85, -4.4, 11.1], [-7.6, -4.4, 11.1]];        // [z, x0, x1]: the first lashed to the limbs
+const NET = { x0: 7.3, x1: 10.9, z0: -3.9, z1: 0.3, sag: 1.15 };      // (its near edge under the balcony's edge board)
+const BEAMS = [[-1.9, -4.4, 2.4], [-3.85, -4.4, 11.1], [-7.6, -4.4, 11.1]];        // [z, x0, x1]: the first let into the limb it passes
 const SCOPE = { e: [2.85, D + 4.55, -7.15], d: [-0.925, -0.02, -0.381] };          // eyepiece, and toward the house
-const CLIMB = 1.3;                                                                   // ft a second along the stair: a climb, not a glide
+const CLIMB = 3.0;                                                                   // ft a second along the ground under the stair: about a walk (5 ft a second) measured up its slope, and never a run
 
 const CEDAR = 'c#8c7058/0.9', CEDAR2 = 'c#7a604a/0.9', DECKB = ['c#97785c/0.9', 'c#8d6f55/0.9', 'c#9c8064/0.9'], TRIM = 'c#3e2c1e/0.8';      // cedar a few summers old
 const LINING = 'c#c4a47c/0.9', DOORPAINT = 'c#4c6a52/0.6', IRON = 'c#2a2926/0.45/0.7', BRASS = PAINT.brass, ROPE = PAINT.rope, CABLE = 'c#4a3f34/0.6';
@@ -157,25 +157,28 @@ function build(K, opts) {
   }
 
   // ---- the frame: three beams across the fork, lashed and bolted; knee braces to the trunk; joists; boards -------
-  for (const [z, x0, x1] of BEAMS) for (const [a, b] of clear('x', x0, x1, [[D - 1.1, z - 0.32], [D - 1.1, z + 0.32]], 0.04)) box(CEDAR2, a, b, D - 1.75, D - 0.6, z - 0.32, z + 0.32);
+  // (the beams run whole: the first passes through the south side of a limb, housed in it, with an iron bolt through)
+  for (const [z, x0, x1] of BEAMS) box(CEDAR2, x0, x1, D - 1.75, D - 0.6, z - 0.32, z + 0.32);
   {
-    // where the first beam meets the limbs: rope lashings round both, and an iron bolt through
     const z = BEAMS[0][0];
     for (const l of limbs.filter(q => q.depth === 1)) {
       const t = (D - 1.2 - l.a.y) / (l.b.y - l.a.y); if (t < 0 || t > 1) continue;
-      const p = l.a.clone().lerp(l.b, t), rr = l.r0 + (l.r1 - l.r0) * t; if (Math.abs(p.z - z) > rr + 0.8) continue;
-      for (const dx of [-0.25, 0.25]) { const g = new THREE.TorusGeometry(1, 0.05, 4, 16); g.scale(0.5, (rr + 0.7) / 1.5, (Math.abs(p.z - z) + rr + 0.6) / 2); g.rotateY(Math.PI / 2); g.translate(TX + p.x + dx, D - 1.2, TZ + (p.z + z) / 2); put(ROPE, g, true); }
+      const p = l.a.clone().lerp(l.b, t); if (inWood([l], p.x, D - 1.2, z + 0.32) <= 0) continue;
       box(IRON, p.x - 0.09, p.x + 0.09, D - 1.25, D - 1.07, z - 0.4, z + 0.4);
     }
   }
+  // knee braces: each foot is let into the trunk (the trunk leans, and is drawn nine-sided: the foot goes in toward its
+  // axis at that height until it is well under the bark), each head is under a beam
+  const trunk = limbs.find(l => l.depth === 0);
+  const foot = (x, y, z) => { const t = (y - trunk.a.y) / (trunk.b.y - trunk.a.y), c = trunk.a.clone().lerp(trunk.b, t), r = (trunk.r0 + (trunk.r1 - trunk.r0) * t) * 0.94 - 0.45, dx = x - c.x, dz = z - c.z, d = Math.hypot(dx, dz); return [c.x + dx / d * r, y, c.z + dz / d * r]; };
   for (const [a, b] of [[[1.3, 8.4, -1.3], [3.6, D - 1.75, -3.85]], [[1.3, 8.4, -1.3], [4.2, D - 1.75, -7.6]], [[-1.4, 8.4, -1.3], [-3.6, D - 1.75, -3.85]], [[-1.4, 8.4, -1.3], [-3.9, D - 1.75, -7.6]],
-    [[1.8, 6.6, -0.9], [9.6, D - 1.75, -7.6]], [[1.8, 6.6, -0.9], [9.6, D - 1.75, -3.85]]]) beam(CEDAR2, a, b, 0.42, 0.42);      // knee braces from the trunk
-  for (let x = PORCH.x0 + 0.3; x < CAB.x1 - 0.2; x += 1.5) { const z1 = x < PORCH.x1 ? PORCH.z1 - 0.1 : CAB.z1 - 0.1; for (const [a, b] of clear('z', PORCH.z0 + 0.1, z1, [[x - 0.13, D - 0.38], [x + 0.13, D - 0.38]], 0.06)) box(CEDAR2, x - 0.13, x + 0.13, D - 0.6, D - 0.16, a, b); }
+    [[1.8, 6.6, -0.9], [9.6, D - 1.75, -7.6]], [[1.8, 6.6, -0.9], [9.6, D - 1.75, -3.85]]]) beam(CEDAR2, foot(...a), b, 0.42, 0.42);
+  for (let x = PORCH.x0 + 0.3; x < CAB.x1 - 0.2; x += 1.5) { const z1 = x < PORCH.x1 ? PORCH.z1 - 0.1 : CAB.z1 - 0.1; for (const [a, b] of clear('z', PORCH.z0 + 0.1, z1, [[x - 0.13, D - 0.38], [x + 0.13, D - 0.38]], -0.1)) box(CEDAR2, x - 0.13, x + 0.13, D - 0.6, D - 0.16, a, b); }
   {
     let i = 0;
     for (let z = PORCH.z0; z < PORCH.z1 - 0.1; z += 0.5, i++) {
       const z0 = z + 0.02, z1 = Math.min(PORCH.z1, z + 0.48), xe = z1 > CAB.z0 + 0.1 && z0 < CAB.z1 - 0.1 ? CAB.x1 - 0.2 : PORCH.x1;
-      for (const [a, b] of clear('x', PORCH.x0 - 0.06, xe + 0.06, [[D - 0.07, z0], [D - 0.07, z1]], 0.07)) box(DECKB[(i * 7 + Math.round(a + 20)) % 3], a, b, D - 0.15, D, z0, z1);
+      for (const [a, b] of clear('x', PORCH.x0 - 0.06, xe + 0.06, [[D - 0.07, z0], [D - 0.07, z1]], -0.1)) box(DECKB[(i * 7 + Math.round(a + 20)) % 3], a, b, D - 0.15, D, z0, z1);
     }
     for (let x = BALC.x0 - 0.2, k = 0; x < BALC.x1 - 0.1; x += 0.5, k++) box(DECKB[k % 3], x + 0.02, Math.min(BALC.x1 + 0.04, x + 0.48), D - 0.15, D, BALC.z0 - 0.05, BALC.z1 + 0.05);
   }
@@ -195,7 +198,7 @@ function build(K, opts) {
     const [x0, z0] = at(0), [x1, z1] = at(1), w = (a, b) => [Math.min(a, b), Math.max(a, b)];
     for (const [y0, y1, t] of [[top, top + 0.12, 0.2], [D + 1.45, D + 1.6, 0.06]]) {
       const [xa, xb] = w(x0, x1), [za, zb] = w(z0, z1), ex = t * Math.abs(uz) + 0.02, ez = t * Math.abs(ux) + 0.02;
-      const ym = (y0 + y1) / 2, runs = ux ? clear('x', xa, xb, [[ym, z0]], 0.08) : clear('z', za, zb, [[x0, ym]], 0.08);      // cut where a limb passes
+      const ym = (y0 + y1) / 2, runs = ux ? clear('x', xa, xb, [[ym, z0]], -0.15) : clear('z', za, zb, [[x0, ym]], -0.15);      // cut where a limb passes, its ends just under the bark
       for (const [a, b] of runs) box(t > 0.1 ? CEDAR : CEDAR2, ux ? a : xa - ex, ux ? b : xb + ex, y0, y1, ux ? za - ez : a, ux ? zb + ez : b);
     }
     collide(Math.min(x0, x1) - 0.15, Math.max(x0, x1) + 0.15, Math.min(z0, z1) - 0.15, Math.max(z0, z1) + 0.15, D + 5.1, D - 0.3);
@@ -215,7 +218,8 @@ function build(K, opts) {
     for (const x of [S.x0 - 0.12, S.x1 + 0.12]) beam(CEDAR2, [x, -0.3, S.z0 - 0.15], [x, D - 0.4, S.z1 + 0.1], 0.22, 0.75);
     for (const x of [S.x0 - 0.22, S.x1 + 0.22]) {
       const pts = [];
-      for (const k of [0, 0.5, 1]) { const z = S.z0 + (S.z1 - S.z0) * k, y = D * k; box(CEDAR, x - 0.1, x + 0.1, y - 0.3, y + 3.1, z - 0.1, z + 0.1); pts.push([x, y + 2.95, z]); }
+      for (const k of [0, 0.5]) { const z = S.z0 + (S.z1 - S.z0) * k, y = D * k; box(CEDAR, x - 0.1, x + 0.1, y - 0.3, y + 3.1, z - 0.1, z + 0.1); pts.push([x, y + 2.95, z]); }
+      pts.push([x < S.x0 ? PORCH.x0 : S.x1 + 0.1, D + 2.95, S.z1]);      // at the head the rope is made fast to the porch's own post
       rope(ROPE, [...sagged(pts[0], pts[1], 0.15, 3), ...sagged(pts[1], pts[2], 0.15, 3).slice(1)], 0.07, 5);
       collide(x - 0.1, x + 0.1, S.z0, S.z1, D + 5.6, -0.3);
     }
@@ -468,7 +472,9 @@ function build(K, opts) {
     const L = T.swing.len, P = (mat, g) => prep(g, paintColour(mat), null), pieces = [];
     const Cy = (mat, r, h, x, y) => { const g = new THREE.CylinderGeometry(r, r, h, 5, 1, true); g.translate(x, y + h / 2, 0); return P(mat, g); };
     const Bx = (mat, w, h, d, x, y, z) => { const g = new THREE.BoxGeometry(w, h, d); g.translate(x, y, z); return P(mat, g); };
-    for (const dx of [-0.85, 0.85]) { pieces.push(Cy(ROPE, 0.045, L - 0.2, dx, -L + 0.15)); const g = new THREE.IcosahedronGeometry(0.1, 0); g.scale(1, 1.4, 1); g.translate(dx, -L + 0.35, 0); pieces.push(P('c#9a865e/1', g)); }
+    for (const dx of [-0.85, 0.85]) {      // each rope up to the limb's underside where it is (the limb climbs), and down through the plank
+      const t = THREE.MathUtils.clamp(0.94 + dx / (west.b.x - west.a.x), 0, 1), up = west.a.y + (west.b.y - west.a.y) * t - (west.r0 + (west.r1 - west.r0) * t) * 0.6 - hang.y;
+      pieces.push(Cy(ROPE, 0.045, L + 0.1 + up, dx, -L - 0.1)); const g = new THREE.IcosahedronGeometry(0.1, 0); g.scale(1, 1.4, 1); g.translate(dx, -L + 0.2, 0); pieces.push(P('c#9a865e/1', g)); }
     pieces.push(Bx('c#9a7a57/0.85', 2.1, 0.14, 0.75, 0, -L, 0), Bx('c#87694a/0.9', 2.2, 0.06, 0.12, 0, -L - 0.09, 0.25), Bx('c#87694a/0.9', 2.2, 0.06, 0.12, 0, -L - 0.09, -0.25));
     T.parts.swing = T.movers.part(pieces);
   }
@@ -514,7 +520,7 @@ function life(ctx, K) {
   ctx.colliders.push({ x0: sw.x - 1.2, x1: sw.x + 1.2, z0: sw.z - 0.6, z1: sw.z + 0.6, y0: 0, y1: 3 });
   let swAmp = 0.03, swPh = 0;
   const m4 = new T3.Matrix4(), q = new T3.Quaternion(), e = new T3.Euler(), one = new T3.Vector3(1, 1, 1), p3 = new T3.Vector3();
-  // the stair: a climb, not a glide (whoever is on it moves along it no faster than CLIMB)
+  // the stair: walked, not run or glided (whoever is on it moves along it no faster than CLIMB)
   const S = T.stair, onStair = p => p.x > TX + S.x0 - 0.1 && p.x < TX + S.x1 + 0.1 && p.z > TZ + S.z0 && p.z < TZ + S.z1 && p.y > 0.25 && p.y < D - 0.05;
   const was = new T3.Vector3(); let wasOn = false;
   const day = ctx.day;

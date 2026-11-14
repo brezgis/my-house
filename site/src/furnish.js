@@ -47,5 +47,5 @@ export function furnish(B, house = {}) {
     kit.drapes(f, -half, half, w.sill > 2.6 ? w.sill - 0.55 : w.sill > 1.2 ? w.sill - 0.6 : 0.12, w.head + 0.52, undefined, o);
   }
   const { lamps, seats, candles, models, extras, books, steam } = kit;
-  return { lamps, seats, candles, models, extras, books, steam, hinged: kit.hinged, spots: kit.spots ?? [] };
+  return { lamps, seats, candles, models, extras, books, steam, hinged: kit.hinged, taps: kit.taps ?? [], spots: kit.spots ?? [] };
 }

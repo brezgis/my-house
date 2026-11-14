@@ -480,9 +480,9 @@ if (TREEHOUSETEST) {
     const find = re => ctx.interact.find(it => re.test(typeof it.label === 'function' ? it.label() : it.label ?? ''));
     const at = (lx, y, lz) => { w.pos.set(TX + lx, y, TZ + lz); w.grounded = true; w.vy = 0; w.seated = null; w.apply(); run(0.2); };
     const near = (lx, y, lz, tol = 1.5) => Math.hypot(w.pos.x - TX - lx, w.pos.y - y, w.pos.z - TZ - lz) < tol;
-    // the stair at a climber's pace (treehouseLife holds the walker to it)
+    // the stair at a walk (treehouseLife holds the walker to it: no faster, however she runs)
     { w.pos.set(TX - 2.8, 0, TZ - 21); w.grounded = true; w.vy = 0; w.seated = null; w.yaw = Math.PI; w.keys.add('KeyW'); let tt = 0; while (tt < 30 && w.pos.y < D - 0.05) { clock += 1 / 60; tt += 1 / 60; w.update(1 / 60); for (const f of ctx.animated) f(clock, 1 / 60); } w.keys.clear(); run(0.3);
-      const ok = Math.abs(w.pos.y - D) < 0.1 && tt > 6 && tt < 15; L.push(`the ship's stair climbed in ${tt.toFixed(1)} s (a climb, not a glide: 6 to 15 s): ${ok ? 'yes' : 'NO'}`); if (!ok) fail('the stair\'s pace'); }
+      const ok = Math.abs(w.pos.y - D) < 0.1 && tt > 3 && tt < 6; L.push(`the ship's stair climbed in ${tt.toFixed(1)} s (a walk, not a run: 3 to 6 s): ${ok ? 'yes' : 'NO'}`); if (!ok) fail('the stair\'s pace'); }
     const fov0 = camera.fov; at(3.6, D, -5.6); const scope = find(/look through the telescope/); if (scope) { w.sit(scope.seat); run(2); } const zoomed = camera.fov < 15; w.seated = null; run(0.5);
     L.push(`telescope: the view closes in ${zoomed ? 'yes' : 'NO'}, and opens again ${camera.fov === fov0 ? 'yes' : 'NO'}`); if (!zoomed || camera.fov !== fov0) fail('the telescope');
     for (const [re, lx, lz, y] of [[/lie in the net/, 9.0, -5.0, D], [/sit on the rope swing/, -14.8, 6, 0], [/sit in the window seat/, 4.6, -5.6, D], [/take a book/, 3.6, -5.8, D], [/have a biscuit/, 4.2, -5.8, D], [/look at the map/, 3.2, -4.4, D]]) {

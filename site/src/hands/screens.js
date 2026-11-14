@@ -5,9 +5,11 @@
 // While one is open the pointer is let go, every key stops here (so letters type and nobody
 // walks), Esc closes, and the pointer is taken back afterwards. Everything can be done by
 // clicking or with the arrow keys and Enter; only the shell and the guest book take typing.
-// Nothing is sent anywhere: there is no server. The guest book is kept in this browser only.
+// Nothing is sent anywhere, except by the pink computer's Guest Book: that is the real guest book,
+// the one in the mailbox by the gate (guestbook.js), and a line signed there goes into it.
 
 import { makeShell, MENU } from './shell.js';
+import { peek, refresh, onChange, sendNote, markRead, state as gb } from '../guestbook.js';
 
 const CSS = `
 .hd-over.sheet { position: fixed; inset: 0; z-index: 30; display: none; place-items: center; padding: 16px; background: rgba(22,15,10,.62); animation: none; font-family: var(--serif, Georgia, serif); color: var(--ink, #2a1c13); }
@@ -70,7 +72,7 @@ const CSS = `
 .hd-win .in { padding: 14px 16px; overflow: auto; line-height: 1.5; font-size: 14px; } .hd-win .in p { margin: 0 0 10px; } .hd-win .in h5 { font-size: 15px; margin: 0 0 8px; }
 .hd-win .gb { list-style: none; margin: 0 0 12px; padding: 0; max-height: 170px; overflow: auto; border: 1px solid #999; background: #fff; } .hd-win .gb li { padding: 5px 9px; border-bottom: 1px dotted #bbb; } .hd-win .gb li.you { background: #fff3c4; }
 .hd-win .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; } .hd-win .chips button, .hd-win form button, .hd-win .plain { font: inherit; background: #e4e4de; border: 1px solid #222; border-radius: 4px; padding: 4px 10px; box-shadow: 1px 1px 0 #222; }
-.hd-win form { display: flex; gap: 6px; } .hd-win input { flex: 1; min-width: 0; font: inherit; padding: 4px 6px; border: 1px solid #222; background: #fff; }
+.hd-win form { display: flex; flex-wrap: wrap; gap: 6px; } .hd-win input.who { flex: 0 1 24%; } .hd-win .say { margin: 8px 0 0; min-height: 1.3em; } .hd-win input { flex: 1 1 40%; min-width: 0; font: inherit; padding: 4px 6px; border: 1px solid #222; background: #fff; }
 .hd-win small { display: block; color: #555; margin-top: 10px; line-height: 1.35; }
 @media (max-width: 620px) { .hd-desk .icons { right: 6px; } .hd-desk .icons button { width: 70px; font-size: 11px; } .hd-win { left: 8px; width: calc(100% - 96px); } }
 /* the laptop */
@@ -85,8 +87,6 @@ const CSS = `
 `;
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
-const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* private window */ } };
 
 export function makeScreens(ctx, api) {
   const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
@@ -143,12 +143,19 @@ export function makeScreens(ctx, api) {
     root.querySelector('.back').addEventListener('click', () => close());
   }
 
-  // ---- The guest book (kept in this browser, nowhere else) -----------------------------------
-  const GUESTS = [['Tante Odile', 'I came for tea in March. It is now June. Lovely house.'], ['Fig', 'I let them win at chess. Once.'], ['The piano tuner', 'The B above middle C and I have reached an understanding.'], ['Mortimer', 'Please use the coasters.'], ['A.', 'Welcome. Take a book. Bring it back, or do not.']];
+  // ---- The guest book: the real one, the same book as the mailbox by the gate (guestbook.js) -------
   const CHIPS = ['What a lovely house.', 'The tart was excellent.', 'I moved the gnome. Sorry.', 'I was here, and I ate the apple.', 'Thank you for the tea.'];
-  const mineOf = () => load('hands.guestbook', []).filter(s => typeof s === 'string').slice(-40);
-  const sign = text => { text = String(text).replace(/\s+/g, ' ').trim().slice(0, 80); if (!text) return; const m = mineOf(); m.push(text); save('hands.guestbook', m); paintPink(); };
-  api.guests = () => [...GUESTS.map(([w, t]) => `${w}: ${t}`), ...mineOf().map(t => `You: ${t}`)];
+  const who = n => n.name || 'A visitor';
+  const dial = () => { if (gb.reachable !== true) (gb.reachable === false ? refresh() : peek()); };      // nothing is fetched until somebody asks
+  const guestList = () => gb.reachable === true ? (gb.notes.length ? gb.notes.map(n => `<li><b>${esc(who(n))}:</b> ${esc(n.text)}</li>`).join('') : '<li>No notes yet. Yours could be the first.</li>')
+    : `<li>${!gb.configured || gb.reachable === false ? 'No answer from the mailbox just now. The modem is sulking; do try again in a while.' : 'Dialling the mailbox…'}</li>`;
+  let said = '';
+  api.guests = () => { dial(); return gb.reachable === true ? gb.notes.map(n => `${who(n)}: ${n.text.replace(/\s+/g, ' ')}`) : [gb.reachable === false ? 'No answer from the mailbox just now. Try again in a while.' : 'Dialling the mailbox… ask again in a moment.']; };
+  onChange(() => {                                  // the book has been fetched, or has changed: the open window and the screen in the room follow
+    const list = open?.id === 'imac' && root.querySelector('.hd-win.on[data-k="guest"] .gb');
+    if (list) { list.innerHTML = guestList(); if (gb.unread) markRead(); }      // (markRead comes back here once, with nothing left unread)
+    paintPink();
+  });
 
   // ---- The pink computer ---------------------------------------------------------------------
   const ICON = { read: '<svg viewBox="0 0 40 40"><path d="M8 3h17l8 8v26H8Z" fill="#fff" stroke="#222"/><path d="M25 3v8h8M13 17h14M13 22h14M13 27h9" fill="none" stroke="#222"/></svg>',
@@ -158,42 +165,57 @@ export function makeScreens(ctx, api) {
   const WINS = {
     read: ['Read Me', () => `<h5>Read me first (or last; I am not your mother)</h5><p>Hello. You have found the pink computer. It was bought in a fit of optimism and has outlived three sensible grey ones.</p><p>House rules, such as they are: eat what is out. Take books down. Pick things up and look at them properly; put them back roughly where they were, or somewhere better.</p><p>The butlers will bring you a drink if you stand still long enough. Fig cheats at chess. The telescope is on the sleeping porch.</p><p>Stay as long as you like.</p><p>— A.</p>`],
     about: ['About This House', () => `<h5>About This House</h5><p><b>Built:</b> 1906, with a sleeping porch added in 1910.<br><b>Style:</b> Arts and Crafts bungalow, after the Greenes.<br><b>Location:</b> an island, floating. Do not ask.<br><b>Memory:</b> long.<br><b>Books:</b> ${ctx.items.books?.length ?? 'many'} on the shelves, ${api.taken.length} taken down by you so far.<br><b>Staff:</b> three butlers, who hover.<br><b>The hour:</b> ${clock()}, by the house clock.</p><p>This computer: 233 megahertz of raw power, a round mouse nobody likes, and a handle on top, for carrying it to bed.</p>`],
-    guest: ['Guest Book', () => `<h5>Guest Book</h5><ul class="gb">${GUESTS.map(([w, t]) => `<li><b>${esc(w)}:</b> ${esc(t)}</li>`).join('')}${mineOf().map(t => `<li class="you"><b>You:</b> ${esc(t)}</li>`).join('')}</ul>
+    guest: ['Guest Book', () => `<h5>Guest Book</h5><ul class="gb" aria-live="polite">${guestList()}</ul>
       <div class="chips">${CHIPS.map(c => `<button type="button" data-chip="${esc(c)}">${esc(c)}</button>`).join('')}</div>
-      <form autocomplete="off"><input type="text" maxlength="80" aria-label="Or write a line of your own" placeholder="…or write a line of your own" enterkeyhint="done"><button type="submit">Sign</button></form>
-      <small>Kept in this browser and nowhere else. There is no server behind this house: nobody else will ever read your line, not even A. ${mineOf().length ? '<button type="button" class="plain" data-tear>Tear out my lines</button>' : ''}</small>`],
+      <form autocomplete="off"><input class="who" name="who" type="text" maxlength="40" aria-label="Your name, if you like" placeholder="your name"><input name="line" type="text" maxlength="400" aria-label="Your note" placeholder="…your note" enterkeyhint="send"><button type="submit">Sign</button></form>
+      <p class="say" role="status" aria-live="polite">${esc(said)}</p>
+      <small>This is the real guest book, the same one as in the mailbox by the gate: anyone can read a line signed here, and Anna may take it down. Older notes are at the mailbox.</small>`],
     music: ['Records', () => `<h5>The record player</h5><p>${esc(ctx.sound?.nowPlaying?.() ? 'Now playing: ' + ctx.sound.nowPlaying() : 'Nothing is playing just now.')}</p><p><button type="button" class="plain" data-next>Put on the next record</button></p>`],
   };
   const clock = () => { const h = ((window.house?.hour ?? 12) % 24 + 24) % 24; return `${Math.floor(h)}:${String(Math.floor((h % 1) * 60)).padStart(2, '0')}`; };
   const nextRecord = () => { try { ctx.sound?.start?.(); return ctx.sound?.next?.() || ''; } catch { return ''; } };
   function imac(first) {
+    said = '';
     show({ id: 'imac', name: 'The pink computer', closed: paintPink }, `<div class="hd-mon hd-pink"><div class="hd-desk"><div class="menu"><span>File</span><span>Edit</span><span>Special</span><i>${clock()}</i></div>
       <div class="icons">${Object.entries(WINS).map(([k, [name]], i) => `<button type="button" data-win="${k}"${i ? '' : ' autofocus'}>${ICON[k]}<span>${name}</span></button>`).join('')}</div>
       <div class="hd-win"><div class="tb"><button type="button" data-shut aria-label="Close the window"></button><b></b></div><div class="in"></div></div></div>
       <div class="bar"><span>${touch ? 'Tap an icon.' : 'Click an icon, or use the arrow keys and Enter. Esc steps away.'}</span><button type="button" data-leave>Step away</button></div></div>`);
     const win = root.querySelector('.hd-win');
-    const openWin = k => { if (!WINS[k]) return; win.dataset.k = k; win.querySelector('b').textContent = WINS[k][0]; win.querySelector('.in').innerHTML = WINS[k][1](); win.classList.add('on'); api.win = k; };
+    const openWin = k => { if (!WINS[k]) return; win.dataset.k = k; win.querySelector('b').textContent = WINS[k][0]; win.querySelector('.in').innerHTML = WINS[k][1](); win.classList.add('on'); api.win = k; if (k === 'guest') { dial(); if (gb.unread) markRead(); } };
     root.querySelector('.hd-pink').addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.win) openWin(b.dataset.win);
       else if ('shut' in b.dataset) { win.classList.remove('on'); api.win = null; root.querySelector(`[data-win="${win.dataset.k}"]`)?.focus(); }
       else if ('leave' in b.dataset) close();
-      else if (b.dataset.chip) { sign(b.dataset.chip); openWin('guest'); }
-      else if ('tear' in b.dataset) { save('hands.guestbook', []); paintPink(); openWin('guest'); }
+      else if (b.dataset.chip) { const i = win.querySelector('input[name=line]'); i.value = b.dataset.chip; i.focus(); }      // a ready-made line, to send or to change first
       else if ('next' in b.dataset) { nextRecord(); setTimeout(() => open?.id === 'imac' && win.dataset.k === 'music' && openWin('music'), 300); }
     });
-    root.querySelector('.hd-pink').addEventListener('submit', e => { e.preventDefault(); const i = e.target.querySelector('input'); if (i.value.trim()) { sign(i.value); openWin('guest'); } });
+    root.querySelector('.hd-pink').addEventListener('submit', e => {
+      e.preventDefault();
+      const f = e.target, line = f.elements.line.value.trim(), btn = f.querySelector('button'), say = t => { said = t; const p = win.querySelector('.say'); if (p) p.textContent = t; };
+      if (btn.disabled) return;
+      if (line.length < 2) { say('Write a few words first.'); f.elements.line.focus(); return; }
+      btn.disabled = true; say('Sending… the modem takes a moment.');
+      sendNote(f.elements.who.value.trim().slice(0, 40), line).then(r => {
+        const here = open?.id === 'imac' && win.isConnected && win.dataset.k === 'guest' && win.classList.contains('on');
+        if (r.ok && here) openWin('guest');                    // the list again, with the new line on top (or waiting for Anna)
+        say(r.ok ? (r.published ? 'Signed. There you are, at the top.' : 'Thank you. It is in the mailbox, and Anna will read it soon.')
+          : r.error ?? (r.offline ? 'It did not go: the connection seems to be away. Your words are still here; try again in a moment.' : 'The mailbox would not take it just now. Your words are still here; try again in a little while.'));
+        if (!r.ok && btn.isConnected) btn.disabled = false;
+        if (here) (r.ok ? win.querySelector('input[name=line]') : f.elements.line)?.focus();
+      });
+    });
     if (first) openWin(first);
   }
-  // what the room sees on the pink computer afterwards: the desktop, and the last line in the guest book
+  // what the room sees on the pink computer: the desktop, and the newest line in the guest book
   const screen = name => (ctx.items.extras ?? []).find(e => e.canvas === name && e.map?.image?.getContext);
   function paintPink() {
-    const e = screen('imac'); if (!e) return; const c = e.map.image, g = c.getContext('2d'), W = c.width, H = c.height, m = mineOf();
+    const e = screen('imac'); if (!e) return; const c = e.map.image, g = c.getContext('2d'), W = c.width, H = c.height, top = gb.reachable === true && gb.page === 1 ? gb.notes[0] : null;
     g.fillStyle = '#6f9ea8'; g.fillRect(0, 0, W, H); g.fillStyle = '#eee'; g.fillRect(0, 0, W, 44); g.fillStyle = '#111'; g.font = 'bold 26px Verdana, sans-serif'; g.textAlign = 'left'; g.fillText('File   Edit   Special', 24, 31);
     g.fillStyle = '#f4f4f0'; g.fillRect(70, 130, W - 260, 330); g.strokeStyle = '#222'; g.lineWidth = 3; g.strokeRect(70, 130, W - 260, 330); g.fillStyle = '#c9c9c4'; g.fillRect(70, 130, W - 260, 40); g.strokeRect(70, 130, W - 260, 40);
     g.fillStyle = '#111'; g.font = 'bold 24px Verdana, sans-serif'; g.textAlign = 'center'; g.fillText('Guest Book', 70 + (W - 260) / 2, 159);
     g.font = '26px Verdana, sans-serif'; g.textAlign = 'left';
-    const last = m.length ? 'You: ' + m[m.length - 1] : 'A.: Welcome. Take a book.', words = last.split(' '); let line = '', y = 230;
+    const newest = top ? `${who(top)}: ${top.text.replace(/\s+/g, ' ')}` : 'A.: Welcome. Take a book.', last = newest.length > 96 ? newest.slice(0, 95) + '…' : newest, words = last.split(' '); let line = '', y = 230;
     for (const w of words) { if (g.measureText(line + w).width > W - 320) { g.fillText(line, 96, y); y += 38; line = ''; } line += w + ' '; } g.fillText(line, 96, y);
     for (let i = 0; i < 4; i++) { g.fillStyle = ['#fff', '#f6d98a', '#b33a4a', '#222'][i]; g.fillRect(W - 130, 90 + i * 120, 64, 64); g.strokeRect(W - 130, 90 + i * 120, 64, 64); }
     e.map.needsUpdate = true;
@@ -259,5 +281,5 @@ export function makeScreens(ctx, api) {
     pick(n);
   }
 
-  return { book, imac, term, laptop, close, sign, paintPink, paintTerm, get open() { return open?.id ?? null; } };
+  return { book, imac, term, laptop, close, paintPink, paintTerm, get open() { return open?.id ?? null; } };
 }

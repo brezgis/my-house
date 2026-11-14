@@ -27,7 +27,7 @@ export default function (kit) {
   d.box('c#e9e6df/0.5', -0.7, 0.7, 1.55, 2.0, 2.5, 2.55); d.soft('c#e9e6df/0.5', 0.95, 1.15, 1.6, 1.9, 2.5, 2.58, 0.04);       // keyboard and mouse
   mug(d, 1.9, 1.5, 2.5, 'c#c98f8a/0.5', true); bookStack(d, -2.1, 1.3, 2.5, 3); posy(d, 2.4, 0.7, 2.5);
   d.box('c#f3efe3/0.9', 1.35, 2.1, 1.9, 2.5, 2.5, 2.52); d.cyl('c#d9a441/0.6', 1.9, 2.05, 2.52, 2.54, 0.015);                   // notes
-  model('desk_lamp_arm_01', d, -2.3, 1.05, 2.5, 0, { turn: -0.7 }); lampAt(d, -1.7, 1.35, 3.9, 0.7);   // its arm clear of the curtains
+  model('desk_lamp_arm_01', d, -2.3, 1.05, 2.28, 0, { turn: -0.7 + Math.PI }); lampAt(d, -1.7, 1.35, 3.9, 0.7);   // its head over the desk (at the light), its elbow out past the end; the clamp is let into the top
   kit.diningChair(d, 0, 3.35, { dq: 2, arms: true, wood: 'oak_light#a3825c', back: 'spindle', seat: 'leather#7a4a30' });   // a proper desk chair (the lounge chair was 3.3 ft wide, ran into the desk and had no collider)
   // A student's working mess: papers, sticky notes, the cold second mug, headphones
   const papers = [['Attention Is All\nYou Need', 2], ['More Is Different', 5], ['Representation is representation\nof similarities', 8]];      // Vaswani et al. 2017; Anderson 1972; Edelman 1998 (the one on top)

@@ -196,8 +196,21 @@ const platters = [];
 for (const sp of items.spots ?? []) {
   if (sp.action === 'record') {
     const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.48, 0.02, 40), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.35 }));
-    const lbl = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.022, 24), new THREE.MeshStandardMaterial({ color: 0xb8452e, roughness: 0.7 }));
-    disc.add(lbl); disc.position.set(sp.x, sp.y, sp.z); scene.add(disc); platters.push(disc); disc.userData.cat = 'record'; life.track(disc, life.zoneAt(sp.x, sp.y, sp.z, 0.5));
+    // Its label is printed (a pale half, lettering round the rim), so that it can be seen to turn; a plain
+    // red circle on a black disc looked the same turning as still. The record is a hair out of flat, as
+    // pressings are, so its edge rises and falls as it goes round.
+    const face = new THREE.CanvasTexture(Object.assign(document.createElement('canvas'), { width: 256, height: 256 })); face.colorSpace = THREE.SRGBColorSpace; face.anisotropy = 8;
+    { const g = face.image.getContext('2d'), R = 128;
+      g.fillStyle = '#b8452e'; g.beginPath(); g.arc(R, R, R, 0, 7); g.fill();
+      g.fillStyle = '#efe4c8'; g.beginPath(); g.arc(R, R, R, -0.5, Math.PI - 0.5); g.fill();                          // the pale half
+      g.strokeStyle = '#2a1c13'; g.lineWidth = 3; g.beginPath(); g.arc(R, R, R - 9, 0, 7); g.stroke();
+      g.fillStyle = '#2a1c13'; g.font = 'bold 21px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      [...'ANNA’S HOUSE · SIDE A ·'].forEach((ch, k, all) => { const a = -Math.PI / 2 + (k - (all.length - 1) / 2) * 0.2; g.save(); g.translate(R + Math.cos(a) * 92, R + Math.sin(a) * 92); g.rotate(a + Math.PI / 2); g.fillText(ch, 0, 0); g.restore(); });
+      g.font = 'italic 19px Georgia, serif'; g.fillText('33⅓', R, R + 56);
+      g.beginPath(); g.arc(R, R, 9, 0, 7); g.fill(); }
+    const plain = new THREE.MeshStandardMaterial({ color: 0xb8452e, roughness: 0.7 });
+    const lbl = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.022, 32), [plain, new THREE.MeshStandardMaterial({ map: face, roughness: 0.7 }), plain]);
+    disc.add(lbl); disc.rotation.z = 0.014; disc.position.set(sp.x, sp.y, sp.z); scene.add(disc); platters.push(disc); disc.userData.cat = 'record'; life.track(disc, life.zoneAt(sp.x, sp.y, sp.z, 0.5));
     // The sleeve of the record that is always on first, propped against the wall beside the player
     const cover = new THREE.TextureLoader().load('assets/art/house_album.jpg'); cover.colorSpace = THREE.SRGBColorSpace; cover.anisotropy = 8;      // Anna's own artwork (CREDITS.md)
     // the sleeve: cover on one face, black card on the other five (two draws rather than six)
