@@ -11,7 +11,8 @@
 //   air.bound       the stop she is bound for ({ name, blind, url, ... } from transit.stops), or null
 //   air.other       the stop a ring would turn her blind to just now, or null (for the bell's label)
 //   Boarding is on foot: while she is docked with her door open, walk up her gangplank. Once you are inside she
-//   shuts the door and goes. Aboard you can walk about, stand at the front, or sit on any bench (E), also in flight;
+//   shuts the door and goes; with more than one place to go (her stops, the flight round the island) she first asks
+//   where to, on a small card (a number key or a click; Esc and she waits). Aboard you can walk about, stand at the front, or sit on any bench (E), also in flight;
 //   back at the stop the door opens and you walk off when you like.
 //   air.getOff()    in the air: she turns back to the stop (asked twice: she is there at once); while the door is
 //                   closing: she opens it again and stays
@@ -286,13 +287,46 @@ export function makeAirship(ctx, D) {
   }
   const canGo = () => open() || !!D.tour?.length;                                              // somewhere to go: the other place, or round
   const canBoard = () => state === 'docked' && door > 0.85;
-  const shut = () => { state = 'closing'; setDoor(false); timer = 2.6; speak('board'); bus.setFace('happy'); };
+  const shut = (quiet = false) => { state = 'closing'; setDoor(false); timer = 2.6; if (!quiet) speak('board'); bus.setFace('happy'); };
+  // ---- "Where to?": with more than one place to go, she asks once you are inside, and goes where she is told.
+  // The places are her stops from here and, where there is one, the flight round the island. A small card, the same
+  // at every stop: a number key or a click chooses; Esc (or walking off again) and she waits with the door open.
+  let ask = null, wish = null;      // wish 'tour': round the island though the line is open
+  const choices = () => [
+    ...dests().map((d, i) => ({ d, i })).filter(c => c.d.url).map(c => ({ name: c.d.name ?? 'the other side of the clouds', go: () => { bound = c.i; wish = null; } })),
+    ...(D.tour?.length ? [{ name: 'just round the island', tour: true, go: () => { wish = 'tour'; } }] : []),
+  ];
+  function askClose() { if (!ask) return; removeEventListener('keydown', ask.key, true); ask.el.remove(); ask = null; }
+  function choose(i) {
+    const c = ask?.list[i]; if (!c) return;
+    c.go(); askClose(); tell = 0; blind(c.tour ? 'tour' : 'transit'); bus.wave?.();
+    D.say?.(c.tour ? 'Round the island it is. Sit anywhere.' : `${c.name} it is. Sit anywhere.`); shut(true);
+  }
+  function askOpen() {
+    const list = choices(), el = document.createElement('div');
+    el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Where to?');
+    el.style.cssText = 'position:fixed;z-index:9;left:50%;bottom:max(96px,17vh);transform:translateX(-50%);max-width:min(440px,calc(100vw - 32px));box-sizing:border-box;padding:14px 18px 12px;background:#f2ead6;color:#2a1c13;border-radius:6px;box-shadow:0 6px 24px rgba(0,0,0,.35);font:16px/1.45 Georgia,"Iowan Old Style",serif;text-align:left';
+    const head = document.createElement('div'); head.textContent = 'Dandelion: “Where to, then?”'; head.style.cssText = 'font-style:italic;margin-bottom:8px'; el.append(head);
+    list.forEach((c, i) => {
+      const b = document.createElement('button'); b.type = 'button';
+      b.style.cssText = 'display:block;width:100%;margin:4px 0;padding:6px 10px;text-align:left;font:inherit;color:inherit;background:rgba(42,28,19,.07);border:1px solid rgba(42,28,19,.25);border-radius:4px;cursor:pointer';
+      const k = document.createElement('b'); k.textContent = `${i + 1}`; k.style.cssText = 'display:inline-block;min-width:1.4em;color:#a8361f';
+      b.append(k, c.tour ? 'Just round the island, please' : c.name); b.addEventListener('click', () => choose(i)); el.append(b);
+    });
+    const foot = document.createElement('div'); foot.textContent = 'press a number · Esc, or step off, and she waits'; foot.style.cssText = 'margin-top:8px;font-size:12.5px;opacity:.7'; el.append(foot);
+    const key = e => {
+      const n = /^(Digit|Numpad)([1-9])$/.exec(e.code);
+      if (n && list[n[2] - 1]) { e.preventDefault(); e.stopPropagation(); choose(n[2] - 1); }
+      else if (e.code === 'Escape') { askClose(); fresh = false; insideT = 0; dwell = Math.max(dwell, 40); speak('stay'); }
+    };
+    addEventListener('keydown', key, true); document.body.append(el); ask = { el, list, key };
+  }
   function board() {      // without the walk: for tests
     if (!canBoard() || !canGo()) return false;
     if (!rider.on) rider.capture(new THREE.Vector3(-2.4, 0, 6.4)); fresh = true; shut(); return true;
   }
   function setOff() {
-    if (open()) {
+    if (wish !== 'tour' && open()) {
       state = 'departing'; speak('transit'); hornAt(1); blind('transit');
       flight.go(D.transit.cloud, SECS.transit, { ease: 'in', onDone: () => { veil.set(1); state = 'gone'; const to = dest(), url = to.url + (D.transit.query?.(to) ?? ''); if (to.url) location.href = url; } });
       return;
@@ -304,7 +338,7 @@ export function makeAirship(ctx, D) {
     leg.marks = says; tipped = 0;
   }
   // back at the stage with the visitor aboard: open up, then set them down
-  function home() { flight.place(dock); state = 'unloading'; setDoor(true); timer = 1.6; blind(open() ? 'transit' : 'tour'); veilAim = 0; }
+  function home() { wish = null; flight.place(dock); state = 'unloading'; setDoor(true); timer = 1.6; blind(open() ? 'transit' : 'tour'); veilAim = 0; }
   // at the stop with the door open: she says so, and waits for them to walk off in their own time
   function setDown() { bus.wave?.(); speak(fromAway ? 'landed' : 'alight'); fromAway = false; state = 'docked'; dwell = 40; fresh = false; insideT = 0; bus.setFace('happy'); }
   function getOff() {
@@ -354,14 +388,17 @@ export function makeAirship(ctx, D) {
     } else if (doorOpen && state !== 'closing' && walking && w?.pos && !w.seated && bus.onPlank(rider.toLocal(w.pos))) rider.capture();      // walked onto it
     hull.off = rider.on || !(state === 'docked' || state === 'unloading' || state === 'closing');
     if (hull.askew && !hull.off && walking && w?.pos && !w.seated) fend(w);
+    if (ask && (state !== 'docked' || !rider.on || !walking)) askClose();
     switch (state) {
       case 'wait': if ((timer -= dt) <= 0) come(); break;
       case 'docked':
         dwell -= dt;
-        if (tell > 0 && (tell -= dt) <= 0 && turnable() && open()) D.say?.(`Next stop, ${dest().name}. Ring again if you would rather ${next().name}.`);      // once she has said hello
+        if (tell > 0 && (tell -= dt) <= 0 && turnable() && open()) D.say?.(`Next stop, ${dest().name}. Or ${next().name}: tell me when you come aboard.`);      // once she has said hello
         if (rider.on || (w?.pos && Math.hypot(w.pos.x - dock.x, w.pos.z - dock.z) < 28)) dwell = Math.max(dwell, 8);      // she waits while you are aboard or on the stage
-        if (rider.on && fresh && canGo() && door > 0.85) { insideT = rider.inside ? insideT + dt : 0; if (insideT > 1.1) shut(); }      // once you are inside, she shuts the door and goes
-        else if (dwell <= 0) leave();
+        if (rider.on && fresh && canGo() && door > 0.85) {      // once you are inside she asks where to (if there is a choice), shuts the door and goes
+          insideT = rider.inside ? insideT + dt : 0;
+          if (ask && !rider.inside) askClose(); else if (insideT > 1.1 && !ask) { if (choices().length > 1) askOpen(); else shut(); }
+        } else if (dwell <= 0) leave();
         break;
       case 'leaving': if (timer > 0 && (timer -= dt) <= 0) { flight.go([...(D.leave ?? [])], SECS.leave, { ease: 'in', onDone: () => { state = 'away'; show(false); nextPass(); } }); } break;
       case 'closing':
@@ -412,6 +449,7 @@ export function makeAirship(ctx, D) {
       if (name === 'coming') { come(); flight.seek(k); return; }
       if (name === 'pass') { pass(); flight.seek(k); return; }
       if (name === 'arrive') { arrive(); flight.seek(k); rider.lastYaw = bus.root.rotation.y; rider.post(); veil.set(0); veilAim = 0; return; }
+      if (name === 'ask') { docked(false); door = 1; bus.setDoor(1); bus.setArm(1); dwell = 1e9; rider.capture(new THREE.Vector3(-0.3, 0, k * 14 - 8)); fresh = true; return; }      // just come aboard: she asks where to
       if (name === 'aboard') { docked(false); door = 1; bus.setDoor(1); bus.setArm(1); dwell = 1e9; rider.capture(new THREE.Vector3(-0.3, 0, k * 14 - 8)); fresh = false; return; }      // standing in the aisle, k of the way forward
       if (name === 'tour' || name === 'depart') { docked(false); door = 1; board(); rider.sit(bus.SEAT0, D.lookOnBoard ?? 0, D.pitchOnBoard ?? -0.05); timer = 0; setOff(); flight.seek(k); rider.lastYaw = bus.root.rotation.y; rider.post(); door = 0; bus.setDoor(0); bus.setArm(0); return; }
     },
