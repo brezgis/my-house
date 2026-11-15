@@ -45,7 +45,9 @@ export default function (kit) {
   model('st_wastebasket_wire', d, 1.6, 1.6, 0, 0, { scale: 0.9 });
 
   // The pink iMac, on its own little table, with a pinboard over it
-  const it = fr(19.5, 28.4, F1, 3);      // clear of the cover strip where the back wing meets the main block (Y 30): the board used to hang over it table(it.sub(0, 1.2), 2.6, 2.2, 2.4);
+  const it = fr(19.5, 28.4, F1, 3);      // clear of the cover strip where the back wing meets the main block (Y 30): the board used to hang over it
+  table(it.sub(0, 1.2), 2.6, 2.2, 2.4);      // (this call had slid into the comment above, and the computer stood on nothing)
+  kit.diningChair(it, 0, 3.15, { dq: 2, wood: 'oak_light#a3825c', back: 'spindle', seat: 'leather#7a4a30' });      // a chair to sit at it
   const im = it.sub(0, 1.25, 2.4), PINK = 'c#f0609a/0.25', MILK = 'c#f6eef0/0.3';
   // The iMac G3 itself, in strawberry, with its keyboard and mouse (see CREDITS.md). Its picture is
   // drawn on the model's own curved glass (life.js: onModel), so nothing hangs in front of the tube.
