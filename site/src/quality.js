@@ -19,16 +19,9 @@ export const TIERS = {
 };
 const ORDER = ['low', 'medium', 'high'];
 
-export function gpuName() {
-  try {
-    const c = document.createElement('canvas'), gl = c.getContext('webgl2') || c.getContext('webgl');
-    if (!gl) return '';
-    const ext = gl.getExtension('WEBGL_debug_renderer_info');
-    const name = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
-    gl.getExtension('WEBGL_lose_context')?.loseContext();
-    return String(name || '');
-  } catch { return ''; }
-}
+// The card's name is asked of a context that is then handed to the renderer (engine/load.js)
+import { gpuName, takeContext } from './engine/load.js';
+export { gpuName, takeContext };
 
 export function guessTier(name) {
   const n = name.toLowerCase();

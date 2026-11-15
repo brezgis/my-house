@@ -2,6 +2,8 @@
 // with no camera or location data). The frames are drawn onto shared label sheets as the house is put together;
 // each is drawn again when its photograph has arrived. A photo that fails to
 // load leaves the frame with its drawn stand-in.
+import { dressed } from './engine/load.js';
+
 const N = 14;
 const one = i => new Promise(ok => {
   if (typeof Image === 'undefined') return ok(null);
@@ -11,7 +13,8 @@ const one = i => new Promise(ok => {
 export const PHOTOS = [];
 // Nothing waits for these: a frame is drawn with its stand-in at once, and life.js draws it again when
 // the photographs have arrived (a draw function may carry `late`, a promise, to ask for that).
-export const photosReady = Promise.all(Array.from({ length: N }, (_, i) => one(i).then(im => { PHOTOS[i] = im; })));
+// (fetched once the house's own photos are in, materials.js dressed, so as not to take their bandwidth)
+export const photosReady = dressed.then(() => Promise.all(Array.from({ length: N }, (_, i) => one(i).then(im => { PHOTOS[i] = im; }))));
 
 // A draw function for a frame: photo number k (0-based, wraps), cropped to fill, with a thin white border
 export function photoDraw(k, fallback) {

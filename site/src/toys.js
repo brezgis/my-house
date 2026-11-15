@@ -231,7 +231,8 @@ const PLACES = [
 ];
 function globe(ctx) {
   const G = new THREE.Vector3(4.7 - 21.665, F2 + 2.7, -21.0), R = 0.76;
-  const tex = new THREE.TextureLoader().load('assets/tex/globe_antique.jpg'); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  const tex = new THREE.TextureLoader(new THREE.LoadingManager()).load('assets/tex/globe_antique.jpg');      // (on a manager of its own: the threshold, main.js, need not wait for the globe)
+  tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
   const tilt = new THREE.Group(); tilt.position.copy(G); tilt.rotation.z = 0;                      // the stand holds it upright in a horizon ring
   const ball = new THREE.Mesh(new THREE.SphereGeometry(R, 40, 28), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55, metalness: 0, envMapIntensity: 0.3 }));
   ball.rotation.y = load('globe', 1.2); ball.receiveShadow = true; tilt.add(ball); tilt.userData.cat = 'extras'; ctx.scene.add(tilt); ctx.track?.(tilt, ctx.zoneAt?.(G.x, G.y, G.z, 1));

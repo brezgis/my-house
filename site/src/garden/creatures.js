@@ -14,6 +14,8 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+// (the animals load on a manager of their own: the threshold, main.js, waits on the default one, and should not wait for them)
+const AWAY = new THREE.LoadingManager();
 import { rng, cardMaterials, atlasTexture, cellUV } from './cards.js';
 import { at as pondAt, sAt as pondS } from './pond_shape.js';
 
@@ -26,7 +28,7 @@ export const ease = u => u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u);
 
 // ---- The crew: lazy loading, distance and hour gating, one think a quarter-second ----------
 export function creatureKit(ctx) {
-  const { scene, animated, day } = ctx, cam = ctx.camera.position, loader = new GLTFLoader();
+  const { scene, animated, day } = ctx, cam = ctx.camera.position, loader = new GLTFLoader(AWAY);
   const files = new Map(), meshes = new Map(), crew = [];
   // a prepared animal (glTF, metres, facing +z, feet at y = 0), fetched once
   const glb = id => {

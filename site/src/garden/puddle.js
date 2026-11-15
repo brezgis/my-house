@@ -5,6 +5,8 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+// (the animals load on a manager of their own: the threshold, main.js, waits on the default one, and should not wait for them)
+const AWAY = new THREE.LoadingManager();
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { rng } from './cards.js';
 
@@ -46,7 +48,7 @@ function puddleLife(ctx) {
   // the frog
   let frog = null, mode = 'sit', t0 = 0, clock = 0, fright = 0;
   const [sx, sz] = edge(SEAT, 1.22), [wx, wz] = edge(SEAT, 0.35), faceIn = Math.atan2(wx - sx, wz - sz);
-  new GLTFLoader().load('assets/models/v_frog/v_frog.glb', g => {
+  new GLTFLoader(AWAY).load('assets/models/v_frog/v_frog.glb', g => {
     frog = g.scene; frog.scale.setScalar(3.28084 * 1.2); frog.traverse(n => { if (n.isMesh) { n.castShadow = false; n.receiveShadow = true; } });
     frog.position.set(sx, 0.07, sz); frog.rotation.y = faceIn + 0.5; frog.name = 'puddle frog'; scene.add(frog);
   });

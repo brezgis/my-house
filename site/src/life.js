@@ -7,6 +7,7 @@ import { makeFlames, makeCandleFlame, NOISE } from './flame.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { shuffle } from './shuffle.js';
+import { dressed, lateTexture } from './engine/load.js';
 import { setupTaps } from './taps.js';
 
 const FT = 3.28084;
@@ -174,7 +175,10 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
   // Pictures and models load on a manager of their own, so the house appears (main.js waits
   // on the default manager: the house's own textures) without waiting for them.
   const lazy = new THREE.LoadingManager();
+  let streaming = false;      // models and pictures wait for the house's own photos (materials.js dressed)
   const texLoader = new THREE.TextureLoader(lazy);
+  // (a picture hung on its own: its texture is made at once, and its photo fetched once the place's own are in, materials.js dressed)
+  const late = (url, ready) => lateTexture(texLoader, url, ready);
 
   // ---- Books: real ones. Every spine is printed with a title from assets/books.json ----
   // Spines are drawn into a few shared sheets (512 to a sheet), and each sheet's
@@ -294,7 +298,7 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
       mesh = new THREE.Mesh(new THREE.PlaneGeometry(e.w, e.d), new THREE.MeshStandardMaterial({ map, color: 0xb0aaa0, roughness: 1, envMapIntensity: 0.08 }));
       mesh.rotation.x = -Math.PI / 2; mesh.receiveShadow = true;
     } else {
-      map = e.canvas ? canvas(e.canvas === 'chalk' ? 1300 : 900, e.canvas === 'chalk' ? 766 : e.canvas === 'imac' ? 680 : 540, DRAW[e.canvas]) : texLoader.load(`assets/art/${e.file}.jpg`, t => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; });
+      map = e.canvas ? canvas(e.canvas === 'chalk' ? 1300 : 900, e.canvas === 'chalk' ? 766 : e.canvas === 'imac' ? 680 : 540, DRAW[e.canvas]) : late(`assets/art/${e.file}.jpg`, t => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; });
       if (!e.canvas) map.colorSpace = THREE.SRGBColorSpace;
       const mat = new THREE.MeshStandardMaterial({ map, roughness: e.canvas === 'chalk' ? 0.95 : 0.6, envMapIntensity: 0.15 });
       e.map = map;      // kept so that a screen can be redrawn (hands.js)
@@ -336,7 +340,21 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
     });
     return { geo: mergeGeometries(geos), tex };
   }
+  // A room's signs (and its paintings) go on sheets of at most SHEET_PX pixels, about two million: one big sheet went to
+  // the graphics card in a single long frame the first time its room was seen, a stumble on walking in (as in the lab's
+  // Stair Hall, where one was ten million pixels and 80 ms). Split, the pieces go a frame each.
+  const SHEET_PX = 1536 * 1536;
+  const sheetParts = [];
   for (const [key, list] of sheets) {
+    let part = [], px = 0;
+    for (const it of [...list].sort((a, b) => b.c.height - a.c.height)) {
+      const a = (it.c.width + 6) * (it.c.height + 6);
+      if (px + a > SHEET_PX * 0.8 && part.length) { sheetParts.push([key, part]); part = []; px = 0; }
+      part.push(it); px += a;
+    }
+    if (part.length) sheetParts.push([key, part]);
+  }
+  for (const [key, list] of sheetParts) {
     const [zone, kind, rough] = key.split('|');
     const { geo, tex } = packSheet(list);
     const mat = kind === 'rug' ? new THREE.MeshStandardMaterial({ map: tex, color: 0xb0aaa0, roughness: 1, envMapIntensity: 0.08 }) : new THREE.MeshStandardMaterial({ map: tex, roughness: Number(rough), envMapIntensity: 0.15, ...DECAL });
@@ -359,11 +377,33 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
   const artScale = quality.tex === 'half' ? 0.55 : quality.tex === 'detail' ? 0.72 : 1;
   const artSize = img => { if (artScale === 1) return img; const c = document.createElement('canvas'); c.width = Math.round(img.width * artScale); c.height = Math.round(img.height * artScale); const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(img, 0, 0, c.width, c.height); return c; };
   const imgLoader = new THREE.ImageLoader(lazy), maxTex = Math.min(8192, renderer.capabilities.maxTextureSize);
+  // Each picture is fetched once (however many walls hang it), nearest the visitor first and six at a time, and only once
+  // the house's own photos are in (materials.js dressed): every room's paintings used to be asked for all at once at
+  // start-up, and took the bandwidth the house itself was waiting for.
+  const pictures = new Map(), picQueue = [];
+  let picLoading = 0;
+  function picture(e) {
+    let p = pictures.get(e.file);
+    if (!p) { let job; p = new Promise(ok => { job = { file: e.file, at: [], ok }; }); picQueue.push(job); pictures.set(e.file, p); p.job = job; }
+    if (p.job) p.job.at.push(e);
+    return p;
+  }
+  function pumpPictures() {
+    if (!streaming) return;
+    const c = camera.position;
+    while (picLoading < 6 && picQueue.length) {
+      let bi = 0, bd = Infinity;
+      for (let i = 0; i < picQueue.length; i++) for (const e of picQueue[i].at) { const d = Math.hypot(e.x - c.x, e.z - c.z) + Math.abs(e.y - c.y) * 3; if (d < bd) { bd = d; bi = i; } }
+      const [job] = picQueue.splice(bi, 1); picLoading++;
+      const done = img => { picLoading--; pictures.get(job.file).job = null; job.ok(img); pumpPictures(); };
+      imgLoader.load(`assets/art/${job.file}.jpg`, done, undefined, () => done(null));
+    }
+  }
   for (const [zone, list] of art) {
-    Promise.all(list.map(e => new Promise(ok => imgLoader.load(`assets/art/${e.file}.jpg`, img => ok({ e, c: artSize(img), w: e.w, h: e.h }), undefined, () => ok(null))))).then(items => {
+    Promise.all(list.map(e => picture(e).then(img => img && { e, c: artSize(img), w: e.w, h: e.h }))).then(items => {
       items = items.filter(Boolean);
       const groups = [[]]; let h = 0;
-      for (const it of items.sort((a, b) => b.c.height - a.c.height)) { if (h + it.c.height > maxTex * 0.9 && groups.at(-1).length) { groups.push([]); h = 0; } groups.at(-1).push(it); h += it.c.height / 2; }
+      let px = 0; for (const it of items.sort((a, b) => b.c.height - a.c.height)) { const a = (it.c.width + 6) * (it.c.height + 6); if ((h + it.c.height > maxTex * 0.9 || px + a > SHEET_PX * 0.8) && groups.at(-1).length) { groups.push([]); h = 0; px = 0; } groups.at(-1).push(it); h += it.c.height / 2; px += a; }      // (no sheet over SHEET_PX: above)
       for (const g of groups) {
         if (!g.length) continue;
         const { geo, tex } = packSheet(g);
@@ -416,6 +456,7 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
   let active = 0, left = queue.length;
   const MAXLOAD = 4;
   function pump() {
+    if (!streaming) return;
     while (active < MAXLOAD) {
       const p = camera.position; let best = null, score = Infinity;
       for (const q of queue) {
@@ -458,6 +499,8 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
     if (m.seat) seats.push({ x: m.x, y: m.y + m.seat + 2.45, z: m.z, yaw: m.rotY + Math.PI, label: 'sit' });
   }
   if (queue.length) pump(); else Promise.resolve().then(() => onChange());
+  // (models and pictures begin once the house's own photos are in, materials.js `dressed`; by then main.js has put the camera where the visitor arrives)
+  dressed.then(() => { streaming = true; pumpPictures(); pump(); });
 
   // ---- Doors: shut when you arrive, opened and closed by hand ------------------------------
   // Every door's copper handle is one instance of a single mesh, moved with its door each frame

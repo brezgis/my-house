@@ -353,7 +353,7 @@ export function pondLife(ctx, K) {
   // ---- Two mallards (village animal models) about the willow end. They paddle from place to place, keep their
   // distance from anyone close by, dabble, up-end and preen, and sleep by the reeds after dark; each draws a little
   // wake. Live positions in window.__pond.ducks (the ducklings in creatures_more.js follow the brown one).
-  const FT = 3.28084, loader = new GLTFLoader();
+  const FT = 3.28084, loader = new GLTFLoader(new THREE.LoadingManager());      // (the pond's creatures load on a manager of their own: the threshold, main.js, waits on the default one)
   const glb = id => new Promise((ok, bad) => loader.load(`assets/models/${id}/${id}.glb`, g => ok(g.scene), undefined, bad));
   const prep = (o, s, tint) => { o.scale.setScalar(FT * s); o.traverse(n => { if (n.isMesh) { n.castShadow = false; n.receiveShadow = true; if (tint) { n.material = n.material.clone(); n.material.color.multiply(new THREE.Color(tint)); } } }); return o; };
   const awake = () => !freeze && scene.visible && Math.hypot(cam.x - P.x, cam.z - P.z) < 110;      // nothing moves while nobody is near the pond

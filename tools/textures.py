@@ -30,7 +30,8 @@ def half():
         im = Image.open(os.path.join(src, f)); w, h = im.size
         out = os.path.join(dst, f)
         if os.path.exists(out) and os.path.getmtime(out) > os.path.getmtime(os.path.join(src, f)): continue
-        im.resize((max(1, w // 2), max(1, h // 2)), Image.LANCZOS).save(out, quality=90, optimize=True)
+        kind = f[:-4].rsplit('_', 1)[-1]      # (the qualities tools/tex512.py gives each kind of map: see there)
+        im.convert('RGB').resize((max(1, w // 2), max(1, h // 2)), Image.LANCZOS).save(out, 'JPEG', quality={'color': 80, 'normal': 85, 'rough': 75}.get(kind, 85), optimize=True, progressive=True)
         n += 1
     print('half-size copies written:', n)
 

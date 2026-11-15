@@ -15,4 +15,5 @@ for q in "at=hall&time=14" "view=0,1.6,-9,0,-0.05&time=21&welcome=new" "at=pond&
   if [ -n "$err" ] || [ "$size" -lt 200000 ]; then bad=1; echo "FAIL  $q  (picture $size bytes)"; echo "$err" | cut -c1-260; else echo "ok    $q  ($size bytes)"; fi
 done
 kill $SRV 2>/dev/null; rm -rf "$D"
+python3 "$(dirname "$0")/preload.py" --check || bad=1      # (the module list in index.html: tools/preload.py)
 [ $bad = 0 ] && echo "PRECHECK PASSED" || { echo "PRECHECK FAILED"; exit 1; }

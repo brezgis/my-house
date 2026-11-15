@@ -19,6 +19,8 @@
 import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+// (the animals load on a manager of their own: the threshold, main.js, waits on the default one, and should not wait for them)
+const AWAY = new THREE.LoadingManager();
 import { POND } from './pond_shape.js';
 import { rng } from './koi_school.js';
 import { sink, U } from './pond_water.js';
@@ -229,7 +231,7 @@ export function makeKoi(cast) {
     sink(sh, { caustics: 0.9, fade: 'vDist' });
   };
   mat.customProgramCacheKey = () => 'koi' + N;
-  return new GLTFLoader().loadAsync('assets/models/v_fish_rudd/v_koi_still.glb').then(gltf => {
+  return new GLTFLoader(AWAY).loadAsync('assets/models/v_fish_rudd/v_koi_still.glb').then(gltf => {
     const geo = koiGeometry(gltf);
     const swim = new THREE.InstancedBufferAttribute(arr(4), 4); swim.setUsage(THREE.DynamicDrawUsage); geo.setAttribute('aSwim', swim);
     const mesh = new THREE.InstancedMesh(geo, mat, N); mesh.name = 'koi'; mesh.frustumCulled = false; mesh.castShadow = false; mesh.receiveShadow = false; mesh.renderOrder = 42;
