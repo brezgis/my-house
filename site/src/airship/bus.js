@@ -8,7 +8,7 @@
 // out of, panelled walls, a ribbed floor, hand-straps, a map of the line, a brass rail, a ticket machine (the fare is a nice thought), and a mirror in which the bus's
 // eyes look back at you. No driver, no wheel, no driver's seat: she drives herself, and you can walk about in her.
 //
-// Shared by Anna's House and Vesper Street: it imports nothing but three. ONE draw call: every part is
+// Shared by Anna's House, Vesper Street and Cloud Spring Harbor: it imports nothing but three. ONE draw call: every part is
 // one merged, vertex-coloured mesh with one small canvas (512 x 512: the face, the blind, the lettering,
 // the mirror, the ticket screen, the stop sign) as its texture; the moving parts (propellers, door
 // leaves, stop arm, hands) are turned in the vertex shader, and the lamps, ring and screens glow by an
@@ -24,12 +24,14 @@
 //   bus.seats: every place to sit (a passenger's eye in the bus's frame); bus.door: the far end of the gangplank
 //   bus.hold(p, doorOpen), bus.deckY(p), bus.onPlank(p): where a visitor walking about aboard can stand (ride.js)
 //   options: plank (the gangplank's length), drop (how far its far end comes down: 0 where she hovers beside a lawn,
-//   bus.wheel less the kerb's height where she stands on her wheels in a road)
+//   bus.wheel less the kerb's height where she stands on her wheels in a road), stops (the stops lettered on her
+//   route map and her suitcase, in the line's order: [{ name, sticker, ink }, ...], from line.js's lineAt(here).map;
+//   left out, or only two, the map is the old one of the house and the town)
 
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
-// ---- the name and the lines (both places use these; each place adds its own) ----------------------
+// ---- the name and the lines (every place uses these; each place adds its own) ----------------------
 export const DANDELION = {
   name: 'Dandelion', line: 6, ring: 0xa8d8ff,
   lines: {
@@ -59,7 +61,8 @@ const REG = {
 const YELLOW = '#f3b21b', BLACK = '#1d1b1a', CREAM = '#efe4cf', BRASS = '#c9a45c', GREEN = '#2f6048', GREEN2 = '#264d3a', SILVER = '#bdbdb4', GLASS = '#1b2a30', ROPE = '#a8956c';
 const FONT = '"Arial Narrow", "Helvetica Neue", Arial, sans-serif', SERIF = 'Georgia, "Times New Roman", serif';
 
-export function buildBus({ ring = DANDELION.ring, name = DANDELION.name, plank = 8, drop = 0 } = {}) {
+export function buildBus({ ring = DANDELION.ring, name = DANDELION.name, plank = 8, drop = 0, stops = null } = {}) {
+  const three = stops?.length === 3 ? stops : null;      // all three stops on the line; otherwise the house and the town, as it was
   // ---- the canvas -------------------------------------------------------------------------------
   const cv = document.createElement('canvas'); cv.width = cv.height = S; const g = cv.getContext('2d');
   const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
@@ -101,12 +104,20 @@ export function buildBus({ ring = DANDELION.ring, name = DANDELION.name, plank =
     { const [x0, y0, x1, y1] = REG.map, w = x1 - x0, h = y1 - y0, my = y0 + h * 0.42; g.fillStyle = '#efe6d0'; g.fillRect(x0, y0, w, h); g.fillStyle = '#2f4a40'; g.fillRect(x0, y0, 70, h);
       g.fillStyle = '#efe6d0'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `bold 13px ${FONT}`; g.fillText('LINE', x0 + 35, y0 + 18); g.font = `bold 30px ${SERIF}`; g.fillText('6', x0 + 35, y0 + 44);
       g.strokeStyle = '#2f4a40'; g.lineWidth = 5; g.beginPath(); g.moveTo(x0 + 100, my); g.lineTo(x0 + 470, my); g.stroke();
+      if (three) {
+        // three stops in the line's order, a cloud between each and the next (and one more, unseen, from the last round to the first)
+        g.setLineDash([5, 5]); g.lineWidth = 3; g.strokeStyle = '#a8361f'; g.beginPath(); for (const x of [158, 343]) { g.moveTo(x0 + x, my); g.lineTo(x0 + x + 70, my); } g.stroke(); g.setLineDash([]);
+        g.fillStyle = '#2a1c13'; g.font = `italic 11px ${SERIF}`; for (const x of [193, 378]) g.fillText('the clouds', x0 + x, my - 13);
+        three.forEach((s, i) => { const x = 100 + i * 185;
+          g.fillStyle = '#efe6d0'; g.strokeStyle = s.ink ?? '#24382f'; g.lineWidth = 4; g.beginPath(); g.arc(x0 + x, my, 8, 0, 7); g.fill(); g.stroke();
+          g.fillStyle = '#2a1c13'; g.font = `italic bold 13px ${SERIF}`; g.fillText(s.name, x0 + Math.min(x, 430), y0 + h - 12); });
+      } else {
       g.lineWidth = 3; g.beginPath(); g.ellipse(x0 + 200, my - 1, 34, 13, 0, 0, 7); g.stroke();                                    // the loop round the island
       g.setLineDash([5, 5]); g.strokeStyle = '#a8361f'; g.beginPath(); g.moveTo(x0 + 300, my); g.lineTo(x0 + 400, my); g.stroke(); g.setLineDash([]);
       for (const [x, label, col] of [[100, 'Anna’s House', '#a8361f'], [200, 'round the island', null], [350, 'the clouds', null], [470, 'Vesper Street', '#24382f']]) {
         if (col) { g.fillStyle = '#efe6d0'; g.strokeStyle = col; g.lineWidth = 4; g.beginPath(); g.arc(x0 + x, my, 8, 0, 7); g.fill(); g.stroke(); }
         g.fillStyle = '#2a1c13'; g.font = `${col ? 'italic bold ' : 'italic '}13px ${SERIF}`; g.fillText(label, x0 + Math.min(x, 430), y0 + h - 12);
-      } }
+      } } }
     { const [x0, y0, x1, y1] = REG.white; g.fillStyle = '#ffffff'; g.fillRect(x0, y0, x1 - x0, y1 - y0); }
     const txt = (t, x, y, size, col, font = SERIF, style = '') => { g.fillStyle = col; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `${style}${size}px ${font}`; g.fillText(t, x, y); };
     { const [x0, y0, x1, y1] = REG.notice, w = x1 - x0, h = y1 - y0; g.fillStyle = '#efe6d0'; g.fillRect(x0, y0, w, h); g.strokeStyle = '#a8361f'; g.lineWidth = 4; g.strokeRect(x0 + 4, y0 + 4, w - 8, h - 8);      // the town's notice, copied out
@@ -128,7 +139,10 @@ export function buildBus({ ring = DANDELION.ring, name = DANDELION.name, plank =
       g.fillStyle = '#183a28'; for (let i = 0; i < w; i += 16) for (let j = 0; j <= h; j += 16) { g.beginPath(); g.arc(x0 + i, y0 + j, 1.8, 0, 7); g.fill(); } }
     { const [x0, y0, x1, y1] = REG.suitcase, w = x1 - x0, h = y1 - y0; g.fillStyle = '#9a6a3a'; g.fillRect(x0, y0, w, h); g.fillStyle = '#6b4424'; for (const x of [0.28, 0.72]) g.fillRect(x0 + w * x - 3, y0, 6, h);      // a well-travelled suitcase
       const sticker = (x, y, wd, ht, bg, fg, t, round) => { g.fillStyle = bg; g.beginPath(); round ? g.ellipse(x0 + x, y0 + y, wd / 2, ht / 2, 0, 0, 7) : g.rect(x0 + x - wd / 2, y0 + y - ht / 2, wd, ht); g.fill(); txt(t, x0 + x, y0 + y, 8, fg, FONT, 'bold '); };
-      sticker(30, 20, 46, 18, '#2f4a40', '#efe6d0', 'VESPER ST.'); sticker(96, 44, 52, 22, '#efe6d0', '#a8361f', 'ANNA’S HOUSE', true); sticker(118, 16, 30, 22, '#f3b21b', '#1d1b1a', 'LINE 6', true); sticker(40, 48, 40, 16, '#a8361f', '#efe6d0', 'ELSEWHERE?'); }
+      sticker(30, 20, 46, 18, '#2f4a40', '#efe6d0', 'VESPER ST.'); sticker(96, 44, 52, 22, '#efe6d0', '#a8361f', 'ANNA’S HOUSE', true);
+      if (three) { sticker(82, 17, 54, 16, three[2].ink ?? '#2b4a66', '#efe6d0', three[2].sticker ?? three[2].name.toUpperCase()); sticker(127, 15, 28, 20, '#f3b21b', '#1d1b1a', 'LINE 6', true); }      // the third stop's, and the line's own moved up to make room
+      else sticker(118, 16, 30, 22, '#f3b21b', '#1d1b1a', 'LINE 6', true);
+      sticker(40, 48, 40, 16, '#a8361f', '#efe6d0', 'ELSEWHERE?'); }
     { const [x0, y0, x1, y1] = REG.side, w = x1 - x0, h = y1 - y0; g.fillStyle = YELLOW; g.fillRect(x0, y0, w, h); g.fillStyle = BLACK; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `bold ${h * 0.5}px ${FONT}`;
       const t = `${name.toUpperCase()}  ·  LINE ${DANDELION.line}`; if ('letterSpacing' in g) g.letterSpacing = '3px'; g.fillText(t, x0 + w / 2, y0 + h / 2 + 2); if ('letterSpacing' in g) g.letterSpacing = '0px'; }
     { const [x0, y0, x1, y1] = REG.six, w = x1 - x0, cx = x0 + w / 2, cy = y0 + w / 2; g.fillStyle = YELLOW; g.fillRect(x0, y0, w, x1 - x0);

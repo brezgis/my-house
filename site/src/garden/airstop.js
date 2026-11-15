@@ -4,18 +4,22 @@
 // small enamel timetable plate, a ribbon of a windsock tied to the top, and one tiny lantern. On the
 // ground nothing but a patch worn in the grass and three flat stones. Dandelion does the rest herself:
 // she comes down level with the lawn just off the brink and runs out her own gangplank to the grass.
-// The other end of the line is the Landing on Vesper Street (~/projects/town_walk places.js), which
+// The next stop on the line is the Landing on Vesper Street (~/projects/town_walk places.js), which
 // has the full mast, shelter and boards; this post answers it in the same colours and the same hand.
+// The one after is the Landing at Cloud Spring Harbor (~/projects/school airline.js), and then round to here again.
 //
-// The bus and its flying are shared with the town (airship/bus.js, airship/ride.js); what is this island's
-// is here: where the stop stands, the paths in and out, the pleasure flight round the island and what
-// Dandelion points out on it.
+// The bus and its flying are shared with the town and the school (airship/bus.js, airship/ride.js); what is
+// this island's is here: where the stop stands, the paths in and out, the pleasure flight round the island
+// and what Dandelion points out on it.
 //
-// TRANSIT.town is the town's address. While it is empty the bus only goes round the island; with an
-// address, boarding flies out into the clouds and on to TRANSIT.town + '?from=house' (with &time= if the
-// visitor has moved the hour here, &quality= if they chose one). A visitor from the town comes with
-// ?from=town (or ?from=vesper) and starts aboard, coming down out of cloud to the brink (main.js puts
-// them in walking view; arrive() below does the rest), and steps off onto the lawn by the post.
+// The addresses of the stops are all in one table, airship/line.js; LINE below is the line as it is from here.
+// With nowhere to go the bus only goes round the island; with somewhere, boarding flies out into the clouds
+// and on to that stop's address + '?from=house' (with &time= if the visitor has moved the hour here,
+// &quality= if they chose one). With two places to go (as now), she is bound for
+// Vesper Street, and ringing the bell again while she stands turns her blind to Cloud Spring Harbor (ride.js).
+// A visitor from another stop comes with ?from=town (or ?from=vesper) or ?from=harbor (or ?from=school) and
+// starts aboard, coming down out of cloud to the brink (main.js puts them in walking view; arrive() below
+// does the rest), and steps off onto the lawn by the post.
 //
 // Test hooks: ?airship=docked | coming:0.5 | tour:0.4 | pass:0.5 | arrive:0.6 (with a ?view= for walking).
 // Cost: the post is in the garden's shared painted mesh, its flag and plate in the garden's label sheet
@@ -27,8 +31,9 @@ import { GLOW_WARM } from './tools.js';
 import { wind, rng } from './cards.js';
 import { makeAirship } from '../airship/ride.js';
 import { DANDELION } from '../airship/bus.js';
+import { lineAt } from '../airship/line.js';
 
-export const TRANSIT = { town: 'https://town.brezgis.com/site/' };       // the town's address; empty: the line is not running yet
+const LINE = lineAt('house');       // where she goes from here, and where this visitor has come from (the addresses are in airship/line.js)
 
 const Q = new URLSearchParams(location.search);
 const LINE_HEX = '#2f4a40', IRON = 'c#3b3a35/0.6', RUST = 'c#6b4a32/0.9', BRASS = 'c#b89148/0.4';
@@ -45,7 +50,7 @@ const LINEUP = [[46, 6, 122.3], [24, 1.5, 122.15]];
 
 // ---- the stop, laid out with the garden's kit ---------------------------------------------------------
 export function buildAirstop(K) {
-  const r = rng(606), open = !!TRANSIT.town, { x: px, z: pz, top } = POST;
+  const r = rng(606), open = LINE.to.length > 0, { x: px, z: pz, top } = POST;
   const keep = (x0, x1, z0, z1) => (K.F.keepOut ??= []).push([x0, x1, z0, z1]);
   keep(-2.5, 3.5, 103.5, 112); keep(px - 1.2, px + 1.2, pz - 1.2, pz + 1.2);
   for (let i = K.trees.length - 1; i >= 0; i--) { const t = K.trees[i]; if (t.x > -34 && t.x < 24 && t.z > 82 && !t.y) K.trees.splice(i, 1); }      // nothing grows up into the bus's way
@@ -70,7 +75,7 @@ export function buildAirstop(K) {
     g.fillStyle = '#efe6d0'; g.beginPath(); g.arc(c, c * 1.1, c * 0.55, 0, 7); g.fill();
     T(g, 'AIRSHIP', c, c * 0.36, c * 0.2, '#efe6d0', { f: COND, ls: 4, b: 1 });
     T(g, '6', c, c * 1.12, c * 0.72, '#1d1b1a', { f: SERIF, b: 1 });
-    T(g, open ? 'Vesper St.' : 'request stop', c, c * 1.8, c * 0.12, '#d2ae62', { f: TYPE });
+    T(g, LINE.to.length === 1 ? 'Vesper St.' : 'request stop', c, c * 1.8, c * 0.12, '#d2ae62', { f: TYPE });
   };
   for (const [dz, rotY] of [[-0.035, Math.PI], [0.035, 0]]) K.extras.push({ draw: flag, cw: 256, ch: 256, w: 1.2, h: 1.2, round: true, x: px + 0.68, y: top - 0.6, z: pz + dz, rotY, rough: 0.9 });
   K.box(IRON, px, px + 0.1, top - 0.66, top - 0.54, pz - 0.03, pz + 0.03);      // the flag stands off the post on a little lug
@@ -79,8 +84,8 @@ export function buildAirstop(K) {
   K.extras.push({ draw: (g, w, h) => {
     g.fillStyle = '#efe6d0'; g.fillRect(0, 0, w, h); g.strokeStyle = LINE_HEX; g.lineWidth = 6; g.strokeRect(5, 5, w - 10, h - 10);
     g.fillStyle = LINE_HEX; g.fillRect(5, 5, w - 10, h * 0.17); T(g, 'LINE 6  ·  ANNA’S HOUSE', w / 2, h * 0.095, h * 0.06, '#efe6d0', { f: COND, ls: 1, b: 1 });
-    const rows = open ? [['to', 'Vesper Street'], ['arrives', 'when rung'], ['departs', 'when aboard'], ['journey', 'one cloud'], ['fare', 'a nice thought']] : [['arrives', 'when rung'], ['today', 'round the island'], ['Vesper St.', 'soon'], ['fare', 'a nice thought']];
-    rows.forEach(([a, b], i) => { const yy = h * (0.285 + i * (rows.length > 4 ? 0.112 : 0.13)); T(g, a, w * 0.09, yy, h * 0.045, '#2a1c13', { f: TYPE, a: 'left' }); T(g, b, w * 0.91, yy, h * 0.045, '#2a1c13', { f: TYPE, a: 'right' }); g.strokeStyle = 'rgba(42,28,19,.25)'; g.lineWidth = 1; g.beginPath(); g.moveTo(w * 0.09, yy + h * 0.045); g.lineTo(w * 0.91, yy + h * 0.045); g.stroke(); });
+    const rows = open ? LINE.rows : [['arrives', 'when rung'], ['today', 'round the island'], ['Vesper St.', 'soon'], ['fare', 'a nice thought']];
+    rows.forEach(([a, b], i) => { const yy = h * (0.285 + i * (rows.length > 5 ? 0.083 : rows.length > 4 ? 0.112 : 0.13)); T(g, a, w * 0.09, yy, h * 0.045, '#2a1c13', { f: TYPE, a: 'left' }); T(g, b, w * 0.91, yy, h * 0.045, '#2a1c13', { f: TYPE, a: 'right' }); g.strokeStyle = 'rgba(42,28,19,.25)'; g.lineWidth = 1; g.beginPath(); g.moveTo(w * 0.09, yy + h * 0.045); g.lineTo(w * 0.91, yy + h * 0.045); g.stroke(); });
     T(g, 'Please keep your hands inside the sky.', w / 2, h * 0.86, h * 0.042, '#a8361f', { f: SERIF, it: 1 });
     for (const [x, y] of [[14, 14], [w - 14, 14], [14, h - 14], [w - 14, h - 14]]) { g.fillStyle = '#8a8478'; g.beginPath(); g.arc(x, y, 4, 0, 7); g.fill(); }      // its four screws
   }, cw: 220, ch: 300, w: 0.84, h: 1.15, x: px, y: 4.38, z: pz - 0.11, rotY: Math.PI, rough: 0.9 });
@@ -144,8 +149,8 @@ export function airstopLife(ctx, K) {
       { p: [95, 105, 105], say: 'And the house. Somebody has left a light on. Somebody always does.' },
       { p: [78, 42, 132] }, ...LINEUP.map(p => ({ p })),
     ],
-    transit: { url: TRANSIT.town, cloud: [[-40, 14, 127], [-150, 90, 285], [-330, 260, 620], [-520, 470, 980]], query: () => {
-      let q = '?from=house'; const H = window.house;
+    transit: { stops: LINE.to, cloud: [[-40, 14, 127], [-150, 90, 285], [-330, 260, 620], [-520, 470, 980]], query: () => {
+      let q = LINE.query; const H = window.house;
       if (H && (Q.has('time') || (h0 !== null && Math.abs(H.hour - h0) > 0.01))) q += `&time=${(((H.hour % 24) + 24) % 24).toFixed(2)}`;
       const qv = H?.quality?.get?.(); if (['low', 'medium', 'high'].includes(qv)) q += `&quality=${qv}`;
       return q;
@@ -156,13 +161,13 @@ export function airstopLife(ctx, K) {
     secs: { tour: 115 },
     lines: { welcome: ['Anna’s House. The bungalow under the oaks. Mind the step.'] },
     lookOnBoard: -1.4, pitchOnBoard: -0.2, pitchOnTour: -0.62, lookOnArrive: -1.3, pitchOnArrive: -0.35,      // aboard, the window on the island side; aloft, the view tips down to it
-    say, hint, bus: { plank: 9, drop: 0 },
+    say, hint, bus: { plank: 9, drop: 0, stops: LINE.map },
     hintAboard: 'Esc · back to the stop · any step stands you up, and you can walk about',
     onStart: () => { h0 = window.house?.hour ?? null; },
   });
   window.__airship = air;
 
-  ctx.interact.push({ x: BELL.x, y: BELL.y - 0.2, z: BELL.z, reach: 7, size: 0.9, label: () => 'ring for the airship', act: () => {
+  ctx.interact.push({ x: BELL.x, y: BELL.y - 0.2, z: BELL.z, reach: 7, size: 0.9, label: () => (air.other ? `ring for ${air.other.name}` : 'ring for the airship'), act: () => {
     ctx.sound?.note?.(81, 0, 2.4, 0.2); ctx.sound?.note?.(88, 0.02, 2.0, 0.08); swingV += 2.4;
     const r = air.call();
     if (r === 'rung') toast('The bell rings out across the sky. Somewhere, something yellow turns round.');
@@ -176,9 +181,9 @@ export function airstopLife(ctx, K) {
     if (hintText) { const root = window.house?.ctx; if (root && root.hint !== mine) { prev = root.hint; root.hint = mine; } }      // toys.js may have set its own since
   });
 
-  // a visitor from Vesper Street arrives aboard; test views
-  const from = Q.get('from'), stage = Q.get('airship');
-  if (from === 'town' || from === 'vesper') setTimeout(() => air.arrive(), 0);
+  // a visitor from Vesper Street or Cloud Spring Harbor arrives aboard; test views
+  const stage = Q.get('airship');
+  if (LINE.from) setTimeout(() => air.arrive(), 0);
   else if (stage) setTimeout(() => { const [n, k] = stage.split(':'); air.stage(n, Number(k ?? 0.5)); }, 0);
 }
 

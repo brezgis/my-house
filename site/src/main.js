@@ -262,7 +262,7 @@ else if (Q.has('view')) {
   walk(false); walker.place(x, y, z, yaw, pitch);
 }
 if (Q.has('view') && Q.has('open')) for (const d of house.doors) if (!d.fixed) { d.isOpen = true; d.stop.off = true; }
-if (!Q.has('view') && /^(town|vesper)$/.test(Q.get('from') ?? '')) walk(false);      // off the airship from Vesper Street: no welcome card; the ride in sets you down at the stop (garden/airstop.js)
+if (!Q.has('view') && /^(town|vesper|harbor|school)$/.test(Q.get('from') ?? '')) walk(false);      // off the airship from Vesper Street or Cloud Spring Harbor: no welcome card; the ride in sets you down at the stop (garden/airstop.js)
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();

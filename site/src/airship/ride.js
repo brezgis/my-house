@@ -1,12 +1,15 @@
 // Flying the airship (bus.js) with or without the visitor aboard: called by a bell, coming in from far
 // off across the sky, docking at a stage, taking the visitor on a pleasure flight and back, or out into
 // a cloud bank and on to another place; arriving from another place; drifting past in the distance now
-// and then when nobody has rung. Shared by Anna's House and Vesper Street: it imports three and bus.js
-// only, and everything about the place (the dock, the paths, the alighting point, what is said) comes
-// in as data.
+// and then when nobody has rung. Shared by Anna's House, Vesper Street and Cloud Spring Harbor: it imports three
+// and bus.js only, and everything about the place (the dock, the paths, the alighting point, what is
+// said, where the line goes from here: see line.js) comes in as data.
 //
 //   const air = makeAirship(ctx, data)      (it pushes its own per-frame step onto ctx.animated)
-//   air.call()      ring for it
+//   air.call()      ring for it. Where she can go to more than one place from here (transit.stops), ringing again
+//                   while she stands at the stop with nobody aboard turns her blind to the next of them ('turned')
+//   air.bound       the stop she is bound for ({ name, blind, url, ... } from transit.stops), or null
+//   air.other       the stop a ring would turn her blind to just now, or null (for the bell's label)
 //   Boarding is on foot: while she is docked with her door open, walk up her gangplank. Once you are inside she
 //   shuts the door and goes. Aboard you can walk about, stand at the front, or sit on any bench (E), also in flight;
 //   back at the stop the door opens and you walk off when you like.
@@ -24,14 +27,19 @@
 //
 // data:
 //   dock:   { x, y, z, yaw }   the bus's pose at the stage (y = its cabin floor: where she stands on a road, the road
-//                              plus bus.wheel; yaw as an Object3D's, a multiple of a quarter turn: forward is (sin yaw, cos yaw))
+//                              plus bus.wheel; yaw as an Object3D's: forward is (sin yaw, cos yaw). At a quarter turn her
+//                              hull is a box among the walker's colliders; at any other heading the walker is held off
+//                              her in her own frame instead)
 //   alight: { x, y, z, yaw }   where the visitor is set down if they leave walking view while aboard (walker feet; yaw as walk.js)
 //   approach: [[x,y,z], ...]   from far off to just short of the dock, the last points in line with the dock's yaw
 //   lineup:   how many of approach's last points she flies through when coming back early (default 2)
 //   leave:    [[x,y,z], ...]   from just past the dock away out of sight
 //   tour:     [{ p: [x,y,z], say: 'text' }, ...] or null: a pleasure flight from the dock and back (end it in line with the dock)
 //   transit:  { url: '', query: () => '?from=house', cloud: [[x,y,z], ...] }: when url is set, boarding flies the
-//             cloud path, whites out and goes to url + query(); with no url, never
+//             cloud path, whites out and goes to url + query(); with no url, never.
+//             Or, for a stop with more than one place to go: { stops: [{ name, blind, url }, ...], query: stop => '?from=..',
+//             cloud }: she is bound for the first; ringing again while she stands turns her blind to the next, and
+//             round. (stops may be a getter: it is read afresh each time. Empty: she only goes round the island.)
 //   arrive:   [[x,y,z], ...]   from inside a cloud to just short of the dock (for a visitor from the other place)
 //   passes:   [[[x,y,z], ...], ...] far-off paths for the fly-past; firstPass, passEvery: [min, max] seconds
 //   blind:    { tour, transit, home }   what the destination blind reads
@@ -39,6 +47,10 @@
 //   hint(text|null)    optional: what to show while aboard; onDock(open) optional: the stage's gate
 //   secs:     { approach, tour, transit, arrive, leave, pass, dwell } seconds (defaults below)
 //   bus:      options for buildBus (e.g. { plank: 9, drop: 0 }: the gangplank's length, and how far it slopes down to the ground)
+//   steady:   optional, for a stop she must come down to and go up from steeply: true, or { level: [0.6, 9], heading:
+//             [14, 22], within: 60 } (feet above the dock, and feet from it across the ground). Below level[1] her nose
+//             and bank are eased out, to nothing at level[0]; below heading[1] she is eased round to the dock's
+//             heading, and holds it below heading[0]. Left out, she flies as her path slopes until the instant she arrives.
 
 import * as THREE from 'three';
 import { buildBus, DANDELION } from './bus.js';
@@ -49,7 +61,14 @@ const wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
 
 // ---- Flight: moves an object along a smooth path, nose along the way, banking into turns ------------
 export class Flight {
-  constructor(obj) { this.obj = obj; this.leg = null; this.yaw = obj.rotation.y; this.roll = 0; this.pitch = 0; }
+  constructor(obj) { this.obj = obj; this.leg = null; this.yaw = obj.rotation.y; this.roll = 0; this.pitch = 0; this.steady = null; }
+  // near the ground at a steep stop (data.steady): level, and on the stop's heading
+  settle() {
+    const S = this.steady; if (!S) return;
+    const p = this.obj.position, h = p.y - S.y; if (h >= S.heading[1] || Math.hypot(p.x - S.x, p.z - S.z) >= S.within) return;
+    const s = k => smooth(Math.max(0, Math.min(1, k))), f = s((h - S.level[0]) / (S.level[1] - S.level[0])), y = s((h - S.heading[0]) / (S.heading[1] - S.heading[0]));
+    this.pitch *= f; this.roll *= f; this.yaw = S.yaw + wrap(this.yaw - S.yaw) * y; this.apply();
+  }
   place(p) { this.leg = null; this.obj.position.set(p.x, p.y, p.z); this.yaw = p.yaw ?? this.yaw; this.roll = this.pitch = 0; this.apply(); }
   apply() { this.obj.rotation.set(this.pitch, this.yaw, this.roll, 'YXZ'); this.obj.updateMatrixWorld(); }
   // points: where to go from here; the path starts where the object now is
@@ -65,7 +84,8 @@ export class Flight {
   static fractions(curve, n) { const L = curve.getLengths(400), tot = L.at(-1); return Array.from({ length: n }, (_, i) => L[Math.round((i / (n - 1)) * 400)] / tot); }
   seek(k) { if (this.leg) { this.leg.t = k * this.leg.secs; for (const m of this.leg.marks) if (m.u <= this.leg.ease(k)) m.done = true; this.update(0, true); } }
   get k() { return this.leg ? this.leg.k : 1; }
-  update(dt, snap = false) {
+  update(dt, snap = false) { this.advance(dt, snap); this.settle(); }
+  advance(dt, snap) {
     const L = this.leg; if (!L) return;
     L.t += dt; const k = Math.min(1, L.t / L.secs), u = Math.min(1, Math.max(0, L.ease(k))); L.k = k;
     const p = L.curve.getPointAt(u), tan = L.curve.getTangentAt(Math.min(0.999, Math.max(0.001, u)));
@@ -202,16 +222,25 @@ export function makeAirship(ctx, D) {
   let bus = null, flight = null, rider = null, state = 'away', timer = 0, dwell = 0, door = 0, doorAim = 0, armAim = 0, veilAim = 0, veilRate = 1;
   let passT = D.firstPass ?? 120 + Math.random() * 120, shownHint = undefined, started = false, ret = 0, tipped = 1, fromAway = false, purring = false;
   let fresh = true, insideT = 0, hull = null, spots = [];      // fresh: they have stepped aboard since she last set them down (so she may go)
-  const open = () => !!D.transit?.url;
+  // where she goes from here: one place (transit.url), or several (transit.stops), of which she is bound for one
+  let bound = 0, tell = 0;
+  const dests = () => D.transit?.stops ?? (D.transit?.url ? [{ url: D.transit.url }] : []);
+  const dest = () => { const d = dests(); return d.length ? d[bound % d.length] : null; };
+  const next = () => { const d = dests(); return d.length > 1 ? d[(bound + 1) % d.length] : null; };
+  const turnable = () => state === 'docked' && !rider?.on && !!next();      // a ring now turns her blind
+  const open = () => !!dest()?.url;
   function make() {
     if (bus) return bus;
     bus = buildBus(D.bus ?? {}); bus.root.visible = false; ctx.scene.add(bus.root);
     flight = new Flight(bus.root); rider = new Rider(ctx, bus);
-    // while she stands at the stop she is solid: her hull, as a box in the world (the dock's yaw is a quarter turn)
+    if (D.steady) flight.steady = { level: [0.6, 9], heading: [14, 22], within: 60, ...(D.steady === true ? {} : D.steady), x: dock.x, y: dock.y, z: dock.z, yaw: dock.yaw };
+    // while she stands at the stop she is solid: her hull, as a box in the world where the dock's yaw is a quarter turn
+    // (at any other heading a box square to the world would not be her shape: the walker is fended off in her own frame, below)
     { const c = Math.cos(dock.yaw), sn = Math.sin(dock.yaw), xs = [], zs = [];
       for (const [x, z] of [[-4.15, -10.3], [4.15, -10.3], [-4.15, 12.7], [4.15, 12.7]]) { xs.push(dock.x + x * c + z * sn); zs.push(dock.z - x * sn + z * c); }
       hull = { x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs), y0: dock.y - 3, y1: dock.y + 9, off: true };
-      ctx.walker?.colliders?.push?.(hull); }
+      hull.askew = Math.abs(Math.sin(2 * dock.yaw)) > 1e-6;
+      if (!hull.askew) ctx.walker?.colliders?.push?.(hull); }
     // the benches (sit anywhere), and the speaking tube by her face (ask her to turn back)
     if (ctx.interact) {
       spots = rider.seats.map(s => ({ x: 0, y: -999, z: 0, reach: 6.5, size: 1.0, seat: s, label: () => 'sit down', act: () => rider.sit(s.i) }));
@@ -222,19 +251,31 @@ export function makeAirship(ctx, D) {
   }
   const show = v => { if (bus) bus.root.visible = v; };
   const setDoor = on => { doorAim = on ? 1 : 0; armAim = on ? 1 : 0; bus?.flash(on); D.onDock?.(on); };
-  const blind = k => bus?.setBlind(D.blind?.[k] ?? '');
+  const blind = k => bus?.setBlind((k === 'transit' ? dest()?.blind : null) ?? D.blind?.[k] ?? '');
+  // her hull at a heading that is not a quarter turn: the walker is put back outside it, the nearest way, in her frame
+  function fend(w) {
+    const dx = w.pos.x - dock.x, dz = w.pos.z - dock.z, c = Math.cos(dock.yaw), sn = Math.sin(dock.yaw), x = dx * c - dz * sn, z = dx * sn + dz * c;
+    const RAD = 0.72, hx = 4.15 + RAD, z0 = -10.3 - RAD, z1 = 12.7 + RAD;
+    if (Math.abs(x) >= hx || z <= z0 || z >= z1 || w.pos.y > dock.y + 9) return;
+    const a = hx - Math.abs(x), b = z - z0, e = z1 - z, m = Math.min(a, b, e), nx = m === a ? (x < 0 ? -hx : hx) : x, nz = m === a ? z : m === b ? z0 : z1;
+    w.pos.x = dock.x + nx * c + nz * sn; w.pos.z = dock.z - nx * sn + nz * c; w.apply?.();
+  }
   const hornAt = (near = 1) => horn(ctx.sound, 0.55 * near);
   const lineup = () => (D.approach ?? []).slice(-(D.lineup ?? 2));
 
   function docked(first = true) {
     flight.place(dock); show(true); state = 'docked'; setDoor(true); dwell = SECS.dwell; blind(open() ? 'transit' : 'tour');
-    bus.setFace('happy'); if (first) { speak('arrive'); bus.wave?.(); }
+    bus.setFace('happy'); if (first) { speak('arrive'); bus.wave?.(); tell = 4.5; }
   }
   function call() {
     if (state === 'away' || state === 'passing') {
       make(); state = 'wait'; timer = D.wait ?? 3; flight.leg = null; show(false); return 'rung';
     }
     if (state === 'wait' || state === 'coming') { speak('coming'); return 'coming'; }
+    if (turnable()) {      // two places to go and one blind: ringing again turns it
+      bound = (bound + 1) % dests().length; tell = 0; dwell = Math.max(dwell, 20); blind('transit'); bus.wave?.();
+      D.say?.(`${dest().name} it is. All aboard who is coming aboard.`); return 'turned';
+    }
     if (state === 'docked' || state === 'unloading') { bus.wave?.(); speak('here'); return 'here'; }
     if (state === 'leaving') { state = 'coming'; setDoor(false); blind(open() ? 'transit' : 'tour'); flight.go([...lineup(), dockP], 12, { ease: 'inout', onDone: docked }); speak('rung'); return 'rung'; }
     return 'busy';
@@ -253,7 +294,7 @@ export function makeAirship(ctx, D) {
   function setOff() {
     if (open()) {
       state = 'departing'; speak('transit'); hornAt(1); blind('transit');
-      flight.go(D.transit.cloud, SECS.transit, { ease: 'in', onDone: () => { veil.set(1); state = 'gone'; const url = D.transit.url + (D.transit.query?.() ?? ''); if (D.transit.url) location.href = url; } });
+      flight.go(D.transit.cloud, SECS.transit, { ease: 'in', onDone: () => { veil.set(1); state = 'gone'; const to = dest(), url = to.url + (D.transit.query?.(to) ?? ''); if (to.url) location.href = url; } });
       return;
     }
     state = 'touring'; speak('depart'); hornAt(1); blind('tour');
@@ -312,10 +353,12 @@ export function makeAirship(ctx, D) {
       if (!rider.pre(doorOpen)) { rider.release(); fresh = true; insideT = 0; if (state === 'closing') { state = 'docked'; setDoor(true); dwell = 40; speak('stay'); } else bus.wave?.(); }      // walked off the gangplank
     } else if (doorOpen && state !== 'closing' && walking && w?.pos && !w.seated && bus.onPlank(rider.toLocal(w.pos))) rider.capture();      // walked onto it
     hull.off = rider.on || !(state === 'docked' || state === 'unloading' || state === 'closing');
+    if (hull.askew && !hull.off && walking && w?.pos && !w.seated) fend(w);
     switch (state) {
       case 'wait': if ((timer -= dt) <= 0) come(); break;
       case 'docked':
         dwell -= dt;
+        if (tell > 0 && (tell -= dt) <= 0 && turnable() && open()) D.say?.(`Next stop, ${dest().name}. Ring again if you would rather ${next().name}.`);      // once she has said hello
         if (rider.on || (w?.pos && Math.hypot(w.pos.x - dock.x, w.pos.z - dock.z) < 28)) dwell = Math.max(dwell, 8);      // she waits while you are aboard or on the stage
         if (rider.on && fresh && canGo() && door > 0.85) { insideT = rider.inside ? insideT + dt : 0; if (insideT > 1.1) shut(); }      // once you are inside, she shuts the door and goes
         else if (dwell <= 0) leave();
@@ -359,6 +402,7 @@ export function makeAirship(ctx, D) {
   const api = {
     call, board, getOff, arrive, step,
     get state() { return state; }, get bus() { return bus; }, get canBoard() { return canBoard(); }, get aboard() { return !!rider?.on; },
+    get bound() { return dest(); }, get other() { return turnable() ? next() : null; },
     get doorAt() { if (!bus || !bus.root.visible) return null; bus.root.updateMatrixWorld(); return bus.door.clone().applyMatrix4(bus.root.matrixWorld); },
     get veil() { return veil.get(); },
     // test views: put the bus straight into a state, k (0..1) of the way along
