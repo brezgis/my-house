@@ -56,7 +56,8 @@ export function smoresLife(ctx, K, items) {
   bell.position.set(B.x, B.y + 0.3, B.z); bell.name = 'smores bell'; scene.add(bell);
 
   // ---- the board of things: made now, shown when it is brought
-  const S = { ...at(2.18, 4.3), y: 0.1 };                                   // where it is set down, on the swept earth by the fire
+  const S = K.smoresLog ?? { ...at(2.18, 4.3), y: 0.1 };                    // where it is set down: on the third log by the fire (garden.js), which is its table
+  const sa = Math.atan2(S.z - f.z, S.x - f.x), sr = Math.hypot(S.x - f.x, S.z - f.z);
   const things = new THREE.Mesh(merged([
     [box(1.3, 0.06, 0.8, 0, 0.03, 0), 0x8a6a44],                                                                    // the board
     ...[[-0.42, -0.16], [-0.27, -0.2], [-0.36, -0.03], [-0.2, -0.06], [-0.3, 0.1], [-0.45, 0.12]].map(([x, z]) => [cyl(0.055, 0.1, x, 0.11, z), 0xf4efe6]), [cyl(0.055, 0.1, -0.32, 0.21, -0.1), 0xf4efe6],      // marshmallows, in a heap
@@ -78,7 +79,7 @@ export function smoresLife(ctx, K, items) {
 
   function arrive(by) {
     if (state === 'out') return; state = 'out';
-    things.removeFromParent(); things.position.set(S.x, S.y, S.z); things.rotation.set(0, 0.4 - out0, 0); things.scale.setScalar(1); things.visible = true; scene.add(things);
+    things.removeFromParent(); things.position.set(S.x, S.y, S.z); things.rotation.set(0, Math.PI / 2 - sa + 0.12, 0); things.scale.setScalar(1); things.visible = true; scene.add(things);
     if (!by) note('Somebody has left a board of s’mores things by the fire.');
   }
   function ring() {
@@ -86,7 +87,7 @@ export function smoresLife(ctx, K, items) {
     if (state !== 'none') return;
     state = 'coming';
     const H = window.__staff?.H ?? ctx.staff?.H, g = (H?.gardeners ?? []).filter(g => g.canBring?.()).sort((a, b) => Math.hypot(a.x - f.x, a.z - f.z) - Math.hypot(b.x - f.x, b.z - f.z))[0];
-    const stand = at(2.18, 6.0);
+    const stand = at(sa, sr + 2.1);                                         // the gardener comes up behind the log, outside the ring of seats
     if (g) { g.run('smores', g.smores({ things, x: stand.x, z: stand.z, tx: S.x, tz: S.z, arrive: () => arrive(g) }), false); note('The bell rings out over the meadow.'); }
     else setTimeout(() => arrive(null), 6000);
   }

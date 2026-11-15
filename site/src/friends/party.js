@@ -28,6 +28,8 @@
 import { Mover, makeNav } from '../staff/nav.js';
 import { makeBubbles } from '../staff/bubbles.js';
 import { buildGuest, useThreeBodies, costOf, handPose } from './bodies.js';
+import { attendVisitor, engageVisitor } from '../robokit/attend.js';
+import { makeFaceLife, talkMouth } from '../robokit/face.js';
 import { makeBrain, CAST, ORDER, tempoFor } from './brain.js';
 import { JIGSAW } from '../jigsaw.js';
 import { F1 } from '../house.js';
@@ -146,7 +148,7 @@ export function makeParty(ctx, ui) {
     if (v.present && v.f === self.m.f) { const dv = Math.hypot(v.x - x, v.z - z); if (dv < 2.3 && dv < Math.hypot(v.x - self.m.x, v.z - self.m.z) + 0.2) { self.why = 'her'; return true; } }      // (stepping away from her is always allowed)
     for (const g of P.guests) {
       if (g === self || g.state === 'away' || g.out || g.m.f !== self.m.f || Math.hypot(g.m.x - x, g.m.z - z) >= 1.5 || Math.hypot(g.m.x - x, g.m.z - z) > Math.hypot(g.m.x - self.m.x, g.m.z - self.m.z) + 0.05) continue;      // (stepping away from somebody is always allowed: pressed up against them, that is the only way out)
-      if (g.mode === 'go' && g.i > self.i) continue;                          // two on the move: the later arrival gives way (and is eased aside, below)
+      if (g.mode === 'go' && g.i > self.i && Math.hypot(g.m.x - x, g.m.z - z) >= 1.3) continue;      // two on the move: the later arrival gives way (and is eased aside, below); but where there is no room to ease aside (a narrow hall), not through each other
       if (g.mode !== 'go') g.nudgeAt = P.now;                                  // standing in the way: would you mind?
       self.why = g.id + '/' + g.mode; return true;
     }
@@ -236,6 +238,7 @@ export function makeParty(ctx, ui) {
     m.onDoor = d => { if (d === P.door) { openDoor(); closeDoorSoon(4); } else if (!d.isOpen) { d.isOpen = true; d.stop.off = true; P.events.doors++; } };
     ctx.colliders.push(g.box); ctx.interact.push(g.inter);
     Object.defineProperty(g, 'engaged', { get: () => P.now < g.engagedUntil || P.chatWith === g });
+    g.eng = {}; g.held = false;
     return g;
   }
   // A long line goes up over their head a sentence or two at a time (no bubble wider than a short paragraph);
@@ -914,7 +917,7 @@ export function makeParty(ctx, ui) {
       }
     } else g.offFloor = 0;
     // (busy talking or listening: they hold still, unless she has come right up to them and it is not her they are talking to; then a step back first)
-    if ((g.engaged || (P.script && P.script.who.includes(g.id))) && !(d < 3.8 && !chatting && !g.sitting && P.now - g.lastBack > 2.5 && !(g.look === v && g.bubble.talking(P.now)))) return;
+    if ((g.engaged || g.held || (P.script && P.script.who.includes(g.id))) && !(d < 3.8 && !chatting && !g.sitting && P.now - g.lastBack > 2.5 && !(g.look === v && g.bubble.talking(P.now)))) return;
     if (P.now < (g.holdUntil ?? 0) && v.present && !v.seated && d < 7 && d > 4.4 && P.now - v.movedAt > 0.6) return;      // standing still out of politeness until she moves (but never at her elbow, and not once she has sat down: then they settle too)
     // manners: not too close, and never left standing in a doorway
     if (!g.sitting && d < (chatting ? 2.8 : 4.4) && P.now - g.lastBack > 2.5 && (g.mode === 'idle' || g.dance || m.v < 0.15)) {
@@ -1114,6 +1117,18 @@ export function makeParty(ctx, ui) {
     if (g.state === 'coming') { if (P.now >= g.arriveAt) arrive(g); return; }
     if (g.state === 'away') return;
     // deciding
+    // Held by her (robokit/attend.js engageVisitor): she has walked up to them and stopped there looking at them (or
+    // is talking with them). They leave off what they were doing (wandering,
+    // following, the party's own goings-on), turn to her and wait. Only while she stands there: once she walks on (at
+    // a stride straight at them, too) it is the manners' business again; and never in a doorway, a hall lane or on
+    // the stair, nor in the middle of a dance, a glide or a scene of the party's own. On their way over to her
+    // already, they come on and settle where they were going (their own polite distance), and wait there.
+    { const dv = v.present && v.f === m.f ? dist(m, v) : 99;
+      if (dv < 16 && P.now - (g.seenAt ?? -9) > 0.4) { g.seenAt = P.now; g.seenOk = g.out || v.outside || nav.see(m.f, v.x, v.z, m.x, m.z); }
+      engageVisitor(g.eng, m, { present: here(g) && dv < 16 && !!g.seenOk, x: v.x, z: v.z, fx: v.fx, fz: v.fz }, dt, { talking: P.chatWith === g });
+      g.held = g.eng.on && !g.eng.give && (P.chatWith === g || (P.now - (v.movedAt ?? -9) > 0.6 && ((m.x - v.x) * v.fx + (m.z - v.z) * v.fz) > 0.8 * dv)) && here(g) && !g.dance && !P.demo && !(P.script && P.script.who.includes(g.id))
+        && !['glide', 'knock', 'farewell'].includes(g.mode) && !(g.mode === 'go' && m.goal && Math.hypot(m.goal.x - v.x, m.goal.z - v.z) < dv) && !onStair(g) && !nav.laneAt(m.f, m.x, m.z) && (P.chatWith === g || dv >= 4.4);      // (nearer than that, their own manners: a step back first)
+    }      // (a trip is only paused, in update, and taken up again when she goes)
     if (P.now >= g.thinkAt && (here(g) || g.state === 'leaving')) { g.thinkAt = P.now + 0.25; if (here(g)) think(g); watchdog(g); }
     // moving
     if (g.mode === 'glide') {
@@ -1129,7 +1144,7 @@ export function makeParty(ctx, ui) {
     } else if (g.mode === 'knock' || g.mode === 'farewell') {
       if (v.present && (g.mode === 'farewell' || (here(g) && v.outside && Math.hypot(v.x - m.x, v.z - m.z) < 20))) m.faceTo(v.x, v.z, dt * 1.4);      // (waiting at a door to go out: looking out at her)
       if (P.now >= g.waitUntil) { if (g.mode === 'knock') { const f = g.glThen; g.glThen = null; g.mode = 'idle'; f?.(); } else { g.mode = 'idle'; headOut(g); } }
-    } else if (g.engaged && g.state === 'here' && !(g.mode === 'go' && onStair(g))) {      // (nobody stops on the stair to chat)
+    } else if ((g.engaged || g.held) && g.state === 'here' && !(g.mode === 'go' && onStair(g))) {      // (nobody stops on the stair to chat; held: above)
       m.v = Math.max(0, m.v - dt * 3);
       const lk = P.now < g.lookUntil && g.look ? g.look : v; m.faceTo(lk.x, lk.z, dt * 1.7);
     } else if (g.mode === 'go') {
@@ -1140,12 +1155,12 @@ export function makeParty(ctx, ui) {
       if (s === 'waiting' && m.blockedFor > 0.6 && g.why !== 'stair' && !nav.freeAt(m.f, m.x, m.z, 1, true) && nav.stair && Math.min(Math.hypot(m.x - nav.cx(nav.stair.lo), m.z - nav.cz(nav.stair.lo)), Math.hypot(m.x - nav.cx(nav.stair.hi), m.z - nav.cz(nav.stair.hi))) < 2.6) {
         const c = nav.nearest(m.f, m.x, m.z, 2, 3, true, c => !taken(g, nav.cx(c), nav.cz(c), 1.6) && !(v.present && Math.hypot(nav.cx(c) - v.x, nav.cz(c) - v.z) < 2.5));
         if (c >= 0) { const goal = m.goal, cb = g.onArrive, x = nav.cx(c), z = nav.cz(c), f = m.f; P.events.stairSteps = (P.events.stairSteps ?? 0) + 1; glide(g, [[x, nav.FLOORS[f], z]], () => { m.place(x, z, f); if (goal) goTo(g, goal.f, goal.x, goal.z, cb); }); }
-      } else if (s === 'waiting' && g.why === 'stair') { m.blockedFor = 0; if ((g.stairWait = (g.stairWait ?? 0) + dt) > 15) { g.stairWait = 0; giveWay(g, 2); } }      // taking turns on the stair: no detours, just wait
+      } else if (s === 'waiting' && g.why === 'stair') { m.blockedFor = 0; if ((g.stairWait = (g.stairWait ?? 0) + dt) > (v.present && v.f === m.f && Math.hypot(v.x - m.x, v.z - m.z) < 4.2 ? 1.5 : 15)) { g.stairWait = 0; giveWay(g, 2); } }      // (not at her elbow, though: then it steps aside for a moment)      // taking turns on the stair: no detours, just wait
       else if (s === 'waiting' && m.blockedFor > (g.why === 'her' ? 0.45 : 0.8) && !onStair(g) && P.now - (g.detourAt ?? -9) > 1.2) {
         g.detourAt = P.now;
         // (nearly there, and somebody is standing on the spot: this is close enough; round them twice and still held up: later)
         // (and her at arm's length in the way is not something to walk round: step back instead; think() does that)
-        const herClose = g.why === 'her' && Math.hypot(v.x - m.x, v.z - m.z) < 4.6;
+        const herClose = (g.why === 'her' || g.why.startsWith('staff')) && Math.hypot(v.x - m.x, v.z - m.z) < 4.6;      // (held up by a robot at her elbow too: step back rather than wait there beside her)
         if (herClose || m.remaining() < 2.2 || ++g.stall > 3 || (!pathAround(g) && (g.why === 'her' || g.stall >= 2))) giveWay(g, g.why === 'her' ? 3 : 2.5);
       }
       if (s === 'arrived') { g.mode = 'idle'; const f = g.onArrive; g.onArrive = null; f?.(); }
@@ -1176,7 +1191,7 @@ export function makeParty(ctx, ui) {
     }
     if (here(g) && !g.sitting && !g.out && v.present && Math.abs(v.y - m.y) < 3) {
       const dx = m.x - v.x, dz = m.z - v.z, d = Math.hypot(dx, dz), want = r + 1.12;
-      if (d < want && d > 1e-3) { const step = Math.min(want - d, dt * 2.5), x = m.x + dx / d * step, z = m.z + dz / d * step; if (nav.freeAt(m.f, x, z, 2, true)) { m.x = x; m.z = z; P.events.glides++; } }
+      if (d < want && d > 1e-3) { const step = Math.min(want - d, dt * (d < r + 0.6 ? 5 : 2.5)),      /* (quicker when she is all but on it: she walks at about 4.5 ft/s) */ x = m.x + dx / d * step, z = m.z + dz / d * step; if (nav.freeAt(m.f, x, z, 2, true)) { m.x = x; m.z = z; P.events.glides++; } }
     }
     if (here(g) && !g.sitting && !g.out) {
       for (const o of P.guests) if (o !== g && o.i < g.i && !o.out && o.state !== 'away' && o.m.f === m.f) easeOff(g, o.m.x, o.m.z, 2.1, dt);
@@ -1274,12 +1289,16 @@ export function makeParty(ctx, ui) {
     b.bob.rotation.z += (Math.max(-0.14, Math.min(0.14, -turn * 0.05 + lean)) - b.bob.rotation.z) * Math.min(1, dt * (dancing ? 10 : 3));
     b.ring.scale.setScalar(1 + 0.08 * Math.sin(dancing ? Math.PI * 2 * beat : t * 3 + ph));
     b.ring.material.opacity = 0.85 - g.dropNow * 0.5;
-    // face
-    let look = 0;
-    if (v.present && v.f === m.f) { let a = Math.atan2(v.x - m.x, v.z - m.z) - yaw; a = Math.atan2(Math.sin(a), Math.cos(a)); if (Math.abs(a) < 1.4) look = Math.max(-1, Math.min(1, a * 1.2)); }
-    g.blinkAt -= dt; const blink = g.blinkAt < 0; if (g.blinkAt < -0.13) g.blinkAt = 2.5 + rnd() * 4;
+    // face (robokit): the eyes to her as she comes up and the head after them (robokit/attend.js; the body is
+    // left to the party, which already turns them to her when they speak); each guest's own rhythm of blinking,
+    // glances about, down at the work, and the mouth moving while a line is said (robokit/face.js)
+    g.blinkAt -= dt; if (g.blinkAt < -0.13) g.blinkAt = 2.5 + rnd() * 4;      // (the old blink clock, kept running so the seeded test draws the same random numbers as before)
+    const att = attendVisitor(g.att ??= {}, { x: m.x, z: m.z, yaw }, v, dt, { reach: 10, keepWorking: true, level: v.f === m.f, talking: P.chatWith === g, hold: g.held });
+    const L = (g.life ??= makeFaceLife(g.id, t)).step(t, dt, { w: att.w, eye: att.eye, work: WORK.has(gest) ? 0.45 : null, moveLook: m.v > 0.5 ? Math.max(-1, Math.min(1, turn * 0.4)) : null });
     const expr = t < g.exprUntil ? g.expr : dancing ? (g.id === 'gigi' ? 'love' : 'happy') : WORK.has(gest) ? 'focus' : gest === 'sip' || gest === 'warm' ? 'happy' : P.chatWith === g ? 'happy' : 'neutral';
-    b.face.draw(expr, look, blink);
+    b.face.draw(expr, L.lx, expr === 'happy' || expr === 'love' ? 0 : L.shut, { ly: L.ly, mouth: talking ? talkMouth(t) : 0 });
+    g.headYaw = (g.headYaw ?? 0) + ((dancing ? 0 : att.w > 0.05 ? att.head : g.life.glancing ? L.lx * 0.14 : 0) - (g.headYaw ?? 0)) * Math.min(1, dt * 3.5);
+    b.bob.rotation.y = g.headYaw;
   }
   const smooth = x => x * x * (3 - 2 * x);
   const inEar = g => v.present && Math.hypot(g.m.x - v.x, g.m.z - v.z) < 25;
@@ -1340,7 +1359,7 @@ export function makeParty(ctx, ui) {
       const g = P.chatWith, d = v.present && v.f === g.m.f ? dist(g.m, v) : 99;
       if (!here(g) && g.state !== 'leaving') { ui?.chat.hide(true, true); P.chatWith = null; }
       else {
-        const dot = d < 99 && d > 0.1 ? ((g.m.x - v.x) * v.fx + (g.m.z - v.z) * v.fz) / d : -1, gone = d > 12 || (d > 3 && dot < 0.2);      // (0.2: nearly eighty degrees off to one side)
+        const dot = d < 99 && d > 0.1 ? ((g.m.x - v.x) * v.fx + (g.m.z - v.z) * v.fz) / d : -1, gone = d > 12 || (d > 3 && dot < 0.2 && ((v.speed ?? 0) > 0.6 || d > 6));      // (0.2: nearly eighty degrees off to one side; standing close by, only glancing round, she has not gone)
         P.walkOff = gone ? P.walkOff + dt : Math.max(0, P.walkOff - dt * 2);
         ui?.chat.fade(Math.min(1 - P.walkOff / 2.2, d < 99 ? 1 - Math.max(0, d - 10) / 6 : 0));
         if (P.walkOff > 2.2 || d > 16) {

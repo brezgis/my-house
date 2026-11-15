@@ -371,11 +371,91 @@ export function plantGarden(B, items) {
     // the fire pit: logs to sit on and two old kitchen chairs
     K.model('stone_fire_pit', fx, fz, 0, { scale: 1.25, collide: true });
     K.fire = { x: fx, y: 0.75, z: fz };
+    // Three rounds sawn from one trunk and stood on end, no two alike. Each is shaped here rather than turned:
+    // a little oval and lumpy, leaning a touch (the foot is pushed over, so the saw-cut top stays level and
+    // centred to sit on), flaring into its root collar and sunk a few inches into the earth, so there is no
+    // seam where it meets the ground. The sides wear the garden's photographed bark (the oak's); the cut top is
+    // drawn: darker heartwood round an off-centre pith, paler sapwood, growth rings closing up towards the
+    // bark, the chainsaw's arcs, a drying check from the heart and a rim of bark. Moss gathers at the foot on
+    // the shady side, and the table round still has the notch from when the tree was felled. The third is the
+    // table: the s'mores board is set down on it (garden/smores.js), so it is not sat on.
+    // (Everything here draws on its own seeds, not the garden's shared one, so nothing after it moves.)
+    const TAU = Math.PI * 2;
+    const grain = (seed, crack, grey) => (g, w) => {
+      const q = rng(seed), c = w / 2, px = c + (q() - 0.5) * w * 0.12, py = c + (q() - 0.5) * w * 0.12, rim = c * 0.94;
+      const f = g.createRadialGradient(px, py, 0, c, c, c);
+      for (const [s, col] of [[0, '#6e4f33'], [0.45, '#8f6a46'], [0.62, '#b08b62'], [0.85, '#c3a379'], [0.93, '#b2946c'], [0.945, '#5a4231'], [1, '#33261b']]) f.addColorStop(s, col);
+      g.fillStyle = f; g.fillRect(0, 0, w, w);
+      g.save(); g.beginPath(); g.arc(c, c, rim, 0, TAU); g.clip();
+      // growth rings: wide while the tree was young, crowding together at the bark, none of them quite round
+      const N = 32 + Math.floor(q() * 12), wd = []; for (let k = 0; k < N; k++) wd.push((1.8 - 1.3 * k / N) * (0.6 + q() * 0.8));
+      const sum = wd.reduce((a, b) => a + b); let rr = 0;
+      for (let k = 0; k < N; k++) {
+        rr += wd[k] / sum * rim * 0.97; const s = rr / rim, ox = px + (c - px) * s, oy = py + (c - py) * s, p1 = q() * TAU, p2 = q() * TAU;
+        g.beginPath();
+        for (let j = 0; j <= 72; j++) { const a = j / 72 * TAU, m = rr * (1 + 0.018 * Math.sin(3 * a + p1) + 0.01 * Math.sin(7 * a + p2)); g.lineTo(ox + Math.cos(a) * m, oy + Math.sin(a) * m); }
+        g.strokeStyle = `rgba(78,52,32,${0.22 + q() * 0.3})`; g.lineWidth = 0.7 + q() * 1.4; g.stroke();
+      }
+      g.fillStyle = 'rgba(52,36,24,0.8)'; g.beginPath(); g.arc(px, py, 2.2, 0, TAU); g.fill();      // the pith
+      // weathering: a cut face left out goes silver from the edge in
+      const wg = g.createRadialGradient(c, c, rim * 0.3, c, c, rim);
+      wg.addColorStop(0, `rgba(150,142,128,${grey * 0.5})`); wg.addColorStop(1, `rgba(150,142,128,${grey})`); g.fillStyle = wg; g.fillRect(0, 0, w, w);
+      // the chainsaw's track: faint arcs swept across the face, ridge and furrow
+      const sa = q() * TAU, D = w * 1.4;
+      for (let k = -9; k <= 9; k++) { g.beginPath(); g.arc(c + Math.cos(sa) * D, c + Math.sin(sa) * D, D + k * w * 0.05 + q() * 3, 0, TAU); g.strokeStyle = k % 2 ? 'rgba(255,236,205,0.09)' : 'rgba(58,38,22,0.08)'; g.lineWidth = 2 + q() * 4; g.stroke(); }
+      // drying checks: one from the heart out to the bark, opening as it goes, and a few short ones in from the rim
+      const check = (a, r0, r1, wid) => {
+        const ex = Math.cos(a), ey = Math.sin(a), L = [], Rt = [];
+        for (let s = 0; s <= 14; s++) { const u = s / 14, d = r0 + (r1 - r0) * u, ww = 0.3 + wid * u * u, j = (q() - 0.5) * 2.4; L.push([px + ex * d - ey * (ww + j), py + ey * d + ex * (ww + j)]); Rt.push([px + ex * d + ey * (ww - j), py + ey * d - ex * (ww - j)]); }
+        g.beginPath(); for (const [x, y] of [...L, ...Rt.reverse()]) g.lineTo(x, y); g.closePath(); g.fillStyle = 'rgba(34,23,15,0.92)'; g.fill();
+      };
+      check(crack, 2, rim * 1.1, 3.2);
+      for (let k = 0; k < 5; k++) { const a = q() * TAU; if (Math.abs(Math.atan2(Math.sin(a - crack), Math.cos(a - crack))) > 0.4) check(a, rim * (0.55 + q() * 0.3), rim * 1.1, 1.1); }
+      g.restore();
+    };
+    const round = (i, x, z, h, R, ov, seed, notch) => {
+      const q = rng(seed), p = [q() * TAU, q() * TAU, q() * TAU, q() * TAU], oa = q() * Math.PI, lean = 0.05 + q() * 0.05, la = q() * TAU;
+      const out = Math.atan2(z - fz, x - fx);                                     // the side away from the fire, where the bark's seam goes
+      const cx = y => x + Math.cos(la) * lean * (h - y) / h, cz = y => z + Math.sin(la) * lean * (h - y) / h;
+      const rad = (a, y) => R * (1 + ov * Math.cos(2 * (a - oa)) + 0.028 * Math.sin(3 * a + p[0]) + 0.016 * Math.sin(5 * a + p[1]) + 0.007 * Math.sin(11 * a + p[2]))
+        * (1 + Math.max(0, 0.5 - y) ** 2 * (0.4 + 0.8 * Math.max(0, Math.cos(4 * a + p[3])) ** 3));      // the root collar, swelling over four roots
+      let ys = [-0.28, -0.06, 0.08, 0.2, 0.34, 0.5]; for (let y = 0.75; y < h - 0.2; y += 0.25) ys.push(y); ys.push(h - 0.05, h);
+      if (notch) ys = [...ys.filter(y => y < notch.y0 || y > notch.y1), notch.y0, notch.y1].sort((a, b) => a - b);
+      const NA = 36, nU = Math.max(1, Math.round(TAU * R / 3)), uo = q(), vo = q(), pos = [], uv = [], idx = [];
+      const A = j => out + j / NA * TAU, P = (j, y) => { const a = A(j), r = rad(a, y) * (y >= h ? 0.975 : 1); return [cx(y) + Math.cos(a) * r, y, cz(y) + Math.sin(a) * r]; };
+      for (let k = 0; k < ys.length; k++) for (let j = 0; j <= NA; j++) { pos.push(...P(j, ys[k])); uv.push(uo + j / NA * nU, vo + (ys[k] + 0.28) / 3.5); }
+      const nj = notch && Math.round(((notch.a - out) / TAU % 1 + 1) % 1 * NA), j0 = notch && nj - 2, j1 = notch && nj + 2;
+      for (let k = 0; k < ys.length - 1; k++) for (let j = 0; j < NA; j++) {
+        if (notch && ys[k] === notch.y0 && j >= j0 && j < j1) continue;         // the notch is cut out of the bark here
+        const a = k * (NA + 1) + j, b = a + NA + 1; idx.push(a, b, a + 1, a + 1, b, b + 1);
+      }
+      const body = new THREE.BufferGeometry(); body.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); body.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); body.setIndex(idx); body.computeVertexNormals();
+      const nrm = body.attributes.normal;      // one normal either side of the bark's seam, so it does not show as a crease
+      for (let k = 0; k < ys.length; k++) { const a = k * (NA + 1), b = a + NA, s = [0, 1, 2].map(c => nrm.getComponent(a, c) + nrm.getComponent(b, c)), l = Math.hypot(...s) || 1; nrm.setXYZ(a, s[0] / l, s[1] / l, s[2] / l); nrm.setXYZ(b, s[0] / l, s[1] / l, s[2] / l); }
+      K.put('bark', body);
+      // the cut top: a disc of bark-dark under the drawn face, filling out to the bark's own uneven edge
+      const top = []; for (let j = 0; j < NA; j++) top.push(x, h, z, ...P(j + 1, h), ...P(j, h));
+      const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.Float32BufferAttribute(top, 3)); K.put('c#3b2c20/1', tg);
+      let rIn = R * 2; for (let j = 0; j < NA; j++) rIn = Math.min(rIn, rad(A(j), h) * 0.975);
+      K.extras.push({ draw: grain(seed * 7 + 1, q() * TAU, [0.22, 0.3, 0.12][i]), cw: 320, ch: 320, w: rIn * 1.98, h: rIn * 1.98, x, y: h + 0.004, z, rotY: q() * TAU, flat: true, round: true, rough: 0.9 });
+      // the felling notch: a level cut and a sloping one meeting inside the wood, bare and pale
+      if (notch) {
+        const tri = [], d = j => R * 0.26 * Math.sin(Math.PI * (j - j0) / (j1 - j0)), In = j => { const a = A(j), r = rad(a, notch.y0) - d(j); return [cx(notch.y0) + Math.cos(a) * r, notch.y0, cz(notch.y0) + Math.sin(a) * r]; };
+        for (let j = j0; j < j1; j++) for (const y of [notch.y0, notch.y1]) { const q4 = [P(j, y), P(j + 1, y), In(j + 1), In(j)]; tri.push(...q4[0], ...q4[1], ...q4[2], ...q4[0], ...q4[2], ...q4[3], ...q4[0], ...q4[2], ...q4[1], ...q4[0], ...q4[3], ...q4[2]); }
+        const ng = new THREE.BufferGeometry(); ng.setAttribute('position', new THREE.Float32BufferAttribute(tri, 3)); K.put('c#7d6749/0.95', ng);
+      }
+      // moss in cushions round the foot on the shady side, one creeping a little way up the bark
+      // (half sunk in the bark, so each shows as a low green swelling hugging the wood, not a pad lying on the earth)
+      for (let k = 0; k < 11; k++) {
+        const a = -Math.PI / 2 + (k - 5) * 0.15 + (q() - 0.5) * 0.1, y = k === 5 ? 0.34 : 0.08 + (k % 3) * 0.06, r = rad(a, y) * 0.985;
+        K.rock(['c#34401c/1', 'c#3c4a20/1', 'c#2f3a1a/1'][k % 3], cx(y) + Math.cos(a) * r, y, cz(y) + Math.sin(a) * r, 0.17 + q() * 0.08, k === 5 ? 0.09 : 0.07 + q() * 0.04, 0.06, -a - Math.PI / 2, 2);
+      }
+      const e = R * 0.9; K.collide(x - e, x + e, z - e, z + e, 2.0);
+      if (i < 2) K.seat(x, h, z, Math.atan2(x - fx, z - fz), 'sit by the fire'); else K.smoresLog = { x, y: h + 0.016, z };
+    };
     for (let i = 0; i < 3; i++) {
       const a = (i / 5) * Math.PI * 2 + 0.3, x = fx + Math.cos(a) * 6, z = fz + Math.sin(a) * 6;
-      K.cyl('c#5a4636/1', x, 0, 1.5, z, 0.85, 0.8, 10); K.cyl('c#b89a74/0.9', x, 1.5, 1.52, z, 0.8, 0.8, 10);
-      K.collide(x - 0.75, x + 0.75, z - 0.75, z + 0.75, 2.0);
-      K.seat(x, 1.5, z, Math.atan2(x - fx, z - fz), 'sit by the fire');
+      round(i, x, z, [1.5, 1.44, 1.56][i], [0.86, 0.94, 0.92][i], [0.07, 0.05, 0.03][i], 811 + i * 97, i === 2 ? { a: a + 1.2, y0: 0.3, y1: 0.56 } : null);
     }
     for (const i of [3, 4]) { const a = (i / 5) * Math.PI * 2 + 0.3, x = fx + Math.cos(a) * 6.4, z = fz + Math.sin(a) * 6.4, yaw = Math.atan2(x - fx, z - fz); K.model('painted_wooden_chair_01', x, z, yaw + Math.PI + (r() - 0.5) * 0.4, { seat: 1.5 }); }
     K.model('wicker_basket_01', fx + 7.4, fz - 3.6, 0.3);

@@ -3,86 +3,21 @@
 // faces are small glowing canvases redrawn when the expression changes.
 // Units are feet. Everyone faces +z in their own frame.
 
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+// The shared parts, faces and shells are in robokit/ (the same files in all three places: see robokit/README.md);
+// this file re-exports what the rest of the house has always taken from here.
+import { THREE, useThree, paint, xform as T, merge, solid, mesh, sph, cyl } from '../robokit/parts.js';
+import { makeFace } from '../robokit/face.js';
+import { makeShell, makeLathe, roll } from '../robokit/shell.js';
+export { useThree, paint, solid, makeFace };
 
-let THREE;
-export function useThree(T) { THREE = T; }
-
-// ---- helpers ------------------------------------------------------------------------------
-export function paint(geo, color) {
-  const g = geo.index ? geo.toNonIndexed() : geo, n = g.attributes.position.count, a = new Float32Array(n * 3), c = new THREE.Color(), p = new THREE.Vector3();
-  for (let i = 0; i < n; i++) {
-    if (typeof color === 'function') { p.fromBufferAttribute(g.attributes.position, i); c.set(color(p)); } else c.set(color);
-    a[i * 3] = c.r; a[i * 3 + 1] = c.g; a[i * 3 + 2] = c.b;
-  }
-  g.setAttribute('color', new THREE.BufferAttribute(a, 3));
-  for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'color'].includes(k)) g.deleteAttribute(k);
-  return g;
-}
-const T = (geo, { p = [0, 0, 0], r = [0, 0, 0], s = [1, 1, 1] } = {}) => {
-  const m = new THREE.Matrix4().compose(new THREE.Vector3(...p), new THREE.Quaternion().setFromEuler(new THREE.Euler(...r)), new THREE.Vector3(...s));
-  return geo.applyMatrix4(m);
-};
-const merge = list => mergeGeometries(list, false);
-let solidMat = null;
-export function solid() {
-  return solidMat ??= new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.38, metalness: 0.12, envMapIntensity: 0.9 });
-}
-function mesh(geo, mat = solid()) { const m = new THREE.Mesh(geo, mat); m.castShadow = false; m.receiveShadow = true; return m; }
-const sph = (r, w = 20, h = 14) => new THREE.SphereGeometry(r, w, h);
-const cyl = (r0, r1, h, s = 18) => new THREE.CylinderGeometry(r0, r1, h, s);
-
-// ---- Faces --------------------------------------------------------------------------------
-// expr: neutral happy sass wink love focus surprised sleepy blink
-export function makeFace(spec) {
-  const c = document.createElement('canvas'); c.width = 256; c.height = 128;
-  const g = c.getContext('2d'), tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
-  let last = '';
-  function draw(expr = 'neutral', look = 0, blink = false) {
-    const key = `${expr}|${Math.round(look * 4)}|${blink}`; if (key === last) return; last = key;
-    const bgc = spec.bg ?? '#0b0809', gr = g.createRadialGradient(128, 40, 10, 128, 64, 150);
-    gr.addColorStop(0, '#2a1f26'); gr.addColorStop(0.5, bgc); gr.addColorStop(1, '#050304');
-    g.fillStyle = gr; g.fillRect(0, 0, 256, 128);
-    const col = spec.eye, lx = 128 - spec.gap + look * 14, rx = 128 + spec.gap + look * 14, y = 56;
-    g.strokeStyle = g.fillStyle = col; g.lineCap = 'round'; g.lineJoin = 'round'; g.shadowColor = col; g.shadowBlur = 14;
-    const rr = (x, yy, w, h, r) => { g.beginPath(); g.roundRect(x - w / 2, yy - h / 2, w, h, r); g.fill(); };
-    const arc = (x, yy, w, up = true) => { g.lineWidth = 9; g.beginPath(); up ? g.arc(x, yy + 8, w, Math.PI * 1.15, Math.PI * 1.85) : g.arc(x, yy - 10, w, Math.PI * 0.15, Math.PI * 0.85); g.stroke(); };
-    const heart = (x, yy, s) => { g.beginPath(); g.moveTo(x, yy + s * 0.9); g.bezierCurveTo(x - s * 1.4, yy - s * 0.1, x - s * 0.7, yy - s * 1.2, x, yy - s * 0.4); g.bezierCurveTo(x + s * 0.7, yy - s * 1.2, x + s * 1.4, yy - s * 0.1, x, yy + s * 0.9); g.fill(); };
-    const ew = spec.eyeW, eh = spec.eyeH;
-    if (blink || expr === 'blink') { g.lineWidth = 7; for (const x of [lx, rx]) { g.beginPath(); g.moveTo(x - ew / 2, y + 6); g.lineTo(x + ew / 2, y + 6); g.stroke(); } }
-    else if (expr === 'happy') { arc(lx, y, ew * 0.62); arc(rx, y, ew * 0.62); }
-    else if (expr === 'love') { heart(lx, y, ew * 0.55); heart(rx, y, ew * 0.55); }
-    else if (expr === 'sleepy') { g.lineWidth = 7; for (const x of [lx, rx]) { g.beginPath(); g.arc(x, y - 4, ew * 0.45, Math.PI * 0.2, Math.PI * 0.8); g.stroke(); } }
-    else if (expr === 'focus') { rr(lx, y, ew * 1.1, eh * 0.32, 6); rr(rx, y, ew * 1.1, eh * 0.32, 6); }
-    else if (expr === 'surprised') { g.lineWidth = 7; for (const x of [lx, rx]) { g.beginPath(); g.arc(x, y, ew * 0.48, 0, 7); g.stroke(); } }
-    else if (expr === 'wink') { rr(lx, y, ew, eh, ew * 0.42); arc(rx, y, ew * 0.6, false); }
-    else if (expr === 'sass') {
-      // half-lidded, one brow up: unimpressed, adoring
-      for (const [x, h] of [[lx, 0.55], [rx, 0.62]]) rr(x, y + eh * (1 - h) / 2 + 4, ew, eh * h, ew * 0.3);
-      g.lineWidth = 6;
-      for (const [x, dy] of [[lx, eh * 0.62 - eh * 0.55 / 2 - 6], [rx, eh * 0.62 - eh * 0.62 / 2 - 8]]) { g.beginPath(); g.moveTo(x - ew * 0.62, y - dy + 10); g.lineTo(x + ew * 0.62, y - dy + 10); g.stroke(); }
-      g.beginPath(); g.moveTo(rx - ew * 0.5, y - eh * 0.55); g.quadraticCurveTo(rx + 2, y - eh * 0.95, rx + ew * 0.6, y - eh * 0.62); g.stroke();
-    } else { rr(lx, y, ew, eh, ew * 0.42); rr(rx, y, ew, eh, ew * 0.42); }
-    // mouth
-    g.lineWidth = 5;
-    if (['happy', 'love', 'wink'].includes(expr)) { g.beginPath(); g.arc(128 + look * 10, y + 22, 13, Math.PI * 0.2, Math.PI * 0.8); g.stroke(); }
-    else if (expr === 'sass') { g.beginPath(); g.moveTo(118 + look * 10, y + 38); g.quadraticCurveTo(134, y + 41, 146 + look * 10, y + 32); g.stroke(); }
-    else if (expr === 'surprised') { g.beginPath(); g.arc(128, y + 38, 6, 0, 7); g.stroke(); }
-    g.shadowBlur = 0;
-    if (spec.specs) { g.strokeStyle = spec.specs; g.lineWidth = 3.5; for (const x of [lx, rx]) { g.beginPath(); g.arc(x, y, ew * 0.95, 0, 7); g.stroke(); } g.beginPath(); g.moveTo(lx + ew * 0.95, y - 4); g.quadraticCurveTo(128 + look * 14, y - 14, rx - ew * 0.95, y - 4); g.stroke(); }
-    if (spec.blush) { g.fillStyle = spec.blush; for (const x of [lx - 8, rx + 8]) { g.beginPath(); g.ellipse(x, y + 30, 15, 7, 0, 0, 7); g.fill(); } }
-    tex.needsUpdate = true;
-  }
-  draw();
-  const mat = new THREE.MeshStandardMaterial({ color: 0x060405, roughness: 0.16, metalness: 0, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 1.25, envMapIntensity: 1.1 });
-  return { draw, mat, canvas: c };
-}
-
-// A patch of sphere, for a face screen that follows the body's curve
-function visor(r, phi, th0, th1, scale) {
-  const g = new THREE.SphereGeometry(r, 18, 9, Math.PI / 2 - phi, phi * 2, th0, th1 - th0);
-  g.scale(...scale);
-  return g;
+// The face screen on a shell: a rounded square in a soft dark bezel, where the old sphere-patch visor was (polar
+// angles th0 to th1 from the top, phi either side of the front), so every face keeps its place and its size.
+// The bezel is pushed onto parts; the face's mesh is set on face.
+function screenOn(SH, face, parts, th0, th1, phi, dy = 0) {
+  const y0 = SH.top * Math.cos(th0), y1 = SH.top * Math.cos(th1), sc = SH.screen((y0 + y1) / 2, (y0 - y1) / 2, phi * 0.92, { seg: 36, rings: 4 });
+  if (dy) { sc.face.translate(0, dy, 0); sc.bezel.translate(0, dy, 0); }
+  parts.push(paint(sc.bezel, '#221c1f')); face.mesh = mesh(sc.face, face.mat);
+  return face;
 }
 
 // ---- The robots -----------------------------------------------------------------------------
@@ -109,53 +44,62 @@ export function buildRobot(key) {
   let bodyScale, R, face, ringY, handL, handR, trayAt, extra = {};
   const BRASS = '#c9a45c', CREAM = '#efe4cf';
 
+  // Each is one smooth shell (robokit/shell.js), the same egg, bun and ball as ever, with everything worn on it
+  // laid on its surface: the shirt front and the tummy are patches of it, the belts are strips of it, buttons and
+  // bow tie sit on it, the hats are seated on the head, and the face is a rounded-square screen in a soft bezel.
   if (key === 'barty') {
     R = 0.6; bodyScale = [1, 1.2, 0.95];
-    const PLUM = '#8a3d6b';
-    parts.push(paint(T(sph(R, 26, 18), { s: bodyScale }), PLUM));
-    parts.push(paint(visor(R + 0.006, 0.62, 1.62, 2.55, bodyScale), CREAM));                 // shirt front
-    parts.push(paint(T(new THREE.TorusGeometry(R + 0.012, 0.034, 8, 44), { p: [0, -0.02, 0], r: [Math.PI / 2, 0, 0], s: [1, 0.95, 1] }), BRASS));
-    // bow tie
-    parts.push(paint(T(new THREE.ConeGeometry(0.085, 0.17, 10), { p: [-0.085, 0.07, 0.56], r: [0, 0, -Math.PI / 2], s: [1, 1, 0.55] }), '#c9932e'));
-    parts.push(paint(T(new THREE.ConeGeometry(0.085, 0.17, 10), { p: [0.085, 0.07, 0.56], r: [0, 0, Math.PI / 2], s: [1, 1, 0.55] }), '#c9932e'));
-    parts.push(paint(T(sph(0.045, 10, 8), { p: [0, 0.07, 0.585] }), '#b07f25'));
+    const PLUM = '#8a3d6b', SH = makeShell(R * bodyScale[0], R * bodyScale[1], R * bodyScale[2]);
+    parts.push(paint(SH.body(26, 18), PLUM));
+    parts.push(paint(SH.plate(-0.37, 0, 0.6, 0.3, 0.006, { m: 2.6, rings: 5 }), CREAM));                     // shirt front
+    parts.push(paint(SH.band(-0.05, 0.01, v => 0.004 + 0.024 * roll(v), 48, 4), BRASS));
+    // bow tie, under the face
+    const bz = SH.front(0.07) + 0.03;
+    parts.push(paint(T(new THREE.ConeGeometry(0.085, 0.17, 10), { p: [-0.085, 0.07, bz - 0.01], r: [0, 0, -Math.PI / 2], s: [1, 1, 0.55] }), '#c9932e'));
+    parts.push(paint(T(new THREE.ConeGeometry(0.085, 0.17, 10), { p: [0.085, 0.07, bz - 0.01], r: [0, 0, Math.PI / 2], s: [1, 1, 0.55] }), '#c9932e'));
+    parts.push(paint(T(sph(0.045, 10, 8), { p: [0, 0.07, bz + 0.015] }), '#b07f25'));
     // buttons on the shirt front
-    for (const y of [-0.18, -0.34]) parts.push(paint(T(sph(0.03, 8, 6), { p: [0, y, 0.55 - (y < -0.3 ? 0.06 : 0.02)] }), BRASS));
+    for (const y of [-0.18, -0.34]) parts.push(paint(T(sph(0.03, 8, 6), { p: SH.at(y, 0, 0.014) }), BRASS));
     // underside cap
     parts.push(paint(T(new THREE.SphereGeometry(0.3, 18, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), { p: [0, -0.62, 0], s: [1, 0.6, 1] }), BRASS));
-    // the top hat, at an angle
-    const hat = [
+    // the top hat, at an angle, seated on the head: its crown's opening sits on the crown of the head
+    const hatAt = SH.seat(0.2, { phi: 0.24, az: Math.PI / 2, sink: 0.03 });
+    parts.push(...[
       paint(T(cyl(0.3, 0.3, 0.03, 26), { p: [0, 0.015, 0] }), '#1d181b'),
       paint(T(cyl(0.19, 0.2, 0.36, 22), { p: [0, 0.2, 0] }), '#1d181b'),
       paint(T(cyl(0.204, 0.204, 0.07, 22), { p: [0, 0.07, 0] }), '#b04060'),
       paint(T(cyl(0.192, 0.192, 0.012, 22), { p: [0, 0.385, 0] }), '#2a2327'),
-    ].map(g => T(g, { r: [0.05, 0, -0.24] })).map(g => T(g, { p: [0.1, 0.69, -0.02] }));
-    parts.push(...hat);
-    face = makeFace(S.face); face.mesh = mesh(visor(R + 0.008, 0.82, 0.62, 1.36, bodyScale), face.mat);
+    ].map(g => g.applyMatrix4(hatAt)));
+    face = screenOn(SH, makeFace(S.face), parts, 0.62, 1.36, 0.82);
     ringY = -0.84; handL = [-0.8, -0.18, 0.12]; handR = [0.8, -0.18, 0.12]; trayAt = [0.56, -0.2, 0.5];
   } else if (key === 'mort') {
     R = 0.66; bodyScale = [1.18, 0.8, 1.05];
-    const GREEN = '#3d6e5e';
-    parts.push(paint(T(sph(R, 26, 16), { s: bodyScale }), p => (p.y < -0.13 ? CREAM : GREEN)));
-    parts.push(paint(T(new THREE.TorusGeometry(R * 1.18 * 0.985, 0.036, 8, 44), { p: [0, -0.12, 0], r: [Math.PI / 2, 0, 0], s: [1, 1.05 / 1.18, 1] }), BRASS));
-    parts.push(paint(T(cyl(0.05, 0.07, 0.1, 12), { p: [0, R * 0.8 + 0.03, 0] }), BRASS));
-    parts.push(paint(T(sph(0.085, 12, 10), { p: [0, R * 0.8 + 0.13, 0] }), BRASS));
-    for (const sx of [-1, 1]) parts.push(paint(T(cyl(0.13, 0.13, 0.06, 18), { p: [sx * R * 1.16, 0.02, 0], r: [0, 0, Math.PI / 2] }), BRASS));
-    for (let i = 0; i < 7; i++) { const a = -0.9 + i * 0.3; parts.push(paint(T(sph(0.022, 6, 5), { p: [Math.sin(a) * R * 1.17, -0.24, Math.cos(a) * R * 1.04] }), BRASS)); }   // apron buttons
+    const GREEN = '#3d6e5e', SH = makeShell(R * bodyScale[0], R * bodyScale[1], R * bodyScale[2]);
+    parts.push(paint(SH.body(26, 16), p => (p.y < -0.13 ? CREAM : GREEN)));
+    parts.push(paint(SH.band(-0.15, -0.09, v => 0.004 + 0.026 * roll(v), 52, 4), BRASS));
+    // the knob on top, grown from the head
+    parts.push(paint(SH.place(cyl(0.05, 0.07, 0.12, 12).translate(0, 0.04, 0), 0, 0), BRASS));
+    parts.push(paint(T(sph(0.085, 12, 10), { p: [0, SH.top + 0.13, 0] }), BRASS));
+    // brass ear discs, set into the sides
+    for (const sx of [-1, 1]) parts.push(paint(SH.place(cyl(0.13, 0.13, 0.06, 18).translate(0, 0.005, 0), 0.02, sx * Math.PI / 2), BRASS));
+    for (let i = 0; i < 7; i++) parts.push(paint(T(sph(0.022, 6, 5), { p: SH.at(-0.24, -0.9 + i * 0.3, 0.01) }), BRASS));        // apron buttons
     parts.push(paint(T(new THREE.SphereGeometry(0.34, 18, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), { p: [0, -0.45, 0], s: [1, 0.55, 1] }), '#2c4f44'));
-    face = makeFace(S.face); face.mesh = mesh(visor(R + 0.008, 1.0, 0.9, 1.5, bodyScale), face.mat);
+    face = screenOn(SH, makeFace(S.face), parts, 0.9, 1.5, 1.0);
     ringY = -0.66; handL = [-0.92, -0.12, 0.18]; handR = [0.92, -0.12, 0.18]; trayAt = [0.6, -0.12, 0.55];
   } else {
     R = 0.42; bodyScale = [1, 1.02, 1];
-    const ROSE = '#e3957f';
-    parts.push(paint(T(sph(R, 22, 16), { s: bodyScale }), ROSE));
-    parts.push(paint(visor(R + 0.005, 0.7, 1.75, 2.6, bodyScale), '#f6e6d6'));             // a pale tummy
-    parts.push(paint(T(cyl(0.012, 0.016, 0.12, 6), { p: [0.02, R + 0.05, 0], r: [0, 0, -0.2] }), '#5b4630'));
-    parts.push(paint(T(sph(0.2, 14, 8), { p: [0.1, R + 0.12, 0.02], r: [0.2, 0.4, -0.55], s: [0.75, 0.12, 1.1] }), '#6f8f4a'));
-    parts.push(paint(T(sph(0.12, 12, 6), { p: [-0.06, R + 0.1, -0.06], r: [-0.3, -0.6, 0.5], s: [0.7, 0.12, 1.1] }), '#81a356'));
+    const ROSE = '#e3957f', SH = makeShell(R * bodyScale[0], R * bodyScale[1], R * bodyScale[2]);
+    parts.push(paint(SH.body(22, 16), ROSE));
+    parts.push(paint(SH.plate(-0.26, 0, 0.66, 0.15, 0.005, { m: 2.2, rings: 5 }), '#f6e6d6'));             // a pale tummy
+    // a stalk and two leaves, growing from the top of her head
+    const stalk = SH.seat(0.012, { phi: 0.2, az: Math.PI / 2, sink: 0.01 });
+    parts.push(paint(cyl(0.012, 0.016, 0.12, 6).translate(0, 0.06, 0).applyMatrix4(stalk), '#5b4630'));
+    parts.push(paint(T(sph(0.2, 14, 8), { p: [0.1, SH.top + 0.1, 0.02], r: [0.2, 0.4, -0.55], s: [0.75, 0.12, 1.1] }), '#6f8f4a'));
+    parts.push(paint(T(sph(0.12, 12, 6), { p: [-0.06, SH.top + 0.08, -0.06], r: [-0.3, -0.6, 0.5], s: [0.7, 0.12, 1.1] }), '#81a356'));
     parts.push(paint(T(new THREE.SphereGeometry(0.2, 16, 6, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), { p: [0, -R * 0.92, 0], s: [1, 0.6, 1] }), BRASS));
-    face = makeFace(S.face); face.mesh = mesh(visor(R + 0.006, 0.86, 0.72, 1.55, bodyScale), face.mat);
+    face = screenOn(SH, makeFace(S.face), parts, 0.72, 1.55, 0.86);
     ringY = -0.58; handL = [-0.56, -0.16, 0.14]; handR = [0.56, -0.16, 0.14]; trayAt = [0.4, -0.2, 0.42];
+    // her wings, rooted in her back
     const wingGeo = paint(T(sph(0.2, 14, 10), { p: [0, 0.06, -0.16], s: [0.14, 0.9, 1.3] }), '#fbf3e6');
     for (const sx of [-1, 1]) { const w = new THREE.Group(); w.position.set(sx * R * 0.92, 0.1, -0.08); w.add(mesh(wingGeo)); bob.add(w); extra[sx < 0 ? 'wingL' : 'wingR'] = w; }
   }
@@ -223,8 +167,8 @@ export function buildRoomba() {
 
 // ---- The gardeners --------------------------------------------------------------------------------
 // Bramble: a terracotta flowerpot with a round green head growing out of it, a straw hat and a
-// galvanised watering can (carried in her left hand). Thistle: a squat, mossy, sage-green dome crowned with a
-// thistle in flower (green calyx, purple tuft), in a worn leather belt with a satchel on his right hip for his
+// galvanised watering can (carried in her left hand). Thistle: a squat, mossy, sage-green dome in a waxed
+// bucket hat with a thistle in flower tucked in its band, in a worn leather belt with a satchel on his right hip for his
 // small tools and a hand fork stuck in beside it; the light under him is purple too.
 // Each hand is a group holding one mesh per thing it can hold (the glove alone, or the glove merged with
 // a tool); exactly one is visible, so a tool in the hand costs no draw call of its own. The tools' working
@@ -283,39 +227,42 @@ export function buildGardener(key) {
   const parts = [], BRASS = '#c9a45c';
   let face, R, ringY, handL, handR, trayAt, top, holster, tools;
   if (key === 'bramble') {
-    // the pot
-    const pot = new THREE.LatheGeometry([[0, -0.56], [0.42, -0.56], [0.5, -0.1], [0.56, 0.36], [0.64, 0.38], [0.65, 0.55], [0.5, 0.55], [0.5, 0.45], [0, 0.45]].map(([r, y]) => new THREE.Vector2(r, y)), 22);
-    parts.push(paint(pot, mud('#b8643f', -0.56, -0.15)));
+    // the pot, turned (robokit's lathe shell, so that what hangs on it can lie on it)
+    const POT = makeLathe([[0, -0.56], [0.42, -0.56], [0.5, -0.1], [0.56, 0.36], [0.64, 0.38], [0.65, 0.55], [0.5, 0.55], [0.5, 0.45], [0, 0.45]]);
+    parts.push(paint(new THREE.LatheGeometry(POT.pts.map(([r, y]) => new THREE.Vector2(r, y)), 22), mud('#b8643f', -0.56, -0.15)));
     parts.push(paint(T(cyl(0.5, 0.5, 0.02, 22), { p: [0, 0.47, 0] }), '#4a3424'));                    // soil
-    // the head, growing out of it
-    R = 0.42; const hs = [1, 0.95, 0.95], hy = 0.82;
-    parts.push(paint(T(sph(R, 22, 14), { p: [0, hy, 0], s: hs }), '#7f9a5a'));
-    parts.push(paint(T(cyl(0.012, 0.016, 0.16, 5), { p: [0.06, hy + 0.98 * R + 0.25, 0.05], r: [0.2, 0, -0.3] }), '#4f6b3a'));
-    for (const [rx, rz, s] of [[0.5, -0.6, 1], [-0.4, 0.7, 0.8]]) parts.push(paint(T(sph(0.09, 8, 5), { p: [0.1 * s, hy + R + 0.3, 0.05], r: [rx, 0, rz], s: [1.6, 0.15, 0.8] }), '#6f9a4a'));
-    // straw hat with a green ribbon
-    const hat = [paint(T(cyl(0.72, 0.74, 0.03, 28), { p: [0, 0, 0] }), '#d9b866'), paint(T(cyl(0.3, 0.36, 0.26, 22), { p: [0, 0.14, 0] }), '#d4b25e'), paint(T(cyl(0.365, 0.365, 0.07, 22), { p: [0, 0.05, 0] }), '#5e7d4a')]
-      .map(g => T(g, { r: [0.12, 0, 0.1] })).map(g => T(g, { p: [0, hy + 0.3, -0.04] }));
-    parts.push(...hat);
-    // a canvas pouch hung on the rim, front right: her secateurs and the koi food live in it
-    const pa = -0.75, px = -0.4, pz = 0.4;
-    parts.push(paint(T(new THREE.BoxGeometry(0.26, 0.24, 0.1), { p: [px, 0.2, pz], r: [0.08, pa, 0] }), '#cdbb8e'));
-    parts.push(paint(T(new THREE.BoxGeometry(0.27, 0.09, 0.115), { p: [px, 0.3, pz + 0.005], r: [0.08, pa, 0] }), '#b8a676'));
-    parts.push(paint(T(new THREE.BoxGeometry(0.03, 0.2, 0.03), { p: [px - 0.07, 0.43, pz - 0.07], r: [0, pa, 0] }), '#8a7a52'));
-    parts.push(paint(T(new THREE.BoxGeometry(0.03, 0.2, 0.03), { p: [px + 0.07, 0.43, pz - 0.07], r: [0, pa, 0] }), '#8a7a52'));
-    parts.push(paint(T(new THREE.BoxGeometry(0.025, 0.14, 0.03), { p: [px + 0.03, 0.39, pz + 0.02], r: [0.2, pa, 0.1] }), '#b33a2a'));      // a red handle peeping out
+    // the head, growing out of it (its shell is made about its own middle, and everything on it moved up with it)
+    R = 0.42; const hs = [1, 0.95, 0.95], hy = 0.82, SH = makeShell(R * hs[0], R * hs[1], R * hs[2]), head = [];
+    head.push(paint(SH.body(22, 14), '#7f9a5a'));
+    // straw hat with a green ribbon, seated on the head and cocked a little forward and to one side; the sprout
+    // comes up through its crown
+    const hatAt = SH.seat(0.33, { phi: 0.156, az: -0.69, sink: 0.03 });
+    head.push(...[paint(T(cyl(0.72, 0.74, 0.03, 28), { p: [0, 0, 0] }), '#d9b866'), paint(T(cyl(0.3, 0.36, 0.26, 22), { p: [0, 0.14, 0] }), '#d4b25e'), paint(T(cyl(0.365, 0.365, 0.07, 22), { p: [0, 0.05, 0] }), '#5e7d4a'),
+      paint(T(cyl(0.012, 0.016, 0.16, 5), { p: [0.03, 0.33, 0.03], r: [0.2, 0, -0.3] }), '#4f6b3a'),
+      ...[[0.5, -0.6, 1], [-0.4, 0.7, 0.8]].map(([rx, rz, k]) => paint(T(sph(0.09, 8, 5), { p: [0.05 * k + 0.02, 0.4, 0.04], r: [rx, 0, rz], s: [1.6, 0.15, 0.8] }), '#6f9a4a'))].map(g => g.applyMatrix4(hatAt)));
+    face = screenOn(SH, makeFace(S.face), head, 0.85, 1.75, 0.85);
+    face.mesh.geometry.translate(0, hy, 0);
+    parts.push(...head.map(g => g.translate(0, hy, 0)));
+    // a canvas pouch hung on the pot's rim, front right: her secateurs and the koi food live in it. Patches of
+    // the pot's own wall, so it lies flat against it; the straps go up over the rim.
+    const pa = -0.785, pw2 = 0.24, puff = (u, v) => 0.006 + 0.05 * roll(u) * (0.4 + 0.6 * roll(v * 0.9 + 0.1));
+    parts.push(paint(POT.patch(pa - pw2, pa + pw2, 0.06, 0.33, puff, 10, 6), '#cdbb8e'));
+    parts.push(paint(POT.patch(pa - pw2 - 0.01, pa + pw2 + 0.01, 0.24, 0.335, (u, v) => 0.05 + 0.012 * roll(u), 10, 2), '#b8a676'));        // its flap
+    for (const da of [-0.13, 0.13]) parts.push(paint(POT.patch(pa + da - 0.03, pa + da + 0.03, 0.3, 0.552, 0.012, 2, 6), '#8a7a52'));     // straps over the rim
+    parts.push(paint(T(new THREE.BoxGeometry(0.025, 0.14, 0.03), { p: POT.at(0.39, pa + 0.06, 0.085), r: [0.2, pa, 0.1] }), '#b33a2a'));      // a red handle peeping out
+    const px = -0.4, pz = 0.4;
     holster = [px + 0.05, 0.3, pz + 0.12];
-    face = makeFace(S.face); const vg = visor(R + 0.008, 0.85, 0.85, 1.75, hs); vg.translate(0, hy, 0); face.mesh = mesh(vg, face.mat);
     ringY = -0.75; handL = [-0.78, 0.0, 0.15]; handR = [0.78, 0.0, 0.15]; trayAt = [-0.55, 0.05, 0.5]; top = S.hover + 1.5;
     tools = [['secateurs'], ['can']];
   } else {
-    R = 0.62; const bs = [1.15, 0.85, 1.05];
-    parts.push(paint(T(sph(R, 24, 16), { s: bs }), p => { const m = Math.sin(p.x * 19) * Math.sin(p.z * 21 + p.y * 7); return p.y < -0.28 + 0.1 * m ? '#6a4f36' : m > 0.55 ? '#5f7f4a' : '#9bb09a'; }));        // weathered sage (greyer and cooler than Bramble's leaf green), mossy patches, mud below
-    parts.push(paint(T(new THREE.TorusGeometry(R * 1.15 * 0.985, 0.045, 8, 40), { p: [0, -0.12, 0], r: [Math.PI / 2, 0, 0], s: [1, 1.05 / 1.15, 1] }), '#6b4a2e'));      // a worn leather belt
-    parts.push(paint(T(new THREE.BoxGeometry(0.15, 0.12, 0.04), { p: [0, -0.12, R * 1.05 * 0.985 + 0.04] }), BRASS));                                                  // and its buckle
+    R = 0.62; const bs = [1.15, 0.85, 1.05], SH = makeShell(R * bs[0], R * bs[1], R * bs[2]);
+    parts.push(paint(SH.body(24, 16), p => { const m = Math.sin(p.x * 19) * Math.sin(p.z * 21 + p.y * 7); return p.y < -0.28 + 0.1 * m ? '#6a4f36' : m > 0.55 ? '#5f7f4a' : '#9bb09a'; }));        // weathered sage (greyer and cooler than Bramble's leaf green), mossy patches, mud below
+    parts.push(paint(SH.band(-0.165, -0.075, v => 0.006 + 0.03 * roll(v), 52, 4), '#6b4a2e'));                     // a worn leather belt
+    parts.push(paint(SH.place(new THREE.BoxGeometry(0.15, 0.04, 0.12).translate(0, 0.03, 0), -0.12, 0), BRASS));    // and its buckle
     parts.push(paint(T(new THREE.SphereGeometry(0.32, 16, 6, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), { p: [0, -0.46, 0], s: [1, 0.55, 1] }), '#3f4a32'));
-    // His own crown, where the bucket hat was: a thistle in flower. The ribbed green calyx, two rings of bracts
-    // standing out from it, and a soft tuft of purple bristles: he is told from Bramble (and from the lawn) by
-    // his outline and by the purple, from as far off as he can be seen.
+    // His waxed bucket hat, a little battered (Anna asked for it back), with a thistle in flower tucked into the
+    // band: a ribbed green calyx, two rings of bracts and a soft tuft of purple bristles. Seated on his dome,
+    // cocked a touch back and to the side.
     {
       const crown = [], v2 = ([a, b]) => new THREE.Vector2(a, b), spike = (r, h, tilt, a, rad, y) => new THREE.ConeGeometry(r, h, 4).translate(0, h / 2, 0).rotateZ(-tilt).translate(rad, y, 0).rotateY(-a);
       crown.push(paint(new THREE.LatheGeometry([[0.001, 0], [0.2, 0], [0.3, 0.09], [0.32, 0.21], [0.25, 0.33], [0.18, 0.4], [0.001, 0.4]].map(v2), 12), p => (Math.floor((Math.atan2(p.z, p.x) / (Math.PI * 2) + 0.5) * 12) % 2 ? '#47703f' : '#5f8a50')));
@@ -323,7 +270,10 @@ export function buildGardener(key) {
       const purple = p => (p.y > 0.66 ? '#c9a0ea' : '#8f52bd');
       crown.push(paint(new THREE.ConeGeometry(0.17, 0.44, 8).translate(0, 0.58, 0), purple));
       for (const [tilt, n, off] of [[0.16, 6, 0.2], [0.42, 12, 0]]) for (let i = 0; i < n; i++) crown.push(paint(spike(0.045, 0.5, tilt, (i / n) * Math.PI * 2 + off, 0.1, 0.36), purple));
-      parts.push(...crown.map(g => T(g, { r: [-0.06, 0, -0.07] })).map(g => T(g, { p: [0, R * 0.85 - 0.07, 0] })));
+      const hat = [paint(T(cyl(0.34, 0.42, 0.3, 20), { p: [0, 0.15, 0] }), '#5b5a3a'), paint(T(cyl(0.62, 0.44, 0.08, 24), { p: [0, 0.02, 0] }), '#55543a'), paint(T(cyl(0.425, 0.425, 0.05, 20), { p: [0, 0.07, 0] }), '#3e3d29')];
+      const sprig = crown.map(g => T(g, { s: [0.5, 0.5, 0.5] })).map(g => T(g, { r: [0.25, 0, -0.5] })).map(g => T(g, { p: [0.36, 0.06, 0.2] }));
+      const hatAt = SH.seat(0.41, { phi: 0.113, az: 2.356, sink: 0.035 });
+      parts.push(...[...hat, ...sprig].map(g => g.applyMatrix4(hatAt)));
     }
     // a leather satchel on the belt, right hip: secateurs, trowel, smoker, the koi food
     const pa = -1.03, px = -0.52, pz = 0.31;
@@ -334,8 +284,8 @@ export function buildGardener(key) {
     for (const k of [-1, 0, 1]) parts.push(paint(T(new THREE.BoxGeometry(0.016, 0.17, 0.016), { p: [px - 0.07 + k * 0.035, -0.03, pz + 0.0 - k * 0.02], r: [0.1, 0, -0.12] }), STEEL));      // a hand fork, tines up
     parts.push(paint(T(new THREE.BoxGeometry(0.1, 0.022, 0.02), { p: [px - 0.07, -0.115, pz], r: [0.1, 0.5, -0.12] }), STEEL_D));
     holster = [px + 0.08, -0.12, pz + 0.12];
-    face = makeFace(S.face); face.mesh = mesh(visor(R + 0.008, 0.95, 1.0, 1.55, bs), face.mat);
-    ringY = -0.6; handL = [-0.9, -0.1, 0.15]; handR = [0.9, -0.1, 0.15]; trayAt = [0.6, -0.1, 0.55]; top = S.hover + 1.35;
+    face = screenOn(SH, makeFace(S.face), parts, 1.0, 1.55, 0.95);
+    ringY = -0.6; handL = [-0.9, -0.1, 0.15]; handR = [0.9, -0.1, 0.15]; trayAt = [0.6, -0.1, 0.55]; top = S.hover + 0.95;
     tools = [['secateurs', 'trowel', 'smoker', 'broom'], []];
   }
   const body = mesh(merge(parts)); bob.add(body, face.mesh);

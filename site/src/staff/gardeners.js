@@ -703,7 +703,7 @@ export class Gardener extends Robot {
     while (H.now < end) { if (o.step?.(w) === false) break; this.lookIdle(s); yield; }
   }
   // While working, a glance at her now and then (as linger), but the work stays where it is
-  lookIdle(s) { const H = this.H, v = H.visitor, d = this.visitorDist(); if (d < 16 && H.now < this.glance && this.seeGuest()) this.m.faceTo(v.x, v.z, H.dt * 0.4); else if (s) this.m.faceTo(s.fx, s.fz, H.dt * 0.8); if (H.now > this.glance + 8 && d < 16 && H.rnd() < H.dt * 0.05) this.glance = H.now + 1.5 + H.rnd(); }
+  lookIdle(s) { const H = this.H, v = H.visitor, d = this.visitorDist(); if (d < 16 && (this.att.yaw != null || (H.now < this.glance && this.seeGuest()))) this.m.faceTo(v.x, v.z, H.dt * (this.att.yaw != null ? 1.0 : 0.4)); else if (s) this.m.faceTo(s.fx, s.fz, H.dt * 0.8); if (H.now > this.glance + 8 && d < 16 && H.rnd() < H.dt * 0.05) this.glance = H.now + 1.5 + H.rnd(); }
   doneWork() { const w = this.work; w.kind = null; w.pour = 0; this.drop = 0; this.want[0] = 'glove'; this.want[1] = this.key === 'bramble' ? 'can' : 'glove'; }
 
   // Watering (Bramble, left-handed with the can): the rose over the plants, water falling from it onto them,

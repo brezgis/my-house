@@ -27,6 +27,9 @@
 import { Agent, weighted } from './agent.js';
 import { Mover } from './nav.js';
 import { buildRobot, ROBOT_SPECS } from './models.js';
+import { attendVisitor, engageVisitor } from '../robokit/attend.js';
+const ORDERS = ['fetch', 'deliver', 'demo', 'smores'];      // (seeing to something of hers: not held by her coming up)
+import { makeFaceLife, talkMouth } from '../robokit/face.js';
 import { menuFor, MENU } from './drinks.js';
 import { VOICE, ROOMS, HOURS, FACTS, POIS, AIMED, REGGIE, BANTER, NOD, timeWords, partOfDay } from './lines.js';
 
@@ -77,6 +80,9 @@ export class Robot extends Agent {
     this.carrying = null; this.fetching = null; this.drinkObj = null; this.forGuest = false;
     this.greetedAt = -1e9; this.hostEndedAt = -1e9; this.engagedUntil = 0; this.lastBackoff = 0;
     this.lastYaw = 0; this.blinkAt = 3; this.lastCheck = 0; this.lines = 0; this.glance = 0;
+    // turning to her as she comes up (robokit/attend.js), and the face's own rhythm (robokit/face.js)
+    this.att = {}; this.eng = {}; this.attV = { present: false, x: 0, z: 0, speed: 0, fx: 0, fz: -1, dx: 0, dz: -1 }; this.seen = false; this.seenAt = -9; this.headYaw = 0;
+    this.life = makeFaceLife(key, H.now ?? 0);
     this.aside = { phase: 0, x: 0, z: 0, f: 0, t0: 0, hold: true, back: false, bx: 0, bz: 0, goal: false, gf: 0, gx: 0, gz: 0, kind: 0 };
     this.asideEnd = -9; this.nextManners = i * 0.07; this.laneTime = 0;
     this.inter = { x: 0, y: 0, z: 0, reach: 8, label: () => this.label(), act: () => this.act() };
@@ -110,6 +116,12 @@ export class Robot extends Agent {
   }
   line(pool, opts = {}) { const list = VOICE[this.key][pool]; if (!list) return null; return this.say(this.H.bag(`${this.key}.${pool}`, list), opts); }
   get engaged() { return this.H.now < this.engagedUntil || this.H.talk.robot === this; }
+  // Held by her (robokit/attend.js engageVisitor): she has come up to it and stands there with it, or has just
+  // finished talking to it and not yet stepped away. It waits on her, turned to her, as when engaged (update, 1),
+  // but only where standing is no trouble: not in a doorway or a hall lane, and not while it is seeing to
+  // something of hers (ORDERS, a drink on the way), and only while she stands there: once she is walking (past it,
+  // into it, on her way) it is the manners' business again, giving way as it always has.
+  get held() { return !!this.eng.on && this.H.visitor.speed < 1.2 && this.interruptible && !ORDERS.includes(this.taskName) && !this.fetching && !(this.carrying && this.forGuest) && !this.inLane(); }
 
   // A first-ever visitor (welcome.js sets window.__newcomer) is welcomed properly by whoever has the
   // lines for it (Bartholomew): who he is, the card on the hall table, and the offer of a drink.
@@ -336,7 +348,8 @@ export class Robot extends Agent {
     while (H.now < end) {
       if (opts.until?.()) return;
       const v = H.visitor, d = this.visitorDist();
-      if (d < 16 && H.now < this.glance && this.seeGuest()) this.m.faceTo(v.x, v.z, H.dt * 0.6);
+      if (d < 16 && this.att.yaw != null && H.host !== this) this.m.faceTo(v.x, v.z, H.dt * 1.2);      // she has come up, looking this way: it turns to her (the host has its own way of facing her)
+      else if (d < 16 && H.now < this.glance && this.seeGuest()) this.m.faceTo(v.x, v.z, H.dt * 0.6);
       else if (look) this.m.faceTo(look.x, look.z, H.dt * 0.6);
       if (H.now > this.glance + 6 && d < 16 && H.rnd() < H.dt * 0.08) this.glance = H.now + 2 + H.rnd() * 2;
       yield;
@@ -380,13 +393,17 @@ export class Robot extends Agent {
         const moved = Math.hypot(v.x - lastVx, v.z - lastVz); lastVx = v.x; lastVz = v.z;
         still = moved < H.dt * 0.5 ? still + H.dt : 0;
         // only move when she has gone out of comfortable range, or come too close
-        if (H.now > replan && (d > 9.5 || d < 4.2 || !this.seeGuest() || (!this.m.path && this.inLane() && !this.engaged))) {      // (nor waiting on her in a doorway)
+        // too close once a word with her is over (she walked up to it, or it was passing): it steps back at once,
+        // still facing her, rather than turning away first and ambling off
+        const close = d < 4.2 && !this.engaged;
+        if ((H.now > replan || (close && !this.m.path)) && (d > 9.5 || d < 4.2 || !this.seeGuest() || (!this.m.path && this.inLane() && !this.engaged))) {      // (nor waiting on her in a doorway)
           replan = H.now + 1.5;
           const s = this.hostSpot();
           if (s && Math.hypot(s.x - this.x, s.z - this.z) > 1.2) { if (!this.m.goTo(s.f, s.x, s.z)) this.side = -this.side; }
           else if (!s) this.side = -this.side;
         }
-        const st = this.m.update(H.dt, d < 4.2 ? 0.7 : 0.85);
+        this.m.strafe = close && !!this.m.path;
+        const st = this.m.update(H.dt, close ? 1.0 : d < 4.2 ? 0.7 : 0.85);
         if (st === 'idle' || st === 'arrived') this.m.faceTo(v.x, v.z, H.dt * 0.8);
         this.helpDoors();
         // remarks, only when she has paused a moment
@@ -396,6 +413,7 @@ export class Robot extends Agent {
       }
       if (v.present && this.visitorDist() < 14) this.line('hostEnd');
     } finally {
+      this.m.strafe = false;
       if (H.host === this) { H.host = null; H.lastHostEnd = H.now; }
       this.hostEndedAt = H.now;
     }
@@ -650,10 +668,24 @@ export class Robot extends Agent {
     if (this.interruptible && !this.aside.phase && H.now - this.lastCheck > 1) { this.lastCheck = H.now; if (this.wantsToGreet()) this.run('greet', this.greet(), false); }
     if (!this.task) this.think();
     const d = this.visitorDist();
+    engageVisitor(this.eng, this, { present: d < 16 && this.seen, x: v.x, z: v.z, fx: v.fx, fz: v.fz }, dt, { talking: H.talk.robot === this });      // (come up to, it waits on her: held, above)
     // 1. attention: hold still and face her while speaking with her
-    if (this.engaged && d < 12 && this.taskName !== 'deliver' && !(H.talk.robot !== this && (d < 2.4 || (v.speed > 1.2 && this.inHerWay())))) {      // (a remark does not stop it giving way)
+    const held = !this.engaged && this.held;
+    if ((this.engaged || held) && d < 12 && this.taskName !== 'deliver' && !(H.talk.robot !== this && (d < 2.4 || (v.speed > 1.2 && this.inHerWay())))) {      // (a remark does not stop it giving way)
       if (this.aside.phase) this.resume();
-      const lk = this.lookTarget?.() ?? v; m.v = Math.max(0, m.v - dt * 3); m.faceTo(lk.x, lk.z, dt * 1.6);
+      const lk = this.lookTarget?.() ?? v;
+      m.v = Math.max(0, m.v - dt * 3);
+      if (H.host === this && d < 4.4 && H.talk.robot !== this && v.speed < 0.4) {      // (the host, who stays near her; still walking, she is the manners' business: below)
+        // she has come right up to it (or walked past it, blind) and stopped there: it eases back to a comfortable
+        // distance, still facing her, rather than standing on top of her until the moment passes. A glide, not a
+        // trip, so whatever it was on its way to is left as it was.
+        const dx = this.x - v.x, dz = this.z - v.z, step = Math.min(4.4 - d, dt * 1.4);
+        for (const turn of [0, 0.6, -0.6, 1.2, -1.2]) {
+          const c = Math.cos(turn), s2 = Math.sin(turn), x = m.x + (dx * c - dz * s2) / d * step, z = m.z + (dx * s2 + dz * c) / d * step;
+          if (this.nav.freeAt(m.f, x, z, 2, true) && !H.blocked(this, x, z, 1.6)) { m.x = x; m.z = z; break; }      // (and not back into a colleague or a guest)
+        }
+      }
+      m.faceTo(lk.x, lk.z, dt * 1.6);
     } else if (!this.outdoor) {
       if (this.engaged && d >= 12) { this.engagedUntil = 0; }
       // manners: a few times a second, not every frame
@@ -673,6 +705,12 @@ export class Robot extends Agent {
     if (H.now - H.lastNod > 30 && m.v > 0.4 && d > 10) for (const r of H.robots) if (r !== this && r.f === this.f && r.m.v > 0.3 && Math.hypot(r.x - this.x, r.z - this.z) < 4.5 && !r.bubble.talking(H.now) && !this.bubble.talking(H.now)) {
       H.lastNod = H.now; this.say(H.bag('nod', NOD), { extra: { other: r.name }, secs: 2.2, toGuest: false }); break;
     }
+    // attention (robokit/attend.js): the eyes to her as she comes up, then the head (its whole upper body: it
+    // has no neck); the body turns to her too while it is only lingering. Only when she is in its domain, on its
+    // floor and in sight (looked at a few times a second), so that it never turns to her through a wall.
+    { const A = this.attV; if (d < 16 && H.now - this.seenAt > 0.4) { this.seenAt = H.now; this.seen = this.seeGuest(); }
+      A.present = d < 16 && this.seen; A.x = v.x; A.z = v.z; A.speed = v.speed; A.fx = v.fx; A.fz = v.fz; A.dx = v.dx; A.dz = v.dz;
+      attendVisitor(this.att, { x: m.x, z: m.z, yaw: m.yaw + this.spin }, A, dt, { reach: 10, talking: H.talk.robot === this, hold: held, busy: !!this.carrying }); }
     const b = this.body;
     b.root.position.set(m.x, m.y, m.z);
     b.root.rotation.y = m.yaw + this.spin;
@@ -689,12 +727,16 @@ export class Robot extends Agent {
     b.bob.rotation.z += (Math.max(-0.12, Math.min(0.12, -turn * 0.05)) - b.bob.rotation.z) * Math.min(1, dt * 3);
     b.ring.scale.setScalar(1 + 0.08 * Math.sin(t * 3 + ph));
     b.ring.material.opacity = 0.85 - this.dropNow * 0.8;
-    // face: expression, gaze, blinking
-    let look = 0;
-    if (d < 16) { let a = Math.atan2(v.x - m.x, v.z - m.z) - m.yaw; a = Math.atan2(Math.sin(a), Math.cos(a)); look = Math.max(-1, Math.min(1, a * 1.2)); }
-    this.blinkAt -= dt; const blink = this.blinkAt < 0; if (this.blinkAt < -0.13) this.blinkAt = 2.5 + H.rnd() * 4;
+    // face (robokit/face.js): its own rhythm of blinking, now and then twice; glances about when nobody needs it,
+    // down at its work, ahead into a turn, to her when she comes up; the mouth moving while it speaks
+    this.blinkAt -= dt; if (this.blinkAt < -0.13) this.blinkAt = 2.5 + H.rnd() * 4;      // (the old blink clock, kept running so the seeded tests draw the same random numbers as before)
+    const att = this.att, work = this.anim === 'make' ? 0.6 : this.workAt ? 0.35 : null;
+    const L = this.life.step(H.now, dt, { w: att.w, eye: att.eye, work, moveLook: m.v > 0.5 ? Math.max(-1, Math.min(1, turn * 0.4)) : null });
     const expr = H.now < this.exprUntil ? this.expr : this.anim === 'make' ? 'focus' : this.carrying ? 'happy' : this.drop > 0.5 ? 'sleepy' : H.talk.robot === this ? 'happy' : 'neutral';
-    b.face.draw(expr, look, blink && expr !== 'sleepy');
+    b.face.draw(expr, L.lx, expr === 'sleepy' ? 0 : L.shut, { ly: L.ly, mouth: this.bubble.talking(H.now) ? talkMouth(t) : 0 });
+    // the head (the upper body) after the eyes: to her, or a little way after a glance
+    this.headYaw += ((att.w > 0.05 ? att.head : this.life.glancing ? L.lx * 0.14 : 0) - this.headYaw) * Math.min(1, dt * 3.5);
+    b.bob.rotation.y = this.headYaw;
     this.poseHands(dt, t, ph, d);
     if (b.wingL) { const a = 0.35 + 0.28 * Math.sin(t * 14); b.wingL.rotation.z = a; b.wingR.rotation.z = -a; }
   }
