@@ -175,8 +175,12 @@ export default function (kit) {
   picture(fr(30.2, 0.5, F1, 0), 'klimt_farm_garden_sunflowers', 0, 6.07, 1.45, 1.47, { frame: 'c#8a6b33/0.45/0.6', border: 0.12 });
   picture(fr(38.6, 16.3, F1, 2), 'larsson_breakfast_birch', 0, 6.07, 2.0, 1.37, { border: 0.1 });   // on the wall, centred over the sideboard
 
-  // ---- An old Craftsman lantern fixture over the table: there, but we don't light it ----
-  const fx = t.sub(0, 0, 0), AMBER = 'c#c9a46a/0.25';
+  // ---- An old Craftsman lantern fixture over the table. It is lit after dark, as the other lamps are; aim at it and
+  // press E to put it out, or to light it again (main.js, a 'switch' spot). Its amber glass is a glow of its own, so
+  // that it goes dark with the lamp. ----
+  const fx = t.sub(0, 0, 0), AMBER = 'e#ffc878/0.4';
+  { lampAt(t, 0, 0, 5.55, 1.25); const lamp = lamps[lamps.length - 1], [lx, lz] = world(t, 0, 0);
+    (kit.spots ??= []).push({ action: 'switch', id: 'dining-lantern', label: 'the lantern', x: lx, y: F1 + 5.75, z: lz, lamp, glow: AMBER }); }
   fx.box('fir', -1.05, 1.05, -0.2, 0.2, 8.03, 8.18, G);                                    // ceiling bar the chains hang from
   for (const x of [-0.9, 0.9]) { fx.cyl('c#5a4632/0.45/1', x, 0, 6.65, 8.03, 0.02); fx.box('fir', x - 0.06, x + 0.06, -0.06, 0.06, 7.95, 8.03); }
   fx.box('fir', -1.75, 1.75, -0.12, 0.12, 6.45, 6.65, G);

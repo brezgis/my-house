@@ -282,7 +282,15 @@ export function makeSoft(K) {
     for (const [x, ok] of [[x0 - 0.86, eL >= 0.9], [x1 + 0.86, eR >= 0.9]]) if (ok) put(f, rod, lathe([[0, -0.1], [0.05, -0.08], [0.075, -0.02], [0.06, 0.05], [0.025, 0.09], [0.035, 0.12], [0, 0.14]], { seg: 8 }), { ry: Math.PI / 2 * Math.sign(x - x0 - 0.1), at: [x + (x < x0 ? 0.1 : -0.1), out, rodZ] });
     for (const x of [x0 - Math.min(0.55, rL - 0.06), x1 + Math.min(0.55, rR - 0.06)]) { put(f, rod, sweep([[x, 0.0, rodZ], [x, out, rodZ]], 0.022, { seg: 6 })); put(f, rod, lathe([[0, 0], [0.07, 0], [0.07, 0.02], [0, 0.02]], { seg: 10 }), { rx: -Math.PI / 2, at: [x, 0.02, rodZ] }); }
     const ring = lathe(Array.from({ length: 4 }, (_, i) => { const a = i / 3 * TAU; return [0.065 + 0.012 * Math.cos(a), 0.012 * Math.sin(a)]; }), { seg: 7 });
-    for (const [a, b] of [[x0 - pL, x0 - pL + gather], [x1 + pR - gather, x1 + pR]]) {
+    // o.live: the two panels can be drawn across the window (drapes.js). Each is then a piece of its own, measured
+    // from its outer edge, and listed in K.drapery to be made once the scene exists; the rod, its brackets and the
+    // rings are built here as ever. Without it the panels are part of the room's fabric, gathered at the sides.
+    const live = o.live ? { frame: K.frameMatrix(f).clone(), mat, at: [(x0 + x1) / 2, out + 0.25, (z0 + z1) / 2], wide: x1 - x0, panels: [] } : null;
+    if (live) (K.drapery ??= []).push(live);
+    for (const [a, b, side] of [[x0 - pL, x0 - pL + gather, -1], [x1 + pR - gather, x1 + pR, 1]]) {
+      const anchor = side < 0 ? a : b, cloth = [];
+      const lay = g => { if (live) { g.translate(-anchor, 0, 0); cloth.push(g); } else put(f, mat, g); };
+      if (live) live.panels.push({ anchor, cloth, closed: ((x0 + x1) / 2 - anchor) * side * -1 + 0.1, open: b - a });
       const width = b - a, folds = Math.max(3, Math.round(width / 0.3)), ph = r() * 6, top = z1 - 0.03, H = top - z0;
       const nu = folds * 4, nv = Math.max(4, Math.round(H / 1.2));
       const g = sheet((u, v) => {
@@ -290,8 +298,8 @@ export function makeSoft(K) {
         const x = a + width * u + (u - 0.5) * flare, w = Math.sin(u * folds * Math.PI * 2 + ph * 0.2) * (1 + 0.15 * Math.sin(u * 7 + ph));
         return [x, out - 0.02 + deep * (0.6 + 0.5 * w) + 0.012 * Math.sin(v * 5 + u * 11 + ph), z];
       }, nu, nv, {});
-      put(f, mat, g);
-      put(f, mat, sheet((u, v) => {                                        // the hem, turned up and stitched
+      lay(g);
+      lay(sheet((u, v) => {                                        // the hem, turned up and stitched
         const z = z0 + 0.22 * v, x = a + width * u + (u - 0.5) * 0.06 * (1 - 0.05 * v);
         const w = Math.sin(u * folds * Math.PI * 2 + ph * 0.2) * (1 + 0.15 * Math.sin(u * 7 + ph)), deep = 0.11;
         return [x, out - 0.02 + deep * (0.6 + 0.5 * w) + 0.012 * Math.sin(1 * 5 + u * 11 + ph) + 0.012, z];

@@ -23,10 +23,18 @@ import trinkets from './rooms/trinkets.js';
 import back_hall from './rooms/back_hall.js';
 import back_porch from './rooms/back_porch.js';
 
-export function furnish(B, house = {}) {
+export function furnish(B, house = {}) { const items = furnishStart(B, house); for (const _ of furnishSteps(items.kit, house)); return items; }
+// The same in two parts, for when the rooms are furnished after the house is on the screen (main.js, engine/stage.js):
+// the kit and its lists first (the lists are the kit's own, so what a room adds later is in them), then a room at a
+// time, and the curtains last, as ever.
+export function furnishStart(B, house = {}) {
   const kit = makeKit(B);
-  kit.house = house;
-  for (const room of [living, hall, dining, coffee_bar, kitchen, office, upstairs_hall, our_bedroom, library, guest_room, little_bedroom, dressing_room, bath, sleeping_porch, back_porch, back_hall, trinkets]) room(kit);
+  kit.house = house; kit.taps ??= []; kit.spots ??= []; kit.drapery ??= [];
+  const { lamps, seats, candles, models, extras, books, steam } = kit;
+  return { kit, lamps, seats, candles, models, extras, books, steam, hinged: kit.hinged, taps: kit.taps, spots: kit.spots, drapery: kit.drapery };
+}
+export function* furnishSteps(kit, house = {}) {
+  for (const room of [living, hall, dining, coffee_bar, kitchen, office, upstairs_hall, our_bedroom, library, guest_room, little_bedroom, dressing_room, bath, sleeping_porch, back_porch, back_hall, trinkets]) { room(kit); yield room; }
   // Curtains at every window: full length where the wall runs to the floor, sill length otherwise.
   for (const w of house.windows ?? []) {
     if (w.noDrape) continue;
@@ -34,7 +42,7 @@ export function furnish(B, house = {}) {
     // Where a window ends near a room corner, stop the rod and panel at the wall.
     const px = w.isX ? mid : w.c + w.sg * 0.6, py = w.isX ? w.c + w.sg * 0.6 : mid, X = px - 21.665, Z = -py;
     const room = (house.rooms ?? []).find(r => X >= r.x0 && X <= r.x1 && Z >= r.z0 && Z <= r.z1 && w.fl + 1 >= r.y0 && w.fl + 1 <= r.y1);
-    const o = {};
+    const o = { live: true };      // (they can be drawn: drapes.js)
     if (w.sill > 1.2) o.out = 0.36;      // hang clear of the window stool, which stands 0.24 ft off the wall (the folds used to pass through it)
     if (room) {
       const lo = w.isX ? room.x0 + 21.665 : -room.z1, hi = w.isX ? room.x1 + 21.665 : -room.z0;
@@ -46,6 +54,5 @@ export function furnish(B, house = {}) {
     }
     kit.drapes(f, -half, half, w.sill > 2.6 ? w.sill - 0.55 : w.sill > 1.2 ? w.sill - 0.6 : 0.12, w.head + 0.52, undefined, o);
   }
-  const { lamps, seats, candles, models, extras, books, steam } = kit;
-  return { lamps, seats, candles, models, extras, books, steam, hinged: kit.hinged, taps: kit.taps ?? [], spots: kit.spots ?? [] };
+  yield 'curtains';
 }

@@ -180,7 +180,10 @@ export function romanShades(kit, test) {
     const mid = (w.u0 + w.u1) / 2, half = (w.u1 - w.u0) / 2, f = w.isX ? kit.fr(mid, w.c, w.fl, w.sg > 0 ? 0 : 2) : kit.fr(w.c, mid, w.fl, w.sg > 0 ? 3 : 1), L = 'linen#e6dccb', h = w.head;
     f.box(L, -half - 0.1, half + 0.1, 0.13, 0.16, h - 0.5, h + 0.42);
     for (let k = 0; k < 3; k++) f.soft(L, -half - 0.1, half + 0.1, 0.12, 0.25, h - 0.62 + k * 0.28, h - 0.46 + k * 0.28, 0.06);
-    f.box('c#8a6a4a/0.6', -half - 0.1, half + 0.1, 0.15, 0.2, h - 0.66, h - 0.6);
+    // (the shade itself, and the bar it hangs from, can be let down over the window and drawn up again: drapes.js.
+    // Raised, a hand's breadth of it shows under the folds, with the bar where it always was.)
+    (kit.drapery ??= []).push({ frame: kit.frameMatrix(f).clone(), mat: L, bar: 'c#8a6a4a/0.6', wide: 2 * half, at: [0, 0.45, (h + (w.sill ?? h - 3)) / 2],
+      shade: { half: half + 0.1, y: 0.175, top: h - 0.5, up: 0.13, down: h - 0.5 - (w.sill ?? h - 3) + 0.06 } });
   }
 }
 

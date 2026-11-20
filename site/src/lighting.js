@@ -53,11 +53,25 @@ const boxGLSL = BOXES.map(([X0, X1, Y0, Y1, y0, y1]) => {
 
 // Shared uniform values. Plain objects (not THREE.Vector*) so that three's uniform cloning
 // keeps a reference to them, and every material sees the same numbers.
+// Every lamp lights its room. The pool has four lights, and a house of forty lamps was lit four at a time: a room's
+// pendant could hang glowing over a dark table because four lamps elsewhere stood nearer, and a lamp waited for a
+// light to be handed over before it came on. So, while you are indoors, each lamp of the rooms nearest you that
+// has no light from the pool lights its own room anyway, through a few lines of shader (diffuse only, no shadow,
+// the pool's own falloff and colour, so a lamp handed to the pool or back does not change). The same is in the
+// lab and the town (their lighting.js, roomLight). ?light=old shows the house as it was.
+const SOFT = 16, NREG = 6;
+const QS = new URLSearchParams(globalThis.location?.search ?? '');
+export const LIGHT_OLD = QS.get('light') === 'old';
 export const HL = {
   amb: { x: 0, y: 0, z: 0 },       // warm room light added indoors (irradiance)
   k: { x: 1, y: 1, z: 1, w: 0 },   // indoors: sky diffuse scale, sky reflection scale, sky-fill cut, how far whites are held back by lamplight
   sh: { x: 0, y: 0, z: 0, w: 0 },  // indoors: corner shade on the room light, and on the lamps (set by shade.js)
   cav: new Float32Array(6 * 8),    // up to six open shelves near the eye, shaded inside: per shelf x0, z0, x1, z1 and y0, y1, open side, weight (shade.js)
+  reg: new Float32Array(NREG * 8), // the rooms nearest the eye, whose lamps all light them: x0, z0, x1, z1 and y0, y1, on, -
+  soft: new Float32Array(SOFT * 4),// their lamps that the pool has not lit: x, y, z, strength
+  softRoom: new Float32Array(SOFT),// ...for each, which of those rooms it is in
+  softTint: { x: 1, y: 1, z: 1 },  // the lamps' colour (linear), as the pool's
+  bounce: { x: 0, y: 0, z: 0 },    // the even light a lamplit room has of its own after dark (what its lamps throw back off walls and ceiling)
 };
 
 let installed = false;
@@ -69,6 +83,33 @@ uniform vec3 uInAmb;
 uniform vec4 uInK;
 uniform vec4 uInSh;
 uniform vec4 uInCav[12];
+uniform vec4 uInReg[${NREG * 2}];
+uniform vec3 uInSoftTint, uInBounce;
+uniform vec4 uInSoft[${SOFT}];
+uniform vec4 uInSoftRoom[${SOFT / 4}];
+// which of the rooms nearest the eye the point is in (-1: none)
+int hlRegion(vec3 p) {
+  for (int i = 0; i < ${NREG}; i++) {
+    vec4 A = uInReg[i * 2], B = uInReg[i * 2 + 1];
+    if (B.z < 0.5) break;
+    if (p.x > A.x && p.x < A.z && p.z > A.y && p.z < A.w && p.y > B.x && p.y < B.y) return i;
+  }
+  return -1;
+}
+// The lamps of that room that have no light of their own from the pool: as a point light of the pool's (a lamp's
+// cutoff and decay, the light dropped below the shade), diffuse only. Each lights only the room it is in.
+vec3 hlSoftLamps(vec3 p, vec3 n, int room) {
+  float s = 0.0;
+  for (int i = 0; i < ${SOFT}; i++) {
+    vec4 L = uInSoft[i];
+    if (L.w <= 0.0) break;
+    if (int(uInSoftRoom[i >> 2][i & 3]) != room) continue;
+    vec3 d = L.xyz - p; float l = max(length(d), 0.05);
+    float w = clamp(1.0 - pow(l / ${f(SHAPE.lamp[0])}, 4.0), 0.0, 1.0);
+    s += L.w * w * w / max(pow(l, ${f(SHAPE.lamp[1])}), 0.01) * max(dot(n, d / l), 0.0);
+  }
+  return s * uInSoftTint;
+}
 float hlBox(vec3 p, vec3 a, vec3 b) { return (all(greaterThan(p, a)) && all(lessThan(p, b))) ? 1.0 : 0.0; }
 float houseInside(vec3 p) {
   float m = 0.0;
@@ -99,7 +140,10 @@ float houseShade(vec3 p, vec3 n, float inside) {
     float kd = mix(1.0, uInK.x, hlIn);
     float ao = mix(1.0, hlAO, uInSh.x);
     iblIrradiance *= kd * ao;
-    irradiance = (irradiance * kd + hlIn * uInAmb) * ao;
+    vec3 hlA = uInAmb;
+    int hlR = hlIn > 0.5 ? hlRegion(hlP) : -1;
+    if (hlR >= 0) hlA += uInBounce * uInReg[hlR * 2 + 1].w + hlSoftLamps(hlP, inverseTransformDirection(normal, viewMatrix), hlR);
+    irradiance = (irradiance * kd + hlIn * hlA) * ao;
     radiance *= mix(1.0, uInK.y, hlIn);
   }
 #endif
@@ -110,6 +154,11 @@ float houseShade(vec3 p, vec3 n, float inside) {
     S.uniforms.uInK = { value: HL.k };
     S.uniforms.uInSh = { value: HL.sh };
     S.uniforms.uInCav = { value: HL.cav };
+    S.uniforms.uInReg = { value: HL.reg };
+    S.uniforms.uInSoft = { value: HL.soft };
+    S.uniforms.uInSoftRoom = { value: HL.softRoom };
+    S.uniforms.uInSoftTint = { value: HL.softTint };
+    S.uniforms.uInBounce = { value: HL.bounce };
     S.fragmentShader = S.fragmentShader
       .replace('#include <common>', '#include <common>\n' + head)
       .replace('#include <lights_fragment_maps>', '#include <lights_fragment_maps>\n' + after);
@@ -160,6 +209,33 @@ export function setHourLight(day, materials) {
 export function makeWindowGlow({ scene, materials, windows, rooms }) {
   const glass = materials.glass;
   outdoorLit(glass);
+  // Lamplight on the panes. A pane is smooth, so each lit lamp left a soft bright smear on it: from indoors after
+  // dark, pale blobs hung in every window, over the garden. The sun's glint by day is kept; the renderer's highlights
+  // are faded out as the lamps come on (update, below), and the lamps are shown in the glass as GLINT draws them.
+  // After dark a pane shows the lamps as a dark window does: each lit lamp as a small soft disc, the size its shade
+  // would be in a mirror at that distance and a fraction as bright, where the eye would see it reflected. (The
+  // renderer's own highlight of a lamp on smooth glass is a point of enormous brightness whose skirts spread into
+  // a pale blob; that is what is faded out.)
+  const GLINT = `
+	reflectedLight.directSpecular *= uGlint;
+	#if NUM_POINT_LIGHTS > 0
+	if ( uGlint < 0.999 ) {
+		vec3 glR = reflect( - geometryViewDir, normal );
+		for ( int i = 0; i < NUM_POINT_LIGHTS; i ++ ) {
+			vec3 glD = pointLights[ i ].position - geometryPosition; float glL = length( glD );
+			vec3 glC = pointLights[ i ].color; float glM = max( glC.r, max( glC.g, glC.b ) );
+			if ( glM < 0.01 || glL > 18.0 || dot( normal, glD ) <= 0.0 ) continue;      // (a lamp on the eye's side of the pane, and near: not one in another room)
+			float glA = acos( clamp( dot( glR, glD / glL ), - 1.0, 1.0 ) ), glS = 0.3 / max( glL, 1.0 ), glQ = glA / glS;
+			float glK = exp( - glQ * glQ * 1.6 ) * ( 1.0 - smoothstep( 9.0, 18.0, glL ) );
+			reflectedLight.directSpecular += ( 1.0 - uGlint ) * uGlintLamp * glK * smoothstep( 0.0, 6.0, glM ) * ( glC / glM ) / max( opacity, 0.05 );
+		}
+	}
+	#endif
+`;
+  const glint = { value: 1 }, glintLamp = { value: Number(new URLSearchParams(globalThis.location?.search ?? '').get('lampglint') ?? 0.09) };
+  { const prev = glass.onBeforeCompile, key = glass.customProgramCacheKey?.bind(glass);
+    glass.onBeforeCompile = (sh, r) => { prev?.call(glass, sh, r); sh.uniforms.uGlint = glint; sh.uniforms.uGlintLamp = glintLamp; sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uGlint, uGlintLamp;').replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' + GLINT); };
+    glass.customProgramCacheKey = () => (key ? key() : '') + '|glint3'; }
   glass.emissive = new THREE.Color(0xffb15e);
   glass.emissiveIntensity = 0;
   // cards on the ground below the ground-floor windows (one draw)
@@ -190,6 +266,7 @@ export function makeWindowGlow({ scene, materials, windows, rooms }) {
   return {
     // night: 0..1; outside: is the eye outdoors (glass glows only from outside)
     update(night, outside, glowsOn) {
+      glint.value = new URLSearchParams(globalThis.location?.search ?? '').get('glint') === '1' ? 1 : 1 - Math.min(1, Number(glowsOn) || 0);      // (?glint=1: as it was)
       const k = Math.max(smooth(night, 0.25, 0.9), 0.6 * (Number(glowsOn) || 0));      // the windows begin to glow as the lamps come on at dusk
       glass.emissiveIntensity = outside ? 0.9 * k : 0.04 * k;
       spillMat.opacity = 0.22 * k; spill.visible = k > 0.01;
@@ -208,7 +285,7 @@ const LAMP = 13;
 // left hot spots on it); lamps hang just below the shade's rim or the lantern's glass, since a light
 // a few inches inside a shade lit the fabric chalk white whatever its glow.
 const DROP = { fill: 1.8, lamp: 0.45 };
-export function makeLampPool({ scene, lamps, vis, size, day, camera }) {
+export function makeLampPool({ scene, lamps, vis, size, day, camera, rooms = [] }) {
   const pool = Array.from({ length: size }, () => { const p = new THREE.PointLight(0xffdcb0, 0, 30, 1.7); scene.add(p); return { light: p, lamp: null, level: 0 }; });
   // how strong a lamp is at this hour
   const strength = l => {
@@ -275,6 +352,49 @@ export function makeLampPool({ scene, lamps, vis, size, day, camera }) {
       const flick = 1 + 0.035 * Math.sin(t * 13.3) + 0.025 * Math.sin(t * 29.1);
       s.light.intensity = lantern.power * lerp(0.35, 1, day.night) * s.level * flick;
     } else if (pool[size - 1].lamp === 'lantern') { pool[size - 1].lamp = null; pool[size - 1].level = 0; pool[size - 1].light.intensity = 0; }
+    if (REGIONS.length) roomUpdate(eye, dt);
+  }
+  // Every lamp lights its room (see HL, above). The rooms are the house's own, a room of several boxes taken as the
+  // box round them all, let out a little into the walls (some wall faces lie exactly on a room's edge). The nearest
+  // few to the eye are given to the shader with their lamps, each lit as far as the pool has not lit it. Coming in
+  // from the garden this is taken up over a quarter of a second; from out of doors every room is as it was.
+  const REGIONS = [];
+  if (!LIGHT_OLD) {
+    const by = new Map(), P = 0.2;
+    for (const r of rooms) { if (!vis.roomAt((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2, (r.z0 + r.z1) / 2)) continue; const q = by.get(r.name); if (!q) by.set(r.name, { name: r.name, x0: r.x0 - P, x1: r.x1 + P, z0: r.z0 - P, z1: r.z1 + P, y0: r.y0 - P, y1: r.y1 + P }); else { q.x0 = Math.min(q.x0, r.x0 - P); q.x1 = Math.max(q.x1, r.x1 + P); q.z0 = Math.min(q.z0, r.z0 - P); q.z1 = Math.max(q.z1, r.z1 + P); q.y0 = Math.min(q.y0, r.y0 - P); q.y1 = Math.max(q.y1, r.y1 + P); } }
+    REGIONS.push(...by.values());
+  }
+  const regOf = l => (l.__reg === undefined ? (l.__reg = REGIONS.find(r => r.name === vis.roomAt(l.x, l.y, l.z)?.name) ?? REGIONS.find(r => l.x > r.x0 && l.x < r.x1 && l.z > r.z0 && l.z < r.z1 && l.y > r.y0 && l.y < r.y1) ?? null) : l.__reg);
+  const softC = new THREE.Color(TINT.lamp);
+  HL.softTint.x = softC.r; HL.softTint.y = softC.g; HL.softTint.z = softC.b;
+  const away = (r, p) => Math.hypot(Math.max(r.x0 - p.x, 0, p.x - r.x1), Math.max(r.z0 - p.z, 0, p.z - r.z1), 3 * Math.max(r.y0 - p.y, 0, p.y - r.y1));
+  const ROOM = { in: 0, act: [] };
+  const BOUNCE = Number(QS.get('bounce') ?? 0.14), BOUNCE_TINT = new THREE.Color(1.0, 0.7, 0.42);
+  function roomUpdate(eye, dt) {
+    const indoors = !vis.state.here.includes('out');
+    ROOM.in += ((indoors ? 1 : 0) - ROOM.in) * Math.min(1, dt * 4);
+    // (A room joins or leaves the nearest few over a third of a second, never at a stroke: seen through a doorway,
+    // its lamps and its own light would otherwise jump as you crossed the room before it.)
+    const want = ROOM.in < 0.01 ? [] : REGIONS.map(r => [r, away(r, eye)]).filter(([, d]) => d < 60).sort((a, b) => a[1] - b[1]).slice(0, NREG).map(([r]) => r);
+    for (const r of REGIONS) { const to = want.includes(r) ? 1 : 0; r.lv = (r.lv ?? 0) + (to - (r.lv ?? 0)) * Math.min(1, dt * 7); if (!to && r.lv < 0.02) r.lv = 0; }
+    ROOM.act = REGIONS.filter(r => r.lv > 0).sort((a, b) => (want.includes(b) ? 1 : 0) - (want.includes(a) ? 1 : 0) || b.lv - a.lv).slice(0, NREG);
+    HL.reg.fill(0);
+    // A lamplit room is never only its pools: the lamps' light comes back off the walls and ceiling, and the room
+    // between the pools is a dim warm dusk, not black. (One pendant over a dining table left the table and the
+    // floor round it dark, and the kitchen with both its lamps on read as unlit.) Each room with a lamp on has
+    // this even light of its own; a room with none keeps only the house's faint night light.
+    for (const r of REGIONS) if (r.lit === undefined) r.lit = lamps.some(l => l.kind === 'lamp' && l.power > 0 && regOf(l) === r) ? 1 : 0;
+    const on = lampOn(day) * ROOM.in;
+    HL.bounce.x = BOUNCE_TINT.r * BOUNCE * on; HL.bounce.y = BOUNCE_TINT.g * BOUNCE * on; HL.bounce.z = BOUNCE_TINT.b * BOUNCE * on;
+    ROOM.act.forEach((r, i) => HL.reg.set([r.x0, r.z0, r.x1, r.z1, r.y0, r.y1, 1, r.lit * r.lv], i * 8));
+    const lvl = new Map(pool.map(s => [s.lamp, s.level])), w = ROOM.in;
+    const hereNames = new Set(vis.state.here.map(z => z.replace(/^r:/, '')));
+    const mine = ROOM.act.length ? lamps.filter(l => l.kind === 'lamp' && l.power > 0 && regOf(l) && ROOM.act.includes(l.__reg))
+      .map(l => ({ l, d: Math.hypot(l.x - eye.x, l.y - eye.y, l.z - eye.z), s: strength(l) * (1 - (lvl.get(l) ?? 0)) * w * l.__reg.lv })).filter(o => o.s > 0.002)
+      .sort((a, b) => a.d * (hereNames.has(a.l.__reg.name) ? 1 : 2.5) - b.d * (hereNames.has(b.l.__reg.name) ? 1 : 2.5)).slice(0, SOFT) : [];      // (the room the eye is in first)
+    let i = 0;
+    for (const { l, s } of mine) { HL.soft.set([l.x, l.y - DROP.lamp, l.z, LAMP * s], i * 4); HL.softRoom[i] = ROOM.act.indexOf(l.__reg); i++; }
+    if (i < SOFT) HL.soft[i * 4 + 3] = 0;
   }
   return {
     update, strength, pool, choose,

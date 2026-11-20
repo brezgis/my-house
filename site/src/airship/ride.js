@@ -296,30 +296,61 @@ export function makeAirship(ctx, D) {
     ...dests().map((d, i) => ({ d, i })).filter(c => c.d.url).map(c => ({ name: c.d.name ?? 'the other side of the clouds', go: () => { bound = c.i; wish = null; } })),
     ...(D.tour?.length ? [{ name: 'just round the island', tour: true, go: () => { wish = 'tour'; } }] : []),
   ];
-  function askClose() { if (!ask) return; removeEventListener('keydown', ask.key, true); ask.el.remove(); ask = null; }
+  function askClose() { if (!ask) return; removeEventListener('keydown', ask.key, true); cancelAnimationFrame(ask.raf); ask.el.remove(); ask = null; }
   function choose(i) {
     const c = ask?.list[i]; if (!c) return;
     c.go(); askClose(); tell = 0; blind(c.tour ? 'tour' : 'transit'); bus.wave?.();
     D.say?.(c.tour ? 'Round the island it is. Sit anywhere.' : `${c.name} it is. Sit anywhere.`); shut(true);
   }
+  // The card is the one the robots' conversations use (staff/talk.js, clerks/talk.js, faculty/talk.js: the same paper at
+  // the lower right, the name above, a key cap before each line, the hint below), and it answers the same way: a
+  // number chooses at once; E moves down the list, and the highlighted line is taken after a moment's pause.
+  const ASK_CSS = `
+#airship-ask { position: fixed; right: max(16px, 5vw); bottom: calc(16% + 10px); min-width: 240px; max-width: min(400px, calc(100vw - 32px));
+  padding: 10px 14px 9px; border-radius: 3px; background: var(--grain, none), var(--paper, #f0e5cf); color: var(--ink, #2a1c13);
+  box-shadow: var(--lift, 0 6px 24px rgba(0, 0, 0, .35)); font-family: var(--serif, Georgia, serif); font-size: 15.5px; line-height: 1.35; z-index: 4; }
+#airship-ask .who { font-style: italic; font-size: 13px; color: var(--teak, #7a4b2a); margin-bottom: 4px; }
+#airship-ask .opt { position: relative; padding: 4px 6px 5px 36px; border-radius: 2px; cursor: pointer; opacity: .82; }
+#airship-ask .opt b { position: absolute; left: 6px; top: 4px; display: inline-flex; align-items: center; justify-content: center; min-width: 1.5em; height: 1.5em;
+  border-radius: 3px; background: var(--ink, #2a1c13); color: var(--paper, #f0e5cf); font-weight: 400; font-size: .85em; font-variant-numeric: lining-nums;
+  box-shadow: inset 0 1px 0 rgba(255, 240, 210, .22), inset 0 -2px 0 rgba(0, 0, 0, .45); }
+#airship-ask .opt.hi { opacity: 1; background: rgba(122, 75, 42, .12); }
+#airship-ask .opt .bar { position: absolute; left: 36px; right: 6px; bottom: 1px; height: 1.5px; background: var(--teak, #7a4b2a); transform-origin: left; transform: scaleX(0); }
+#airship-ask .hint { font-size: 12px; color: var(--ink-soft, #5b4636); margin-top: 5px; font-style: italic; }
+`;
+  const PICK_AFTER = 1.3;      // seconds after the last E before the highlighted line is taken (as the robots' cards)
   function askOpen() {
-    const list = choices(), el = document.createElement('div');
+    if (!document.getElementById('airship-ask-style')) { const st = document.createElement('style'); st.id = 'airship-ask-style'; st.textContent = ASK_CSS; document.head.appendChild(st); }
+    const list = choices(), el = document.createElement('div'); el.id = 'airship-ask';
     el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Where to?');
-    el.style.cssText = 'position:fixed;z-index:9;left:50%;bottom:max(96px,17vh);transform:translateX(-50%);max-width:min(440px,calc(100vw - 32px));box-sizing:border-box;padding:14px 18px 12px;background:#f2ead6;color:#2a1c13;border-radius:6px;box-shadow:0 6px 24px rgba(0,0,0,.35);font:16px/1.45 Georgia,"Iowan Old Style",serif;text-align:left';
-    const head = document.createElement('div'); head.textContent = 'Dandelion: “Where to, then?”'; head.style.cssText = 'font-style:italic;margin-bottom:8px'; el.append(head);
-    list.forEach((c, i) => {
-      const b = document.createElement('button'); b.type = 'button';
-      b.style.cssText = 'display:block;width:100%;margin:4px 0;padding:6px 10px;text-align:left;font:inherit;color:inherit;background:rgba(42,28,19,.07);border:1px solid rgba(42,28,19,.25);border-radius:4px;cursor:pointer';
-      const k = document.createElement('b'); k.textContent = `${i + 1}`; k.style.cssText = 'display:inline-block;min-width:1.4em;color:#a8361f';
-      b.append(k, c.tour ? 'Just round the island, please' : c.name); b.addEventListener('click', () => choose(i)); el.append(b);
+    const who = document.createElement('div'); who.className = 'who'; who.textContent = 'Dandelion · “Where to, then?”'; el.append(who);
+    const opts = list.map((c, i) => {
+      const o = document.createElement('div'); o.className = 'opt' + (i ? '' : ' hi');
+      const k = document.createElement('b'); k.textContent = `${i + 1}`;
+      const bar = document.createElement('span'); bar.className = 'bar';
+      const name = c.tour ? 'Just round the island, please' : c.name;
+      o.append(k, name.charAt(0).toUpperCase() + name.slice(1), bar); o.addEventListener('click', () => choose(i)); el.append(o);
+      return { o, bar };
     });
-    const foot = document.createElement('div'); foot.textContent = 'press a number · Esc, or step off, and she waits'; foot.style.cssText = 'margin-top:8px;font-size:12.5px;opacity:.7'; el.append(foot);
-    const key = e => {
+    const hint = document.createElement('div'); hint.className = 'hint'; hint.textContent = `1–${list.length} to choose · E for the next line · Esc and she waits`; el.append(hint);
+    const me = { el, list, idx: 0, lastE: 0, pending: false, raf: 0 };
+    const mark = () => opts.forEach(({ o, bar }, i) => { o.classList.toggle('hi', i === me.idx); if (i !== me.idx) bar.style.transform = 'scaleX(0)'; });
+    const tick = () => {
+      if (ask !== me) return;
+      if (me.pending) {
+        const k = (performance.now() - me.lastE) / 1000 / PICK_AFTER;
+        opts[me.idx].bar.style.transform = `scaleX(${Math.min(1, k).toFixed(3)})`;
+        if (k >= 1) { me.pending = false; choose(me.idx); return; }
+      }
+      me.raf = requestAnimationFrame(tick);
+    };
+    me.key = e => {
       const n = /^(Digit|Numpad)([1-9])$/.exec(e.code);
-      if (n && list[n[2] - 1]) { e.preventDefault(); e.stopPropagation(); choose(n[2] - 1); }
+      if (n && list[n[2] - 1]) { e.preventDefault(); e.stopImmediatePropagation(); choose(n[2] - 1); }
+      else if (e.code === 'KeyE') { e.preventDefault(); e.stopImmediatePropagation(); me.idx = (me.idx + 1) % list.length; me.lastE = performance.now(); me.pending = true; mark(); }
       else if (e.code === 'Escape') { askClose(); fresh = false; insideT = 0; dwell = Math.max(dwell, 40); speak('stay'); }
     };
-    addEventListener('keydown', key, true); document.body.append(el); ask = { el, list, key };
+    addEventListener('keydown', me.key, true); document.body.append(el); ask = me; me.raf = requestAnimationFrame(tick);
   }
   function board() {      // without the walk: for tests
     if (!canBoard() || !canGo()) return false;
