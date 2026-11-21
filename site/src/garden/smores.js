@@ -1,8 +1,8 @@
 // S'mores at the fire pit. A small brass bell hangs from an iron crook stuck in the ground beside the pit:
 // ring it and a gardener walks over with a board of s'mores things (marshmallows, graham crackers, a bar of
 // chocolate, two roasting sticks), sets it down by the fire, says a word and goes back to work
-// (staff/gardeners.js: canBring, smores). The nearest gardener who is free comes; if neither can (it is night
-// and they are tucked up, one is seeing to her, the staff are not in), the board is simply found by the fire a
+// (staff/gardeners.js: canBring, smores). The nearest gardener who is free comes; if neither can (one is seeing
+// to her, the staff are not in), the board is simply found by the fire a
 // few seconds later. It stays for the visit; ringing again only rings.
 //
 // From the board: "toast a marshmallow" puts one on a stick in the hand. Held within a few feet of the lit
@@ -19,7 +19,8 @@
 
 import * as THREE from 'three';
 
-const RADIUS = 7.5, SECS = 5;                       // how near the fire it toasts, and how long it takes
+const RADIUS = 6.5, SECS = 5;                       // how near the fire it toasts, and how long it takes to turn golden
+const BURNT = 1.8, BLACK = new THREE.Color(0x1c1612);   // left in the heat after that, it darkens, and at BURNT it is charcoal
 const WHITE = new THREE.Color(0xf4efe6), GOLD = new THREE.Color(0xb9772e);
 
 // several geometries as one, each in its own colour (position, normal, colour: nothing else)
@@ -107,6 +108,7 @@ export function smoresLife(ctx, K, items) {
     const m = new THREE.Mesh(cyl(0.055, 0.11, 0, 0, 0).rotateX(0.35 - Math.PI / 2).translate(0, 0.085, -0.235), mallow);
     stick = dress('marshmallow', [[rod(0.011, [0, -0.1, 0.28], [0, 0.1, -0.28]), 0x6a4a2c]], m);
     brown = 0; mallow.color.copy(WHITE);
+    note(lit() ? 'Hold it by the fire and watch it turn. Q eats it.' : 'Light the fire (E on it), then hold the marshmallow near. Q eats it.', 6000);
   }
   async function make() {
     const h = hands(); if (!h?.hold || !h.setDown) return;
@@ -125,12 +127,15 @@ export function smoresLife(ctx, K, items) {
       if (Math.abs(swing) + Math.abs(swingV) < 0.004) swing = swingV = 0;
       bell.rotation.z = swing * 0.35;
     }
-    if (!stick || brown >= 1 || hands()?.held !== 'marshmallow') return;
+    if (!stick || brown >= BURNT || hands()?.held !== 'marshmallow') return;
     const p = camera.position;
     if (Math.hypot(p.x - f.x, p.z - f.z) > RADIUS) return;
     if (!lit()) { if (!told) { told = true; note('The fire is not lit.'); } return; }
-    brown = Math.min(1, brown + dt / SECS); mallow.color.copy(WHITE).lerp(GOLD, brown * brown);
-    if (brown >= 1) note('Golden. Eat it as it is, or take it back to the board for a s’more.', 5000);
+    // nearer the flames it goes faster; it is golden at 1, and goes on to burn if it is left there
+    const was = brown, near = Math.hypot(p.x - f.x, p.z - f.z); brown = Math.min(BURNT, brown + (dt / SECS) * (near < 4.2 ? 1.5 : 1) * (brown < 1 ? 1 : 0.4));      // (once golden there are six or eight seconds before it is spoiled)
+    if (brown <= 1) mallow.color.copy(WHITE).lerp(GOLD, brown * brown); else mallow.color.copy(GOLD).lerp(BLACK, ((brown - 1) / (BURNT - 1)) ** 1.5);
+    if (was < 1 && brown >= 1) note('Golden. Step back and eat it (Q), or take it to the board for a s’more. Leave it and it burns.', 6000);
+    if (was < BURNT && brown >= BURNT) note('Burnt black. Some people like them that way.', 5000);
   });
 
   if (typeof window !== 'undefined') window.__smores = { ring, arrive: () => arrive(null), toast, make, get state() { return state; }, get brown() { return brown; }, bell: B, board: S };      // for the checks

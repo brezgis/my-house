@@ -280,10 +280,10 @@ export const FLORA_PAINT = {
     const bx = S / 2;
     for (let i = 0; i < 9; i++) { const a = (i - 4) / 4 * 1.25 + (r() - 0.5) * 0.2, col = hsl(88 + r() * 14, 48, 36 + r() * 9); leaf(g, bx, S, S * (0.34 + r() * 0.12), S * 0.055, a, col, { base: 0.6, tip: 0.9 }); for (let k = 1; k < 4; k++) for (const s of [-1, 1]) leaf(g, bx + Math.sin(a) * S * 0.1 * k, S - Math.cos(a) * S * 0.1 * k, S * 0.06, S * 0.022, a + s * 1.9, col); }
     for (let i = 0; i < 3; i++) {
-      const x = bx + (i - 1) * S * 0.24 + (r() - 0.5) * S * 0.08, y = S * (clock ? 0.24 + r() * 0.14 : 0.42 + r() * 0.2), rad = S * (clock ? 0.17 : 0.15);
+      const x = bx + (i - 1) * S * 0.24 + (r() - 0.5) * S * 0.08, y = S * (clock ? 0.24 + r() * 0.14 : 0.42 + r() * 0.2), rad = S * (clock ? 0.13 : 0.115);      // small heads, a warm egg-yolk yellow: they were big and lemon-bright, and shouted from across the lawn
       stem(g, bx + (i - 1) * S * 0.04, S, x, y, (r() - 0.5) * S * 0.1, S * 0.022, hsl(80, 30, 46));
-      if (!clock) { daisy(g, x, y, rad, hsl(50, 96, 54), hsl(44, 96, 48), 20, 0.7, r(), 0.16); daisy(g, x, y, rad * 0.62, hsl(52, 98, 60), hsl(46, 96, 52), 14, 0.7, r(), 0.2); }
-      else { g.beginPath(); g.arc(x, y, rad, 0, 7); g.fillStyle = hsl(60, 12, 92); g.fill(); g.strokeStyle = hsl(60, 10, 97, 0.9); g.lineWidth = Math.max(1, S * 0.008); for (let k = 0; k < 22; k++) { const a = k / 22 * 6.28; g.beginPath(); g.moveTo(x + Math.cos(a) * rad * 0.2, y + Math.sin(a) * rad * 0.2); g.lineTo(x + Math.cos(a) * rad, y + Math.sin(a) * rad); g.stroke(); } g.beginPath(); g.arc(x, y, rad * 0.2, 0, 7); g.fillStyle = hsl(70, 20, 60); g.fill(); }
+      if (!clock) { daisy(g, x, y, rad, hsl(42, 86, 49), hsl(36, 86, 43), 20, 0.7, r(), 0.16); daisy(g, x, y, rad * 0.62, hsl(44, 90, 54), hsl(39, 88, 47), 14, 0.7, r(), 0.2); }
+      else { g.beginPath(); g.arc(x, y, rad, 0, 7); g.fillStyle = hsl(60, 10, 82, 0.8); g.fill(); g.strokeStyle = hsl(60, 10, 92, 0.8); g.lineWidth = Math.max(1, S * 0.008); for (let k = 0; k < 22; k++) { const a = k / 22 * 6.28; g.beginPath(); g.moveTo(x + Math.cos(a) * rad * 0.2, y + Math.sin(a) * rad * 0.2); g.lineTo(x + Math.cos(a) * rad, y + Math.sin(a) * rad); g.stroke(); } g.beginPath(); g.arc(x, y, rad * 0.2, 0, 7); g.fillStyle = hsl(70, 20, 60); g.fill(); }
     }
   },
   dandelionClock(g, S, r) { FLORA_PAINT.dandelion(g, S, r, true); },

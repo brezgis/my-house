@@ -249,7 +249,7 @@ export class Robot extends Agent {
       ['banter', partner && H.now - H.lastBanter > 90 ? 5 * tr.chat : 0],
       ['tidy', 5 * tr.tidy], ['patrol', this.f === tr.home ? 4 : 0], ['window', 2.5], ['picture', this.f === 0 ? 2 * tr.tidy : 0],
       ['ponder', 2.5 * tr.whim], ['reggie', this.f === 0 && H.roomba ? 0.8 : 0], ['twirl', 0.8 * tr.whim],
-      ['rest', (night > 0.5 ? 6 : 1.2) * tr.rest], ['home', this.f !== tr.home ? 8 : 0],
+      ['rest', 1.2 * tr.rest], ['home', this.f !== tr.home ? 8 : 0],
     ].map(([k, w]) => [k, w * w * (0.55 + R() * 0.9)]);
     let k = weighted(opts, R) ?? 'patrol';
     if ((k === 'ponder' || k === 'twirl') && this.inLane()) k = 'amble';                     // not standing thinking in a hall
@@ -620,9 +620,9 @@ export class Robot extends Agent {
     const H = this.H, s0 = H.spots.rest[this.key], s = s0 && s0.f === this.f ? s0 : this.politeSpot(this.x, this.z, 3);
     if (s) yield* this.go(s.f, s.x, s.z);
     this.drop = 0.6;
-    if (H.rnd() < 0.3) this.line('rest', { expr: 'sleepy', toGuest: false });
-    const end = H.now + (H.day.light < 0.4 ? 50 + H.rnd() * 60 : 20 + H.rnd() * 25);
-    while (H.now < end) { this.expr = 'sleepy'; this.exprUntil = H.now + 1; if (this.wantsToGreet()) break; yield; }
+    if (H.rnd() < 0.3) this.line('rest', { expr: 'happy', toGuest: false });
+    const end = H.now + 20 + H.rnd() * 25;      // a short stand-still, eyes open, the same by night as by day: robots do not sleep
+    while (H.now < end) { if (this.wantsToGreet()) break; yield; }
     this.drop = 0; this.expr = 'blink';
   }
   *home() {
@@ -732,7 +732,7 @@ export class Robot extends Agent {
     this.blinkAt -= dt; if (this.blinkAt < -0.13) this.blinkAt = 2.5 + H.rnd() * 4;      // (the old blink clock, kept running so the seeded tests draw the same random numbers as before)
     const att = this.att, work = this.anim === 'make' ? 0.6 : this.workAt ? 0.35 : null;
     const L = this.life.step(H.now, dt, { w: att.w, eye: att.eye, work, moveLook: m.v > 0.5 ? Math.max(-1, Math.min(1, turn * 0.4)) : null });
-    const expr = H.now < this.exprUntil ? this.expr : this.anim === 'make' ? 'focus' : this.carrying ? 'happy' : this.drop > 0.5 ? 'sleepy' : H.talk.robot === this ? 'happy' : 'neutral';
+    const expr = H.now < this.exprUntil ? this.expr : this.anim === 'make' ? 'focus' : this.carrying ? 'happy' : H.talk.robot === this ? 'happy' : 'neutral';
     b.face.draw(expr, L.lx, expr === 'sleepy' ? 0 : L.shut, { ly: L.ly, mouth: this.bubble.talking(H.now) ? talkMouth(t) : 0 });
     // the head (the upper body) after the eyes: to her, or a little way after a glance
     this.headYaw += ((att.w > 0.05 ? att.head : this.life.glancing ? L.lx * 0.14 : 0) - this.headYaw) * Math.min(1, dt * 3.5);

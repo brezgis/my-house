@@ -31,11 +31,20 @@ export function setupHands(ctx) {
   const getScreens = () => (screens ??= import('./hands/screens.js').then(m => m.makeScreens(ctx, api)));
   const extras = ctx.items.extras ?? [];
   const at = (e, label, act, size = 1.3) => e && ctx.interact.push({ x: e.x, y: e.y, z: e.z, reach: 6.5, size, label: () => label, act });
-  const useTerm = () => getScreens().then(s => s.term());
+  // A computer is used sitting down: the nearest chair within reach of it is taken first (if she is not in it
+  // already), turned to face the screen; she stays seated when she steps away from the screen.
+  const sitTo = e => {
+    const w = ctx.walker; if (!w?.sit || !e) return;
+    const s = (ctx.items.seats ?? []).filter(s => Math.abs(s.y - 2.45 - e.y) < 3.5 && Math.hypot(s.x - e.x, s.z - e.z) < 5).sort((a, b) => Math.hypot(a.x - e.x, a.z - e.z) - Math.hypot(b.x - e.x, b.z - e.z))[0];
+    if (!s) return;
+    if (w.seated !== s) w.sit(s);
+    w.yaw = Math.atan2(s.x - e.x, s.z - e.z); w.pitch = Math.atan2(e.y - (s.y + 0.6), Math.hypot(s.x - e.x, s.z - e.z)) * 0.6;
+  };
+  const useTerm = () => { sitTo(extras.find(e => e.canvas === 'screenA')); return getScreens().then(s => s.term()); };
   at(extras.find(e => e.canvas === 'screenA'), 'use the computer', useTerm);
   at(extras.find(e => e.canvas === 'screenB'), 'use the computer', useTerm);
-  at(extras.find(e => e.canvas === 'imac'), 'use the pink computer', () => getScreens().then(s => s.imac()), 1.1);
-  at(extras.find(e => e.draw?.name === 'laptop'), 'look at the laptop', () => getScreens().then(s => s.laptop()), 0.9);
+  at(extras.find(e => e.canvas === 'imac'), 'use the pink computer', () => { sitTo(extras.find(e => e.canvas === 'imac')); return getScreens().then(s => s.imac()); }, 1.1);
+  at(extras.find(e => e.draw?.name === 'laptop'), 'look at the laptop', () => { sitTo(extras.find(e => e.draw?.name === 'laptop')); return getScreens().then(s => s.laptop()); }, 0.9);
 
   // ---- Books: one entry that moves to whichever book is under the centre of view ----------------
   const books = ctx.items.books ?? [];

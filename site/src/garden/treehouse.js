@@ -23,11 +23,13 @@
 
 import * as THREE from 'three';
 import { PAINT } from './tools.js';
+import { place, buildPart, swinger } from './little_library.js';
 import { PLAY } from './play.js';
 import { POND } from './pond.js';
 import { POT } from './potager.js';
 import { CHAPEL } from './chapel.js';
 import { oakBones, inWood, isPaint, Sheet, quad, netPatch, makeMovers, drawSheet, drawGlow, prep, paintColour, RECT, BOOKS } from './treehouse_bits.js';
+import { softBox, pillow, sheet as cloth } from '../kit/geom.js';      // the house's own soft shapes (cushions, pillows, cloth)
 
 export const TREEHOUSE = { x: 106, z: 29, deck: 15 };
 const TX = TREEHOUSE.x, TZ = TREEHOUSE.z, D = TREEHOUSE.deck;
@@ -42,7 +44,7 @@ const BALC = { x0: 6.8, x1: 10.8, z0: -9.2, z1: -4.0 };                         
 const STAIR = { x0: -3.9, x1: -1.7, z0: -19.6, z1: -8.6 };                          // the ship's stair, from the lawn to the porch
 const NET = { x0: 7.3, x1: 10.9, z0: -3.9, z1: 0.3, sag: 1.15 };      // (its near edge under the balcony's edge board)
 const BEAMS = [[-1.9, -4.4, 2.4], [-3.85, -4.4, 11.1], [-7.6, -4.4, 11.1]];        // [z, x0, x1]: the first let into the limb it passes
-const SCOPE = { e: [2.85, D + 4.55, -7.15], d: [-0.925, -0.02, -0.381] };          // eyepiece, and toward the house
+const SCOPE = { e: [2.85, D + 4.62, -7.0], d: [-0.925, -0.02, -0.381] };           // eyepiece, and toward the house (its axis through the middle of the round window)
 const CLIMB = 3.0;                                                                   // ft a second along the ground under the stair: about a walk (5 ft a second) measured up its slope, and never a run
 
 const CEDAR = 'c#8c7058/0.9', CEDAR2 = 'c#7a604a/0.9', DECKB = ['c#97785c/0.9', 'c#8d6f55/0.9', 'c#9c8064/0.9'], TRIM = 'c#3e2c1e/0.8';      // cedar a few summers old
@@ -94,6 +96,9 @@ function build(K, opts) {
   const cyl = (mat, x, y0, y1, z, r0, r1 = r0, seg = 12, own = false) => { const g = new THREE.CylinderGeometry(r1, r0, y1 - y0, seg); g.translate(TX + x, (y0 + y1) / 2, TZ + z); put(mat, g, own); };
   const lathe = (mat, x, y, z, prof, seg = 12, own = false) => { const g = new THREE.LatheGeometry(prof.map(([r, h]) => new THREE.Vector2(r, h)), seg); g.translate(TX + x, y, TZ + z); put(mat, g, own); };
   const sphere = (mat, x, y, z, rad, sy = 1, detail = 1, own = false) => { const g = new THREE.IcosahedronGeometry(rad, detail); g.scale(1, sy, 1); g.translate(TX + x, y, TZ + z); put(mat, g, own); };
+  // a soft shape from the house's kit (kit/geom.js: x along, y to the front, z up), stood into the garden's axes
+  // (its front toward -z), turned ry, and put at (x, y, z)
+  const soft = (mat, g, x, y, z, ry = 0) => { g.rotateX(-Math.PI / 2); if (ry) g.rotateY(ry); g.translate(TX + x, y, TZ + z); put(mat, g); };
   const print = (rect, c, u, v, w, h) => sheet.print(quad([TX + c[0], c[1], TZ + c[2]], u, v, w, h), rect);
   const collide = (x0, x1, z0, z1, y1, y0 = 0) => K.collide(TX + x0, TX + x1, TZ + z0, TZ + z1, y1, y0);
   const surface = (x0, x1, z0, z1, h, h2, free = true) => K.surfaces.push({ x0: TX + x0, x1: TX + x1, z0: TZ + z0, z1: TZ + z1, h, ...(h2 === undefined ? {} : { h2, ramp: true }), ...(free ? { free: true } : {}) });
@@ -182,6 +187,7 @@ function build(K, opts) {
     }
     for (let x = BALC.x0 - 0.2, k = 0; x < BALC.x1 - 0.1; x += 0.5, k++) box(DECKB[k % 3], x + 0.02, Math.min(BALC.x1 + 0.04, x + 0.48), D - 0.15, D, BALC.z0 - 0.05, BALC.z1 + 0.05);
   }
+  box(CEDAR2, CAB.x0 + 0.3, CAB.x1 - 0.3, D - 0.158, D - 0.05, CAB.z0 + 0.3, CAB.z1 - 0.3);      // indoors the boards are laid on a subfloor: no daylight up through the joints
   surface(PORCH.x0, PORCH.x1, PORCH.z0, PORCH.z1, D); surface(CAB.x0, CAB.x1, CAB.z0, CAB.z1, D); surface(BALC.x0, BALC.x1, BALC.z0, BALC.z1, D);
   // nobody gets in under the porch from the stair (as by a jump near its head): a block under it, too high to touch
   // from the lawn (a walker there reaches 5.7 ft) and too low to touch from the porch; and a short ramp just inside the
@@ -304,20 +310,26 @@ function build(K, opts) {
         box(TRIM, xa, xb, D + 0.005, H + 0.2, DOOR.z0 - 0.22, DOOR.z0 + 0.02); box(TRIM, xa, xb, D + 0.005, H + 0.2, DOOR.z1 - 0.02, DOOR.z1 + 0.22);
         box(TRIM, xa, xb, H - 0.03, H + 0.2, DOOR.z0 - 0.22, DOOR.z1 + 0.22); box(TRIM, xa + 0.04, xb - 0.04, D, D + 0.05, DOOR.z0, DOOR.z1);
       }
-      // a leaf hinged at (hx, hz); shut, it runs toward sz*z; it opens ang toward sx*x
-      const leaf = (hx, hz, sx, sz, ang, y0, y1, top, mat) => {
-        const d = [sx * Math.sin(ang), sz * Math.cos(ang)], rot = [0, Math.atan2(-d[1], d[0]) + Math.PI / 2, 0];
-        const at = (along, half, ya, yb, th, m) => { const x = hx + d[0] * along, z = hz + d[1] * along; box(m, x - th, x + th, ya, yb, z - half, z + half, { rot }); };
+      // A leaf hinged at (hx, hz); shut, it runs toward sz*z; it opens ang toward sx*x. Each is a part of its own
+      // (little_library.js), built shut about its hinge and swung at setup (doorLife, below): the Dutch door's two
+      // halves and the balcony door can each be shut and opened, and all stand open to begin with.
+      const hall = place(K, TX, 0, TZ, 0), doors = (K.treehouse.doors = []);
+      const leaf = (name, hx, hz, sx, sz, ang, y0, y1, top, mat, wallX, ajar) => {
+        const part = hall.part(hx, 0, hz);
+        const at = (along, half, ya, yb, th, m) => part.box(m, -th, th, ya, yb, sz * along - half, sz * along + half);
         at(W2 / 2, W2 / 2, y0, y1, 0.075, mat);
         at(W2 / 2, W2 / 2 - 0.1, y0 + 0.15, y0 + 0.4, 0.11, mat); at(W2 / 2, W2 / 2 - 0.1, y1 - 0.4, y1 - 0.15, 0.11, mat);
         if (top) { at(W2 / 2, 0.5, y0 + 0.8, y0 + 2.1, 0.085, GLASS); at(W2 / 2, 0.03, y0 + 0.8, y0 + 2.1, 0.1, mat); }
         at(0.35, 0.3, y0 + 0.5, y0 + 0.58, 0.1, IRON); at(0.35, 0.3, y1 - 0.58, y1 - 0.5, 0.1, IRON);
         at(W2 - 0.2, 0.05, y0 + (top ? 0.3 : 2.4), y0 + (top ? 0.4 : 2.5), 0.14, BRASS);
+        doors.push({ name, part, hx: TX + hx, hz: TZ + hz, sx, sz, open: sx * sz * ang, ang, w: W2, y0, y1,
+          stop: { x0: TX + wallX - 0.25, x1: TX + wallX + 0.25, z0: TZ + DOOR.z0, z1: TZ + DOOR.z1, y0, y1 },      // across the doorway, while it is shut
+          ajar: { x0: TX + ajar[0], x1: TX + ajar[1], z0: TZ + ajar[2], z1: TZ + ajar[3], y0, y1 } });               // where it stands, while it is open
       };
-      leaf(C.x0 - 0.06, DOOR.z1 - 0.02, -1, -1, 2.18, D + 0.04, D + 2.95, false, DOORPAINT); leaf(C.x0 - 0.06, DOOR.z1 - 0.02, -1, -1, 1.92, D + 3.0, H - 0.04, true, DOORPAINT);
-      collide(C.x0 - 2.0, C.x0, DOOR.z1, DOOR.z1 + 1.3, D + 6.0, D);
-      leaf(C.x1 + 0.06, DOOR.z0 + 0.02, 1, 1, 2.85, D + 0.04, H - 0.04, false, 'c#7a5a3e/0.85');
-      collide(C.x1, C.x1 + 0.7, DOOR.z0 - 2.05, DOOR.z0, D + 6.0, D);
+      const west = [C.x0 - 2.0, C.x0, DOOR.z1, DOOR.z1 + 1.3], wx0 = C.x0 + T1 / 2 - 0.06;
+      leaf('the bottom half of the door', C.x0 - 0.06, DOOR.z1 - 0.02, -1, -1, 2.18, D + 0.04, D + 2.95, false, DOORPAINT, wx0, west);
+      leaf('the top half of the door', C.x0 - 0.06, DOOR.z1 - 0.02, -1, -1, 1.92, D + 3.0, H - 0.04, true, DOORPAINT, wx0, west);
+      leaf('the balcony door', C.x1 + 0.06, DOOR.z0 + 0.02, 1, 1, 2.85, D + 0.04, H - 0.04, false, 'c#7a5a3e/0.85', C.x1 - T1 / 2 + 0.06, [C.x1, C.x1 + 0.7, DOOR.z0 - 2.05, DOOR.z0]);
     }
     // the windows: the seat's casements standing open, and the round casement swung open on its hinge
     {
@@ -335,9 +347,11 @@ function build(K, opts) {
       const ring = (r0, r1, depth) => { const sh = new THREE.Shape().absarc(0, 0, r1, 0, Math.PI * 2, false); sh.holes.push(new THREE.Path().absarc(0, 0, r0, 0, Math.PI * 2, true)); return new THREE.ExtrudeGeometry(sh, { depth, bevelEnabled: false, curveSegments: 20 }); };
       const onWall = (g, x) => { g.applyMatrix4(new THREE.Matrix4().makeBasis(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 1, 0), new THREE.Vector3(-1, 0, 0)).setPosition(TX + x, ROUND.y, TZ + ROUND.z)); return g; };
       put(TRIM, onWall(ring(ROUND.r + 0.02, ROUND.r + 0.26, 0.12), C.x0 + 0.04)); put(TRIM, onWall(ring(ROUND.r + 0.02, ROUND.r + 0.12, T1 - 0.05), C.x0 + T1 + 0.03));
-      // the casement: a plain round sash of timber with its glass, hinged on its south side, swung out flat-ish against the wall
+      // the casement: a plain round sash of timber with its glass, hinged at the top as a porthole is and propped
+      // up and out, so the telescope looks out under it and nothing of the window is in its way
       const sash = [ring(ROUND.r - 0.08, ROUND.r - 0.0, 0.08), new THREE.CircleGeometry(ROUND.r - 0.06, 20)], mats = [TRIM, GLASS];
-      sash.forEach((g, i) => { g.applyMatrix4(new THREE.Matrix4().makeBasis(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 1, 0), new THREE.Vector3(-1, 0, 0))); g.translate(0, 0, ROUND.r); g.rotateY(-1.85); g.translate(TX + C.x0 - 0.06, ROUND.y, TZ + ROUND.z - ROUND.r); put(mats[i], g); });
+      sash[1].rotateY(Math.PI);      // (its glass is seen from underneath)
+      sash.forEach((g, i) => { g.applyMatrix4(new THREE.Matrix4().makeBasis(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 1, 0), new THREE.Vector3(-1, 0, 0))); g.translate(0, -ROUND.r, 0); g.rotateZ(-1.75); g.translate(TX + C.x0 - 0.06, ROUND.y + ROUND.r, TZ + ROUND.z); put(mats[i], g); });
     }
   }
 
@@ -361,16 +375,18 @@ function build(K, opts) {
     const sx0 = 3.0, sz1 = iz0 + 1.5, sy = D + 1.55;
     box('c#7a5a3e/0.85', sx0, ix1, sy - 0.15, sy, iz0, sz1);
     box('c#6a4c32/0.9', sx0 + 0.1, ix1 - 0.02, D, sy - 0.15, sz1 - 0.12, sz1); box('c#6a4c32/0.9', sx0, sx0 + 0.12, D, sy, iz0, sz1);
-    box('c#6f8a7a/1', sx0 + 0.15, ix1 - 0.05, sy, sy + 0.28, iz0 + 0.05, sz1 - 0.08);
+    {      // the cushion: stuffed, its edges rolled and its middle a little proud
+      const x0 = sx0 + 0.15, x1 = ix1 - 0.05, z0 = iz0 + 0.05, z1 = sz1 - 0.08;
+      soft('c#6f8a7a/1', softBox((x0 - x1) / 2, (x1 - x0) / 2, (z0 - z1) / 2, (z1 - z0) / 2, 0, 0.28, 0.06, { n: [3, 2, 1], crown: 0.03, welt: 0.008, noBottom: true }), (x0 + x1) / 2, sy, (z0 + z1) / 2);
+    }
     for (const [x, col, tilt, wd] of [[4.3, 'c#c9a44a/1', 0.3, 0.55], [5.25, 'c#a8584a/1', 0.36, 0.45]]) {      // plump pillows, leaning back against the wall
-      const g = new THREE.BoxGeometry(2 * wd, 1.0, 0.34, 5, 5, 1), p = g.attributes.position;
-      for (let i = 0; i < p.count; i++) { const u = p.getX(i) / wd, v = p.getY(i) / 0.5; p.setXYZ(i, p.getX(i) * (1 - 0.1 * v * v), p.getY(i) * (1 - 0.1 * u * u), p.getZ(i) * (1 - 0.8 * u ** 4) * (1 - 0.8 * v ** 4)); }
-      g.computeVertexNormals(); g.rotateX(-tilt); g.translate(TX + x, sy + 0.8, TZ + iz0 + 0.4); put(col, g);
+      const g = pillow(2 * wd, 1.0, 0.4, { n: 6, pinch: 0.08, rng: () => 0.5 });
+      g.rotateX(-tilt); g.translate(TX + x, sy + 0.8, TZ + iz0 + 0.4); put(col, g);
     }
     collide(sx0, ix1, iz0, sz1, LOW, D);
     K.seat(TX + 4.8, sy + 0.25, TZ + iz0 + 0.9, 0, 'sit in the window seat');
     {
-      let y = sy + 0.28; const bx = 3.5, zc = sz1 - 0.35;
+      let y = sy + 0.285; const bx = 3.5, zc = sz1 - 0.42;
       BOOKS.slice(0, 6).forEach((b, i) => {
         const d = 0.6 + ((i * 37) % 7) * 0.03, w = 0.42 + ((i * 53) % 5) * 0.025, th = 0.07 + ((i * 29) % 4) * 0.016, dx = ((i * 41) % 5 - 2) * 0.02, dz = ((i * 17) % 5 - 2) * 0.018;
         const z0 = zc - w / 2 + dz, z1 = zc + w / 2 + dz;
@@ -384,9 +400,18 @@ function build(K, opts) {
       cyl('c#1f3a5f/0.4', tx, sy + 0.28, sy + 0.45, tz, 0.27, 0.27, 16); cyl('c#c9a24a/0.4', tx, sy + 0.45, sy + 0.5, tz, 0.285, 0.285, 16);
       const lid = new THREE.CircleGeometry(0.27, 16); lid.rotateX(-Math.PI / 2); lid.translate(TX + tx, sy + 0.502, TZ + tz); sheet.print(lid, RECT.tin);
       T.tin = { x: TX + tx, y: sy + 0.48, z: TZ + tz };
-      box('c#8c3b2e/1', 5.85, ix1 - 0.08, sy + 0.28, sy + 0.5, iz0 + 0.1, iz0 + 1.15);
-      box('c#d9c79f/1', 5.84, ix1 - 0.07, sy + 0.37, sy + 0.395, iz0 + 0.09, iz0 + 1.16);
-      box('c#8c3b2e/1', 5.95, ix1 - 0.15, sy - 0.7, sy + 0.3, sz1 + 0.01, sz1 + 0.07, { rot: [0.08, 0, 0] });
+      // the blanket: folded at the seat's end, its cream stripe in the fold, and its last turn let hang over the
+      // cushion's edge and down the front in loose folds
+      const bx0 = 5.85, bx1 = ix1 - 0.08, bw = bx1 - bx0, bz = iz0 + 0.62, RED = 'c#8c3b2e/1';
+      for (const [y0, h, c, more] of [[0.275, 0.11, RED, 0], [0.37, 0.035, 'c#d9c79f/1', 0.006], [0.39, 0.11, RED, 0]]) soft(c, softBox(-bw / 2 - more, bw / 2 + more, -0.52 - more, 0.52 + more, 0, h, 0.05, { k: 1, n: [1, 2, 1] }), (bx0 + bx1) / 2, sy + y0, bz);
+      const zs = bz + 0.3, ze = sz1 - 0.14, rho = sz1 + 0.035 - ze, yt = sy + 0.29;
+      put(RED, cloth((u, v) => {
+        const fold = 0.03 * (1 + Math.sin(u * 7.9 + 0.6)), x = bx0 + 0.05 + (bw - 0.1) * u;
+        if (v < 0.15) return [TX + x, yt, TZ + zs + (ze - zs) * v / 0.15];
+        if (v < 0.5) { const a = (v - 0.15) / 0.35 * Math.PI / 2; return [TX + x, yt - rho * (1 - Math.cos(a)), TZ + ze + rho * Math.sin(a) + fold * a * 0.3]; }
+        const down = (v - 0.5) / 0.5 * (0.72 + 0.05 * Math.sin(u * 5 + 1)), grow = 0.47 + 0.53 * Math.min(1, down / 0.4);
+        return [TX + bx0 + bw / 2 + (x - bx0 - bw / 2) * (1 - 0.08 * Math.min(1, down / 0.4)), yt - rho - down, TZ + ze + rho + fold * grow];
+      }, 5, 7, { thick: 0.025, flip: true }));
     }
     // the lantern from the ridge
     {
@@ -399,18 +424,19 @@ function build(K, opts) {
       const y = D + 5.0, z0 = iz1 - 0.45;
       box('c#8a6a4a/0.85', 4.35, 6.3, y - 0.07, y, z0, iz1 - 0.01);
       for (const x of [4.6, 6.05]) box('c#6a4c32/0.9', x - 0.05, x + 0.05, y - 0.45, y - 0.07, iz1 - 0.35, iz1 - 0.01);
-      lathe('c#9fb7b0/0.2', 4.65, y, z0 + 0.22, [[0.01, 0], [0.12, 0], [0.12, 0.32], [0.1, 0.33]], 8);
-      for (const [dx, c] of [[-0.04, 'c#c0392b/0.8'], [0.03, 'c#2f6f8f/0.8'], [0.0, 'c#e3b23c/0.8']]) tube(c, [4.65 + dx, y + 0.1, z0 + 0.22 + dx], [4.65 + dx * 2, y + 0.55, z0 + 0.2 + dx], 0.018, 4, false);
-      box('c#b0302a/0.6', 5.1, 5.75, y, y + 0.16, z0 + 0.12, z0 + 0.32); box('c#efe6cf/0.8', 5.12, 5.73, y + 0.16, y + 0.2, z0 + 0.14, z0 + 0.3);
+      lathe('c#9fb7b0/0.2', 4.65, y, z0 + 0.22, [[0.01, 0], [0.112, 0], [0.12, 0.015], [0.12, 0.3], [0.126, 0.32], [0.108, 0.325], [0.104, 0.2]], 14);
+      for (const [dx, c] of [[-0.04, 'c#c0392b/0.8'], [0.03, 'c#2f6f8f/0.8'], [0.0, 'c#e3b23c/0.8']]) tube(c, [4.65 + dx, y + 0.1, z0 + 0.22 + dx], [4.65 + dx * 2, y + 0.55, z0 + 0.2 + dx], 0.018, 6, false);
+      // the toy boat: a hull drawn in to its bow and lifting a little at both ends, and its deck
+      for (const [c, w, d, h, yb] of [['c#b0302a/0.6', 0.68, 0.22, 0.15, 0], ['c#efe6cf/0.8', 0.63, 0.17, 0.035, 0.145]]) soft(c, softBox(-w / 2, w / 2, -d / 2, d / 2, 0, h, 0.04, { k: 1, n: [3, 1, 1], deform: (q, U) => { q[1] *= U > 0 ? 1 - 0.92 * U * U : 1 - 0.3 * U * U; q[2] += 0.03 * U * U; return q; } }), 5.42, y + yb, z0 + 0.22);
       const sail = new THREE.BufferGeometry(); sail.setAttribute('position', new THREE.Float32BufferAttribute([TX + 5.4, y + 0.22, TZ + z0 + 0.22, TX + 5.4, y + 0.75, TZ + z0 + 0.22, TX + 5.72, y + 0.22, TZ + z0 + 0.22], 3)); sail.computeVertexNormals(); sheet.paint('c#efe6cf/0.9', sail);
       tube('c#5a3a24/0.8', [5.4, y + 0.18, z0 + 0.22], [5.4, y + 0.8, z0 + 0.22], 0.015, 4, false);
-      sphere('c#7a5a34/1', 6.05, y + 0.14, z0 + 0.22, 0.13, 1.3, 0);
-      // the jacket
-      const hz = iz1 - 0.38, hx = ix0;
-      tube(IRON, [hx, D + 5.1, hz], [hx + 0.22, D + 5.15, hz], 0.025, 5, false);
-      box('c#c9a032/0.95', hx + 0.06, hx + 0.24, D + 3.3, D + 5.0, hz - 0.33, hz + 0.33, { rot: [0.04, 0, 0.05] });
-      for (const s of [-1, 1]) box('c#b8922a/0.95', hx + 0.08, hx + 0.22, D + 3.55, D + 4.85, hz + s * 0.36 - 0.07, hz + s * 0.36 + 0.07, { rot: [s * 0.08, 0, 0] });
-      sphere('c#c9a032/0.95', hx + 0.2, D + 5.05, hz, 0.2, 0.7, 0);
+      lathe('c#7a5a34/1', 6.05, y, z0 + 0.22, [[0.01, 0], [0.07, 0.015], [0.115, 0.06], [0.085, 0.075], [0.125, 0.12], [0.092, 0.135], [0.118, 0.18], [0.082, 0.195], [0.095, 0.24], [0.058, 0.255], [0.062, 0.29], [0.012, 0.335]], 8);      // the pine cone, in its rows of scales
+      // the jacket: hung by its collar, narrow at the hook and falling wider, its sleeves hanging at its sides
+      const hz = iz1 - 0.38, hx = ix0, COAT = 'c#c9a032/0.95';
+      tube(IRON, [hx, D + 5.1, hz], [hx + 0.22, D + 5.15, hz], 0.025, 6, false);
+      soft(COAT, softBox(-0.36, 0.36, -0.1, 0.1, 0, 1.75, 0.09, { n: [1, 1, 2], taper: 0.4, deform: (q, U, V, W) => { q[1] += 0.03 * Math.sin(U * 4 + 1) * (1 - W) / 2; return q; } }), hx + 0.15, D + 3.3, hz, Math.PI / 2);
+      for (const s of [-1, 1]) soft('c#b8922a/0.95', softBox(-0.075, 0.075, -0.07, 0.07, 0, 1.3, 0.065, { k: 1, n: [1, 1, 2], deform: (q, U, V, W) => { q[0] += s * 0.1 * (1 - W) / 2; return q; } }), hx + 0.16, D + 3.5, hz - s * 0.27, Math.PI / 2);
+      sphere(COAT, hx + 0.2, D + 5.03, hz, 0.19, 0.6, 1);
       // paper flags, strung along the north wall over the map and the shelf
       const a = [ix0 + 0.1, D + 6.1, iz1 - 0.08], b = [ix1 - 0.1, D + 6.1, iz1 - 0.08], pts = sagged(a, b, 0.3, 12), cols = ['c#c0392b/1', 'c#e3b23c/1', 'c#2f6f8f/1', 'c#6f8a4a/1', 'c#e8dcc0/1'];
       rope('c#e8dcc0/1', pts, 0.008, 3);
@@ -418,8 +444,11 @@ function build(K, opts) {
     }
     // the rug, the map and the drawings, pinned up
     {
-      for (const [r, y, col] of [[1.2, D + 0.03, 'c#7a4a3a/1'], [0.85, D + 0.045, 'c#c9a46a/1'], [0.45, D + 0.06, 'c#5a6a4a/1']]) { const g = new THREE.CylinderGeometry(r, r, 0.04, 24); g.scale(1.2, 1, 0.7); g.translate(TX + 4.3, y, TZ + (DOOR.z0 + DOOR.z1) / 2 + 0.1); put(col, g); }
-      const N = iz1 - 0.035, E = ix1 - 0.035, tack = (x, y, z, c) => sphere(c, x, y, z, 0.035, 1, 0, true);
+      for (const [r0, r, h, col] of [[0.8, 1.2, 0.03, 'c#7a4a3a/1'], [0.4, 0.85, 0.037, 'c#c9a46a/1'], [0.002, 0.45, 0.044, 'c#5a6a4a/1']]) {      // a braided oval rug lying on the boards: each band low, its edge rolled down
+        const g = new THREE.LatheGeometry([[r, 0], [r - 0.02, h * 0.7], [r - 0.07, h], [r0, h]].map(([a, b]) => new THREE.Vector2(a, b)), 24);
+        g.scale(1.2, 1, 0.7); g.translate(TX + 4.3, D + 0.002, TZ + (DOOR.z0 + DOOR.z1) / 2 + 0.1); put(col, g);
+      }
+      const N = iz1 - 0.035, E = ix1 - 0.035, tack = (x, y, z, c) => { const g = new THREE.SphereGeometry(0.033, 8, 4); g.translate(TX + x, y, TZ + z); put(c, g, true); };
       print(RECT.map, [3.0, D + 3.95, N], [-1, 0, 0], [0, 1, 0], 1.75, 1.75);
       for (const [dx, dy] of [[-0.82, 0.82], [0.82, 0.82], [-0.82, -0.82], [0.82, -0.82]]) tack(3.0 + dx, D + 3.95 + dy, N - 0.02, 'c#b3261e/0.5');
       print(RECT.d1, [5.3, D + 3.9, N], [-1, 0, 0], [0, 1, 0], 0.8, 0.8); tack(5.3, D + 4.26, N - 0.02, 'c#2f6f8f/0.5');
@@ -429,14 +458,25 @@ function build(K, opts) {
     }
     // the telescope at the round window, trained on the house
     {
-      const [ex, ey, ez] = SCOPE.e, [dx, dy, dz] = SCOPE.d, o = [ex + dx * 2.2, ey + dy * 2.2, ez + dz * 2.2];
-      tube(BRASS, [ex, ey, ez], [ex + dx * 1.15, ey + dy * 1.15, ez + dz * 1.15], 0.075, 10, false);
-      tube(BRASS, [ex + dx * 1.1, ey + dy * 1.1, ez + dz * 1.1], o, 0.1, 10, false);
-      for (const t of [0.05, 1.12, 2.15]) { const p = [ex + dx * t, ey + dy * t, ez + dz * t]; tube('c#3a2a1a/0.6', [p[0] - dx * 0.05, p[1], p[2] - dz * 0.05], [p[0] + dx * 0.05, p[1], p[2] + dz * 0.05], t > 2 ? 0.12 : t > 1 ? 0.11 : 0.09, 10, false); }
-      const m = [ex + dx * 0.5, ey + dy * 0.5 - 0.12, ez + dz * 0.5];
-      for (const ang of [0.2, 2.3, 4.4]) beam('c#6a4a2e/0.8', m, [m[0] + Math.cos(ang) * 0.5, D + 0.02, m[2] + Math.sin(ang) * 0.5], 0.06, 0.06);
+      // (a brass refractor, turned round its own axis: an eyecup, the narrow draw, a long barrel that swells a
+      // little to its glass; it lies in a saddle on a short post, on a tripod of round legs)
+      const [ex, ey, ez] = SCOPE.e, [dx, dy, dz] = SCOPE.d, at = t => [ex + dx * t, ey + dy * t, ez + dz * t], DARK = 'c#3a2a1a/0.6', WOOD = 'c#6a4a2e/0.8';
+      const aim = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(dx, dy, dz).normalize());
+      const turned = (mat, prof) => { const g = new THREE.LatheGeometry(prof.map(([r, t]) => new THREE.Vector2(r, t)), 12); g.applyQuaternion(aim); g.translate(TX + ex, ey, TZ + ez); put(mat, g); };      // [radius, feet along the axis from the eyepiece]
+      turned(DARK, [[0.002, 0], [0.062, 0], [0.074, 0.02], [0.074, 0.07], [0.05, 0.09]]);
+      turned(BRASS, [[0.05, 0.08], [0.05, 0.34]]);
+      turned(DARK, [[0.05, 0.31], [0.098, 0.32], [0.098, 0.39], [0.086, 0.4]]);
+      turned(BRASS, [[0.086, 0.39], [0.1, 2.1]]);
+      turned(DARK, [[0.092, 0.62], [0.104, 0.63], [0.105, 0.79], [0.094, 0.8]]);
+      turned(DARK, [[0.1, 2.08], [0.116, 2.09], [0.116, 2.2], [0.09, 2.2], [0.09, 2.15]]);
+      turned(GLASS, [[0.09, 2.15], [0.002, 2.15]]);
+      const m = at(0.71), top = m[1] - 0.1, hub = top - 0.2;
+      cyl(BRASS, m[0], hub, top, m[2], 0.035, 0.035, 8); cyl(WOOD, m[0], hub - 0.09, hub, m[2], 0.085, 0.07, 10);
+      for (const ang of [0.35, 2.25, 4.45]) tube(WOOD, [m[0] + Math.cos(ang) * 0.04, hub - 0.05, m[2] + Math.sin(ang) * 0.04], [m[0] + Math.cos(ang) * 0.5, D, m[2] + Math.sin(ang) * 0.5], 0.03, 6, false);
       collide(m[0] - 0.45, m[0] + 0.45, m[2] - 0.45, m[2] + 0.45, D + 4, D);
-      T.scope = { x: TX + ex - dx * 0.35, y: ey + 0.06, z: TZ + ez - dz * 0.35, yaw: Math.atan2(-dx, -dz), at: [TX + ex, ey, TZ + ez] };
+      const yaw = Math.atan2(-dx, -dz), o = at(2.45);
+      T.scope = { x: TX + ex - dx * 0.35, y: ey + 0.06, z: TZ + ez - dz * 0.35, yaw, at: [TX + ex, ey, TZ + ez],
+        eye: { x: TX + o[0], y: o[1], z: TZ + o[2], yaw: yaw + 0.075, pitch: Math.asin(dy) - 0.03, fov: 9 } };      // (the view is taken from just beyond its glass, outside the wall; it finds the house's upstairs windows)
     }
   }
 
@@ -481,11 +521,34 @@ function build(K, opts) {
 }
 
 // ---- built once materials exist, and the swing and the stair's pace ---------------------------------------------------
+// The doors. Each leaf swings by itself: E on it shuts it, E again opens it. Shut, it stops the walker in the
+// doorway; open, it stands where it always stood. A leaf waits for the visitor to step out of its way.
+function doorLife(ctx, doors) {
+  for (const d of doors) {
+    const leaf = buildPart(ctx, d.part, d.name), sw = swinger(ctx, leaf, 'y', d.open, 0, 2.8);      // (the swinger starts at its first angle: open)
+    const stop = { ...d.stop, off: true }, ajar = { ...d.ajar, off: false }; ctx.colliders?.push(stop, ajar);
+    const ym = (d.y0 + d.y1) / 2, mid = { x: (stop.x0 + stop.x1) / 2, y: ym, z: (stop.z0 + stop.z1) / 2 };
+    const out = { x: d.hx + d.sx * Math.sin(d.ang) * d.w * 0.6, y: ym, z: d.hz + d.sz * Math.cos(d.ang) * d.w * 0.6 };
+    let shut = false, want = null;
+    const inWay = () => {
+      const w = ctx.walker; if (!w || ctx.mode !== 'walk') return false;
+      const { x, y, z } = w.pos; if (y > d.y1 || y + 5.6 < d.y0) return false;
+      if (x > stop.x0 - 0.5 && x < stop.x1 + 0.5 && z > stop.z0 - 0.3 && z < stop.z1 + 0.3) return true;      // in the doorway
+      return (x - mid.x) * d.sx > 0 && Math.hypot(x - d.hx, z - d.hz) < d.w + 0.4;                           // in its swing
+    };
+    const go = () => { shut = want; want = null; sw.set(shut); stop.off = !shut; ajar.off = shut; Object.assign(ent, shut ? mid : out); };
+    const ent = { ...out, reach: 6.5, size: 1.1, label: () => `${shut ? 'open' : 'close'} ${d.name}`,
+      act: () => { want = !shut; if (inWay()) window.houseUI?.toast?.('The door needs room to swing.'); else go(); } };
+    ctx.interact?.push(ent);
+    ctx.animated.push(() => { if (want !== null && !inWay()) go(); });
+  }
+}
 export function treehouseLife(ctx, K) {
   try { life(ctx, K); } catch (e) { console.warn('treehouse: not set going', e); }
 }
 function life(ctx, K) {
   const T = K.treehouse; if (!T) return;
+  try { doorLife(ctx, T.doors ?? []); } catch (e) { console.warn('treehouse: doors', e); }
   const { scene, animated, interact, camera } = ctx, T3 = THREE;
   const outline = T.outline ?? (() => 100);
   const canvas = drawSheet({ outline: a => outline(a) * 1.04, cx: T.island?.x ?? -5, cz: T.island?.z ?? -24, trees: K.trees, pond: POND, pot: POT, play: PLAY, chapel: CHAPEL, here: { x: TX, z: TZ } });
@@ -506,9 +569,13 @@ function life(ctx, K) {
   const BISCUITS = ['Shortbread, still crisp. Somebody keeps this tin filled.', 'Another one. Nobody is counting.', 'The last one with the sugar on top. Worth it.'];
   let bis = 0; interact.push({ x: T.tin.x, y: T.tin.y, z: T.tin.z, reach: 5, size: 0.5, label: () => 'have a biscuit', act: () => toast(BISCUITS[bis++ % BISCUITS.length]) });
   interact.push({ x: T.map.x, y: T.map.y, z: T.map.z, reach: 5, size: 1.1, label: () => 'look at the map', act: () => toast('A map of the island, drawn by hand and pinned up crooked. X marks the treehouse.') });
-  // the telescope: sit at the eyepiece and the view closes in on the house
+  // the telescope: the sleeping porch's own (toys.js: the ring of the eyepiece, the mouse aims, the wheel brings things
+  // closer, a step stands you up), looking from this one's glass and trained on the house. Until toys.js has taken it
+  // up, and on the test page (which has no toys), E sits you at the eyepiece and the view simply closes in.
   const scopeSeat = { x: T.scope.x, y: T.scope.y, z: T.scope.z, yaw: T.scope.yaw, label: 'look through the telescope' };
-  interact.push({ x: T.scope.at[0], y: T.scope.at[1], z: T.scope.at[2], reach: 5, size: 0.6, seat: scopeSeat, label: () => 'look through the telescope' });
+  const scopeEntry = { x: T.scope.at[0], y: T.scope.at[1], z: T.scope.at[2], reach: 5, size: 0.6, seat: scopeSeat, label: () => 'look through the telescope' };
+  interact.push(scopeEntry);
+  import('../toys.js').then(m => m.addTelescope?.({ ...T.scope.eye, label: 'telescope', entry: scopeEntry })).catch(() => {});
   let scopeOn = false, fov0 = 56, look0 = 1;
   // the net: lie in it face down and look through it at the sky below
   const nz = (NET.z0 + NET.z1) / 2, netSeat = { ...xyz((NET.x0 + NET.x1) / 2, D - 0.65, nz), yaw: -Math.PI / 2 + 0.25, label: 'lie in the net' };

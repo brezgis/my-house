@@ -284,6 +284,7 @@ export function drawSheet(L) {
   // -- net: rope in diamonds on nothing (the tile edges meet)
   {
     const [X, Y, W, H] = RECT.net; g.save(); g.translate(X, Y); g.clearRect(0, 0, W, H);
+    g.beginPath(); g.rect(0, 0, W, H); g.clip();      // (the net's lines run far past its square: without this they cross the map and the book spines above it)
     const P = W / 3;      // three diamonds across a tile, so a tile's edges meet the next tile's
     g.strokeStyle = '#d2bf94'; g.lineWidth = 4; g.lineCap = 'round';
     for (let k = -6; k <= 6; k++) { g.beginPath(); g.moveTo(0, k * P); g.lineTo(W, k * P + W); g.stroke(); g.beginPath(); g.moveTo(0, k * P); g.lineTo(W, k * P - W); g.stroke(); }

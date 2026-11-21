@@ -128,7 +128,10 @@ function rugTexture(style, w, d) {
 function prepareModel(src, outdoor) {
   src.updateMatrixWorld(true);
   const tuned = new Map(), tune = mat => {
-    if (!tuned.has(mat)) { const m = mat.clone(); m.envMapIntensity = outdoor ? 0.8 : 0.3; if (m.transparent || m.alphaTest > 0) { m.transparent = false; m.alphaTest = 0.5; }
+    if (!tuned.has(mat)) { const m = mat.clone(); m.envMapIntensity = outdoor ? 0.8 : 0.3; // A pane of glass (a clock's door, a lantern's lights, a picture's glazing) is clear glass. Its see-through-ness
+      // was in a picture that is not kept, so it was drawn solid, and the grandfather clock had no face to be seen.
+      if (m.transparent && /glass$/i.test(m.name ?? '')) { m.map = null; m.color.set(0xdfe8e6); m.opacity = 0.12; m.roughness = 0.08; m.metalness = 0; m.depthWrite = false; }
+      else if (m.transparent || m.alphaTest > 0) { m.transparent = false; m.alphaTest = 0.5; }
       // Refracting glass (a vase, a lens, a bottle) makes the renderer draw the whole scene a second time, into
       // a full-size texture, in every frame in which one such piece is in view. Plain clear glass instead.
       if (m.transmission > 0) { m.transmission = 0; m.thickness = 0; m.transparent = true; m.opacity = 0.32; m.depthWrite = false; }

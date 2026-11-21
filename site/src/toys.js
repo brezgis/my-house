@@ -200,17 +200,24 @@ function telescope(ctx, modes, hold) {
     leave() { ring.style.opacity = '0'; cam.fov = was; cam.updateProjectionMatrix(); ctx.walker.lookScale = 1; cam.near = 0.25; },
   };
   modes.push(mode);
-  const look = toMoon => {
+  const look = (toMoon, at = eye) => {
     was = cam.fov > 30 ? cam.fov : 56;
-    hold(mode, eye, 0.12); ring.style.opacity = '1'; setFov(9);
+    hold(mode, at, at.pitch ?? 0.12); ring.style.opacity = '1'; setFov(at.fov ?? 9);
     if (toMoon ?? moonUp()) { const d = ctx.day.moonDir.clone().multiplyScalar(2650).sub(new THREE.Vector3(eye.x, eye.y, eye.z)).normalize(); ctx.walker.yaw = Math.atan2(-d.x, -d.z); ctx.walker.pitch = Math.asin(Math.max(-1, Math.min(1, d.y))); setFov(2.4); note('Someone has left it trained on the moon.'); }
   };
   ctx.interact.push({ x: T.x, y: F2 + 3.2, z: T.z, reach: 6.5, label: () => 'look through the telescope', act: () => look() });
+  another = s => { delete s.entry.seat; s.entry.act = () => look(false, s); };      // (addTelescope, below)
+  waiting.splice(0).forEach(another);
   addEventListener('wheel', e => { if (mode.active) setFov(fov * (e.deltaY > 0 ? 1.12 : 0.89)); }, { passive: true });
   addEventListener('keydown', e => { if (!mode.active) return; if (e.code === 'Equal' || e.code === 'NumpadAdd') { setFov(fov * 0.8); e.stopImmediatePropagation(); } if (e.code === 'Minus' || e.code === 'NumpadSubtract') { setFov(fov * 1.25); e.stopImmediatePropagation(); } }, true);
   ctx.animated.push(() => { if (mode.active && cam.fov !== fov) setFov(fov); });
   if (TOY.startsWith('scope')) setTimeout(() => { look(TOY.endsWith('moon') ? true : false); const z = Number(Q.get('zoom')); if (z) setFov(z); const a = Q.get('aim'); if (a) { const [yaw, pitch] = a.split(',').map(Number); ctx.walker.yaw = yaw; ctx.walker.pitch = pitch; } }, 300);
 }
+
+// Another telescope somewhere else (the treehouse's, garden/treehouse.js): the same glass, looking from its own
+// eye point. s: { x, y, z, yaw, pitch, fov, label, entry }, where entry is its own interact entry: E on it looks through.
+let another = null; const waiting = [];
+export function addTelescope(s) { if (another) another(s); else waiting.push(s); }
 
 // ------------------------------------------------------------------------------------------
 // The globe

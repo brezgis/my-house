@@ -19,8 +19,8 @@
 //   - otherwise their work, as a round of nearby jobs rather than a criss-cross of
 //     the island: watering the beds, deadheading, the wheelbarrow (Thistle), the
 //     hives, feeding the koi, a sit on a bench, looking out from the rim, a word
-//     with each other when their rounds cross; at night Bramble tucks herself by
-//     the glasshouse and Thistle by the back porch, and they wake for a visitor.
+//     with each other when their rounds cross; they keep at it through the night
+//     (robots do not sleep), with more looking at the stars.
 //
 // Hands and tools. The work is done with the tools, where the work is: each job sets this.work (what kind,
 // and the point in the world it is aimed at) and the hands are placed every frame from it (pose(), only
@@ -147,7 +147,6 @@ export function gardenSpots(out, ctx) {
   for (const [tx, tz] of TEEPEES) { const b = S.beds.find(b => tx > b.box.x0 && tx < b.box.x1 && tz > b.box.z0 && tz < b.box.z1); if (!b) continue; for (const sg of [-1, 1]) { const p = snap((sg < 0 ? b.box.x0 : b.box.x1) + sg * 1.6, tz, 2); if (p) S.tend.push({ ...p, fx: tx + sg * 1.25, fz: tz, y: 4.2 + sg * 0.3, job: 'tie' }); } }
   for (const j of GLASS_JOBS) if (out.freeAt(0, j.x, j.z, 1.2)) S.tend.push({ ...j, in: true });
   S.kitchenDoor = snap(15, -54, 6); if (S.kitchenDoor) Object.assign(S.kitchenDoor, { fx: 15, fz: -46 });
-  S.night = { bramble: snap(46, -104, 5), thistle: snap(17, -58, 6) ?? snap(22, -60, 8) };
   return S;
 }
 
@@ -383,7 +382,6 @@ export class Gardener extends Robot {
     if (this.wantsToGreet()) return this.run('greet', this.greet(), false);
     const empty = H.empties.find(e => !e.claimed && e.outside && !(e.skipUntil > H.now));
     if (empty && (!H.host || H.host === this)) { empty.claimed = this; return this.run('clear', this.clear(empty), false); }
-    if (night && !this.inDomain()) return this.run('tuck', this.tuck());
     const o = this.other;
     if (o && !toward && o.interruptible && !o.engaged && !o.carrying && !H.host && o.taskName !== 'tuck' && H.now - (H.lastGBanter ?? -200) > 150
       && Math.hypot(o.x - this.x, o.z - this.z) < 45 && R() < 0.5 * this.traits.chat) return this.run('banter', this.banter(o), false);
@@ -403,7 +401,7 @@ export class Gardener extends Robot {
     if (this.barrow && Math.hypot(this.barrow.x - BARROW_HOME.x, this.barrow.z - BARROW_HOME.z) > 2) w = { ...w, cart: w.cart * 3 };      // it is not where it lives: see to it
     const mine = this.attending(), opts = [], off = H.host && H.host !== this ? 26 : KEEP_OFF;       // well clear while the other has her company
     for (const k in lists) {
-      const list = lists[k], base = (w[k] ?? 0) * (night ? (k === 'bench' || k === 'rim' ? 1.5 : 0.3) : 1);
+      const list = lists[k], base = (w[k] ?? 0) * (night ? (k === 'bench' || k === 'rim' ? 1.3 : k === 'cart' ? 0.3 : 0.8) : 1)      /* they work the night through (robots do not sleep): a little more looking at the stars, less trundling the barrow about */;
       if (!base || !list.length) continue;
       for (const s of list) {
         const ds = Math.hypot(s.x - this.x, s.z - this.z);
@@ -789,14 +787,6 @@ export class Gardener extends Robot {
       yield* this.linger(18 + H.rnd() * 20, { x: s.fx, z: s.fz });
     } finally { this.doneWork(); }
   }
-  *tuck() {
-    const H = this.H, s = this.spots.night[this.key];
-    if (s) yield* this.go(0, s.x, s.z);
-    if (H.rnd() < 0.5) this.line('tuck', { toGuest: false, expr: 'sleepy' });
-    this.drop = 0.9;
-    try { while (H.day.light < 0.35) { this.expr = 'sleepy'; this.exprUntil = H.now + 1; if (this.wantsToGreet()) break; yield; } }
-    finally { this.drop = 0; }
-  }
 
   // ---- tending: a bout of 20 to 50 seconds at a bed, the bean poles or in the glasshouse ----------------------
   // At a bed: weeding (Thistle with his trowel, Bramble by hand) or, Thistle, picking into his trug. At the
@@ -856,7 +846,7 @@ export class Gardener extends Robot {
   }
 
   // ---- rung for at the fire pit (garden/smores.js) ----------------------------------------------------
-  // Free to come? Not while seeing to her, carrying for her, or tucked up for the night.
+  // Free to come? Not while seeing to her, or carrying for her.
   canBring() {
     const H = this.H;
     return !this.inGlass() && !this.carrying && !this.fetching && !this.engaged && H.host !== this && H.talk.robot !== this && !['tuck', 'greet', 'fetch', 'deliver', 'clear', 'smores', 'demo', 'staged'].includes(this.taskName);

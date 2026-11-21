@@ -57,7 +57,7 @@ export const VOICE = {
     window: ["Look at that garden. I did none of it and I'm still proud.", "There's a bird out there judging me. Fair."],
     windowNight: ['The garden at night. All crickets and secrets.', "Dark out. That's when the house glows best."],
     think: ['Hmm.', "I've decided the hall needs a chandelier. Mort has decided I'm wrong.", "If anyone asks, the cake was like that when I found it.", '*composing a sonnet about the espresso machine*'],
-    rest: ['Recharging. Wake me for gossip.', 'Just resting my screen. My face.'],
+    rest: ['Recharging. Still listening for gossip.', 'A quick top-up. Eyes open.'],
     stairs: ['Upstairs, then. My knees. I do not have knees.', 'Going down. Like the curtain at the end of a great show.'],
   },
 
@@ -129,7 +129,7 @@ export const VOICE = {
     window: ['Ooh, a bird! Hi, bird!', 'The koi are doing laps! Go, koi!'],
     windowNight: ['The stars are out! One of them is a plane!', 'Goodnight, garden!'],
     think: ["Reading the library in alphabetical order. I'm on 'B'!", 'I wonder what Reginald thinks about. Probably circles!', '♪ La la laaa ♪'],
-    rest: ['Just a little doze...', '*tiny snore*'],
+    rest: ['Charging! I can feel it in my toes!', '*hums while charging*'],
     stairs: ['Up I go!', 'Downstairs! Adventure!'],
   },
 };
@@ -289,7 +289,6 @@ Object.assign(VOICE, {
     rimNight: ['Stars above and stars below. I never do get used to it.', '*looks out at the dark, humming*'],
     hivesNight: ['All tucked in, ladies? Good.', '*listens to the hive, very quietly*'],
     koiNight: ['*scatters a little food* Midnight feast. Not a word to Thistle.'],
-    tuck: ['Night night, garden.', "I'll be by the glasshouse if you need me. Snoozing."],
     think: ['*hums something with no tune*', 'Now, did I water the far bed, or did I only mean to?', "That rose is sulking. I'll have a word."],
     stairs: ['Up the path we go.'],
   },
@@ -349,7 +348,6 @@ Object.assign(VOICE, {
     rimNight: ['*looks out at the dark for a long time*', 'Stars. All present. Good.'],
     hivesNight: ['*listens at the hive* Asleep. Good.'],
     koiNight: ['Supper. Last one. I mean it.'],
-    tuck: ['Back porch. Night.', '*settles by the porch steps, dims*'],
     think: ['Hm.', '*regards a weed. The weed regards him.*', 'Slugs. Somewhere. I can feel it.'],
     stairs: ['Hm.'],
   },
@@ -362,7 +360,7 @@ export const GARDEN_FACTS = [
   'Everything grows a bit too big out here. Madame likes it that way. Calls it generous.',
   'The meadow paths are mown, the rest is left long, for the bees and the crickets.',
   'We float, you know. The whole island. Good drainage.',
-  'The summerhouse at the far end has a day bed. Best nap on the property. Ask Thistle; he denies it.',
+  'The summerhouse at the far end has a day bed. Best lie-down on the property. Ask Thistle; he denies it.',
 ];
 export const SEASON = [
   "High summer. Strawberries, tomatoes ripening in the cages, runner beans up the canes, courgettes you can't keep up with.",
@@ -443,14 +441,14 @@ export const GARDEN_TALK = [
     say: { bramble: 'Soft as butter under all that moss. He names the bees, you know. Every queen. Swears blind he does not.',
       thistle: "Talks to the tomatoes. Worse, they do better for it. I've stopped arguing." },
     then: [
-      { id: 'other.nap', ask: { bramble: 'Does he really nap in the summerhouse?', thistle: 'Does she ever stop talking?' }, say: { bramble: "Every afternoon, about three. Dims his lights and calls it 'checking the day bed for damp'.", thistle: 'At night. Mostly. She hums in her sleep. The glasshouse panes rattle. You get used to it.' } },
+      { id: 'other.nap', ask: { bramble: 'Does he really nap in the summerhouse?', thistle: 'Does she ever stop talking?' }, say: { bramble: "Every afternoon, about three, wide awake. Lies there looking at the ceiling and calls it 'checking the day bed for damp'.", thistle: 'Never. She hums all night while she waters. The glasshouse panes rattle. You get used to it.' } },
       { id: 'other.along', ask: 'Do you two get along?', say: { bramble: "Longer than the old oak's had its swing. We argue about the compost and agree about everything else.", thistle: "Hm. She moves my barrow. I move it back. That's a friendship." } },
     ] },
   { id: 'day', cat: 'us', own: true, ask: "What's a day like for you?",
     say: { bramble: "Water at dawn, deadhead till lunch, pretend not to see the hare in the lettuces, and somewhere in there a sit down. It's a full life.",
       thistle: "Up before the bees. Turn the compost. Feed the fish. Fetch the barrow from wherever Bramble's left it. Dim." },
     then: [
-      { id: 'day.night', ask: 'And at night?', say: { bramble: "I tuck up by the glasshouse, where it's warm off the glass. The frogs sing me off. You'd sleep like a bulb.", thistle: "Back porch steps. Lights low. I can hear the hall clock through the door. Four minutes fast. I've stopped minding." } },
+      { id: 'day.night', ask: 'And at night?', say: { bramble: "Oh, we don't sleep, love. I water by lantern and the frogs sing along. The koi get a midnight feast. Best shift there is.", thistle: "Same as the day. Quieter. Slugs come out at night, so I'm out too. The hall clock is four minutes fast. You can hear it from the beds." } },
       { id: 'day.indoors', ask: 'Do you ever come indoors?', say: { bramble: "Me? I'd drip, love. Mort would have to lie down, and he hasn't the knees for it.", thistle: 'Once. Mort followed me the whole way with a cloth. Never again. For both our sakes.' } },
     ] },
   { id: 'mood', cat: 'us', own: true, ask: 'How are you today?', pool: 'mood',

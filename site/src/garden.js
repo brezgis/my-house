@@ -48,6 +48,7 @@ import { makeKit, PAINT, GLOW, GLOW_WARM } from './garden/tools.js';
 import { buildPond, pondLife, POND } from './garden/pond.js';
 import { buildPlay, playLife } from './garden/play.js';
 import { buildTreehouse, treehouseLife } from './garden/treehouse.js';
+import { rippleLife } from './garden/ripples.js';
 import { buildPotager } from './garden/potager.js';
 import { buildLibrary } from './garden/little_library.js';
 import { buildMailbox } from './garden/mailbox.js';
@@ -176,9 +177,9 @@ export function plantGarden(B, items) {
     buildFrontWalk(K);      // the brick walk from here to the porch steps (garden/front_walk.js)
     // The sign: a painted board hung on two chains from the arbour's front hoop, lettered on both faces. (It was
     // a single card floating in front of the arch, with nothing holding it and nothing to see from the garden side.)
-    { const sx = px(23.55), sy = 8.0, sz = fz + 0.6, welcome = (g, w, h) => { g.fillStyle = '#d9d2c0'; g.fillRect(0, 0, w, h); g.strokeStyle = '#8a9480'; g.lineWidth = 8; g.strokeRect(8, 8, w - 16, h - 16); g.fillStyle = '#4a4f44'; g.font = 'italic 64px "Iowan Old Style", Palatino, Georgia, serif'; g.textAlign = 'center'; g.fillText('Welcome to', w / 2, 92); g.font = 'italic 76px "Iowan Old Style", Palatino, Georgia, serif'; g.fillText('Anna’s House', w / 2, 178); };
+    { const sx = px(23.55), sy = 8.0, sz = fz + 0.6, welcome = (top, big) => (g, w, h) => { g.fillStyle = '#d9d2c0'; g.fillRect(0, 0, w, h); g.strokeStyle = '#8a9480'; g.lineWidth = 8; g.strokeRect(8, 8, w - 16, h - 16); g.fillStyle = '#4a4f44'; g.font = 'italic 64px "Iowan Old Style", Palatino, Georgia, serif'; g.textAlign = 'center'; g.fillText(top, w / 2, 92); g.font = 'italic 76px "Iowan Old Style", Palatino, Georgia, serif'; g.fillText(big, w / 2, 178); };
       K.box('c#d9d2c0/0.9', sx - 1.56, sx + 1.56, sy - 0.62, sy + 0.62, sz - 0.04, sz + 0.04);
-      for (const [dz, rotY] of [[0.046, 0], [-0.046, Math.PI]]) K.extras.push({ draw: welcome, cw: 600, ch: 230, w: 3.0, h: 1.15, x: sx, y: sy, z: sz + dz, rotY, rough: 0.9 });
+      for (const [dz, rotY, top, big] of [[0.046, 0, 'Welcome to', 'Anna’s House'], [-0.046, Math.PI, 'Come back soon to', 'Anna’s House']]) K.extras.push({ draw: welcome(top, big), cw: 600, ch: 230, w: 3.0, h: 1.15, x: sx, y: sy, z: sz + dz, rotY, rough: 0.9 });
       for (const dx of [-1.2, 1.2]) { K.beam('c#2b2724/0.55/0.7', [sx + dx, sy + 0.6, sz], [sx + dx, 9.78, sz], 0.035, 0.035); K.box('c#2b2724/0.55/0.7', sx + dx - 0.05, sx + dx + 0.05, sy + 0.56, sy + 0.66, sz - 0.06, sz + 0.06); } }
   }
 
@@ -241,6 +242,7 @@ export function plantGarden(B, items) {
       K.lathe(PAINT.moss, x, 0.02, z, [[1.02, 0], [1.02, 0.1], [0.82, 0.24], [0.56, 0.44], [0.01, 0.46]], 16);
       for (const [a, s] of [[0.5, 1], [1.3, 0.7], [2.1, 1.1], [5.4, 0.8]]) K.rock(PAINT.moss, x + Math.cos(a) * 1.54, 2.95, z + Math.sin(a) * 1.54, 0.26 * s, 0.035, 0.13 * s, -a + 1.57, 1);      // moss on the rim, the shady side
       K.cyl('c#5a6a62/0.05/0.2', x, 2.8, 2.87, z, 1.35, 1.35, 28);
+      K.birdbathWater = { x, y: 2.878, z, r: 1.32 };      // it ripples at a touch (garden/ripples.js)
       for (const [dx, dz, c] of [[0.5, -0.35, 'c#b0803a/0.9'], [-0.3, 0.6, 'c#8a5a2a/0.9']]) K.cyl(c, x + dx, 2.871, 2.876, z + dz, 0.1, 0.07, 5);      // two fallen leaves on the water
       K.titOn = { x: x - 1.45, y: 2.95, z: z + 0.3, ry: 0.4 };
       K.collide(x - 1.2, x + 1.2, z - 1.2, z + 1.2, 3.2);
@@ -288,7 +290,7 @@ export function plantGarden(B, items) {
     for (let i = 0; i < 120; i++) {
       const a = -0.08 + q() * 0.6, d = islandEdge(a) * (0.945 - 0.2 * q() ** 1.7), x = ISLAND.x + Math.cos(a) * d, z = ISLAND.z + Math.sin(a) * d, k = q();
       if (x < 80 && z > -16 && z < 24) continue;                                    // not on the play set's ground
-      if (k < 0.42) F.add('clover', x, z, 0.6 + q() * 0.55, { y: 0.1 }); else F.add(k < 0.87 ? 'dandelion' : 'dandelionClock', x, z, 0.8 + q() * 0.4, { tilt: 0 });
+      if (k < 0.56) F.add('clover', x, z, 0.6 + q() * 0.55, { y: 0.1 }); else F.add(k < 0.9 ? 'dandelion' : 'dandelionClock', x, z, 0.55 + q() * 0.3, { tilt: 0 });      // more clover than dandelions, and the dandelions low in the grass
     }
     F.r = was;
   }
@@ -309,7 +311,7 @@ export function plantGarden(B, items) {
     // the other side: long grass running into the meadow, foxgloves seeding about
     for (let z = z1; z > z0; z -= 2.4) for (let x = -24; x < -13; x += 2.4) { const qx = x + (r() - 0.5) * 2, qz = z + (r() - 0.5) * 2; if (qx > -16 + Math.sin(qz * 0.2) * 1.5) continue; F.add(r() < 0.6 ? 'grass' : r() < 0.7 ? 'wildflowers' : 'spires', qx, qz, 0.8 + r() * 0.4); }
     // a weathered bench in the clearing, looking back at the house
-    K.bench(-9, -118, 0); K.seat(-9, 1.4, -117.9, Math.PI, 'sit in the clearing');
+    // (a bench stood here too; with the summerhouse's own seats a few steps on it was one too many, and Anna had it taken away)
   }
 
   // ======================================================================================
@@ -625,6 +627,7 @@ export function plantGarden(B, items) {
     treehouseLife(ctx, K);
     chapelLife(ctx, K);
     airstopLife(ctx, K);      // its bell, gate and windsock, and Dandelion the airship (airship/)
+    rippleLife(ctx, [K.chapelWater, K.birdbathWater].filter(Boolean));      // the chapel's bowl and the bird bath ripple at a touch
     smoresLife(ctx, K, items);      // the bell at the fire pit, and what it brings (garden/smores.js)
     for (const f of K.setups) f(ctx);    // the library door, the mailbox, the honey stall (little_library.js, mailbox.js, hives.js)
     chaplain(ctx, K);                    // Moth, who keeps the chapel (garden/chaplain.js)

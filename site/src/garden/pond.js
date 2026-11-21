@@ -213,7 +213,8 @@ export function buildPond(K) {
     }
     for (const z of [BRIDGE.piles[0][1], BRIDGE.piles[2][1]]) wbox(DARK, bx - bw + 0.1, bx + bw - 0.1, deckH(z) - 0.72, deckH(z) - 0.42, z - 0.17, z + 0.17, 0);      // the cross-beam on each pair of piles
     // a stone at each end to step up from, and the walk itself: short ramps that follow the arch
-    for (const [z, d] of [[z0, -1], [z1, 1]]) { K.box(GRANITE, bx - bw - 0.35, bx + bw + 0.35, -0.1, 0.2, Math.min(z, z + d * 1.5), Math.max(z, z + d * 1.5)); K.surface(bx - bw - 0.35, bx + bw + 0.35, Math.min(z, z + d * 1.5), Math.max(z, z + d * 1.5), 0.2); }
+    // (each a broad, low, weathered stone like the pond's own: it was a flat grey slab with square corners, lying on the grass like a paving sample)
+    for (const [z, d] of [[z0, -1], [z1, 1]]) { K.rock(d < 0 ? PAINT.stone : PAINT.moss, bx + d * 0.15, 0.0, z + d * 0.8, bw + 0.75, 0.27, 1.05, d * 0.06, 2); K.surface(bx - bw - 0.35, bx + bw + 0.35, Math.min(z, z + d * 1.5), Math.max(z, z + d * 1.5), 0.2); }
     for (let i = 0; i < 12; i++) { const za = z0 + (len * i) / 12, zb = z0 + (len * (i + 1)) / 12; K.surface(bx - bw, bx + bw, za, zb, deckH(zb), deckH(za)); }
     K.bridge = { x: bx, z0, z1 };
   }
@@ -239,7 +240,8 @@ export function buildPond(K) {
     [2.75, 0.97, 'rush', { n: 18, h: 5.2 }], [3.0, 1.05, 'rush', { n: 14, h: 4.6 }], [-3.0, 0.97, 'rush', { n: 18, h: 5.0 }], [-2.75, 1.04, 'rush', { n: 12, h: 4.4, tails: 2 }], [-0.8, 0.97, 'rush', { n: 16, h: 4.8 }], [-1.0, 1.05, 'rush', { n: 10, h: 4.2, tails: 2 }],
     [2.6, 0.96, 'iris', { hue: 0, flowers: 4 }], [-2.55, 0.96, 'iris', { hue: 0, flowers: 4, n: 14 }], [-2.2, 0.97, 'iris', { hue: 1, flowers: 3 }], [-1.85, 0.97, 'iris', { hue: 0, flowers: 3 }], [-0.62, 0.96, 'iris', { hue: 2, flowers: 3 }],
     [1.22, 0.99, 'iris', { hue: 0, flowers: 3, h: 2.3 }], [1.62, 0.99, 'iris', { hue: 1, flowers: 2, h: 2.2, n: 9 }], [-1.2, 0.99, 'iris', { hue: 1, flowers: 3, h: 2.3 }], [-1.6, 0.99, 'iris', { hue: 0, flowers: 2, h: 2.2, n: 9 }], [0.36, 1.0, 'iris', { hue: 0, flowers: 2, h: 2.0, n: 8 }], [2.42, 1.0, 'iris', { hue: 2, flowers: 2, h: 2.2, n: 9 }],
-  ]) { const [x, z] = at(a, s); (kind === 'rush' ? rushClump : irisClump)(x, z, q, o); }
+  ]) { let [x, z] = at(a, s); if (Math.abs(x - bx) < bw + 1.1 && z > BRIDGE.z0 - 1 && z < BRIDGE.z1 + 1) x = bx + Math.sign(x - bx || 1) * (bw + 1.1);      // beside the bridge, never up through its deck
+    (kind === 'rush' ? rushClump : irisClump)(x, z, q, o); }
   const drift = (a, s, kind, n, size, rx = 1.6) => { const [x, z] = at(a, s); F.drift(kind, x, z, rx, rx, n, size); };
   drift(2.85, 1.24, 'grass', 5, 1.25, 2.2); drift(-2.95, 1.22, 'grass', 5, 1.25, 2.2); drift(-2.1, 1.2, 'grass', 4, 1.1); drift(-0.85, 1.22, 'grass', 4, 1.15, 2);
   drift(2.5, 1.2, 'fern', 3, 0.95); drift(-2.45, 1.2, 'fern', 3, 0.95); drift(-1.75, 1.18, 'hosta', 3, 1.0, 1.2); drift(-0.55, 1.17, 'hosta', 3, 1.0, 1.2); drift(-1.15, 1.2, 'fern', 2, 0.9, 1);

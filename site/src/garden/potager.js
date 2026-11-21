@@ -24,7 +24,8 @@ export function buildPotager(K) {
   G.ribbon('gravel', [[15, -50.5], [20, -53.2], [32, -53.5], [44, -53.6], [46, -56.5]], 5);
   G.rect('gravel', 9.5, 21.5, -58, -49.2, { hard: 'z1' });
   G.ribbon('gravel', [[46, -103], [46, -107.5]], 5);
-  G.ribbon('flagstone', [[26.5, -80], [16, -80], [7, -80]], 4.2);
+  // stepping stones out of the west gate across the lawn, wandering a little (it was a ruler-straight strip of paving)
+  for (let x = 25.4; x > 6.5; x -= 2.55) G.blob('flagstone', x, -80 + Math.sin(x * 0.33) * 0.85, 1.2, 0.95, { y: 0.09, wobble: 0.18, seed: Math.round(x * 10) });
 
   // ---- Picket fence, with four openings ----
   const fence = (ax, az, bx, bz) => {
