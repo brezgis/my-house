@@ -107,7 +107,12 @@ export function buildHouse(B) {
     const opens = [...(s.opens ?? [])].sort((p, q) => p.at - q.at);
     let u = s.a;
     const floorRuns = [];       // stretches where the wall meets the floor
-    for (const o of opens) {
+    for (const [i, o] of opens.entries()) {
+      // (Two openings close together, like the front door and its narrow companion or the three
+      // garden doors, used to have casings and heads that ran past each other in one plane and
+      // flickered: each opening's trim now stops halfway across the wall between them.)
+      const prev = opens[i - 1], next = opens[i + 1];
+      o.lim = [prev ? (prev.at + prev.w + o.at) / 2 : -Infinity, next ? (o.at + o.w + next.at) / 2 : Infinity];
       piece(u, o.at, s.h0, s.h1);
       if (o.at > u) floorRuns.push([u, o.at]);
       const sill = o.sill ?? 0;
@@ -122,10 +127,14 @@ export function buildHouse(B) {
     for (const [sg, kind] of [[-1, s.neg], [1, s.pos]]) {
       if (kind !== 'int' && kind !== 'wains') continue;
       const f = sg * t / 2, runs = floorRuns.map(([r0, r1, lim]) => [...clip(sg, r0, r1), lim]).filter(([r0, r1]) => r1 - r0 > 0.01);
-      for (const [r0, r1] of runs) L(r0, r1, fl, fl + 0.62, f, f + sg * 0.055, 'fir', { grain: 'long' });
+      // (In every inside corner the two walls' baseboards, rails and bands ran into one another, and their tops and
+      // undersides lay in one plane with the grain running two ways: a little square flickered in each corner. The
+      // trim of walls along Y sits 0.004 higher, a twentieth of an inch, so one board always shows.)
+      const dz = isX ? 0 : 0.004;
+      for (const [r0, r1] of runs) L(r0, r1, fl, fl + 0.62 + dz, f, f + sg * 0.055, 'fir', { grain: 'long' });
       if (ceil - fl > 7.6) {
-        L(...clip(sg, s.a, s.b), fl + 6.95, fl + 7.27, f, f + sg * 0.08, 'fir', { grain: 'long' });   // picture rail
-        L(...clip(sg, s.a, s.b), ceil - 0.58, ceil - 0.002, f, f + sg * 0.062, 'fir', { grain: 'long' });       // ceiling band
+        L(...clip(sg, s.a, s.b), fl + 6.95 + dz, fl + 7.27 + dz, f, f + sg * 0.08, 'fir', { grain: 'long' });   // picture rail
+        L(...clip(sg, s.a, s.b), ceil - 0.58 + dz, ceil - 0.002, f, f + sg * 0.062, 'fir', { grain: 'long' });       // ceiling band
       }
       if (kind === 'wains') {
         for (const [r0, r1, lim] of runs) {
@@ -133,8 +142,8 @@ export function buildHouse(B) {
           L(r0, r1, fl + 0.62, top, f, f + sg * 0.03, 'fir', { grain: 'long' });
           for (let b = r0 + 0.12; b < r1; b += 1.45) L(b - 0.12, b + 0.12, fl + 0.62, top, f, f + sg * 0.048, 'fir', { grain: 'long' });
           if (lim !== undefined) continue;
-          L(r0, r1, fl + 5, fl + 5.14, f, f + sg * 0.3, 'fir', { grain: 'long' });         // plate rail
-          L(r0, r1, fl + 4.72, fl + 5, f, f + sg * 0.1, 'fir', { grain: 'long' });
+          L(r0, r1, fl + 5 + dz, fl + 5.14 + dz, f, f + sg * 0.3, 'fir', { grain: 'long' });         // plate rail
+          L(r0, r1, fl + 4.72 + dz, fl + 5 + dz, f, f + sg * 0.1, 'fir', { grain: 'long' });
         }
       }
     }
@@ -156,14 +165,18 @@ export function buildHouse(B) {
     for (const [sg, kind] of sides) {
       if (kind === 'none') continue;
       const f = sg * t / 2, m = wood(kind);
-      const T2 = (a, b, p, ...rest) => { const [a2, b2] = c.trim(sg, kind, a, b, p); if (b2 - a2 > 0.01) L(a2, b2, ...rest); };
-      T2(u0 - 0.36, u0, 0.075, hs, hh, f, f + sg * 0.075, m, G);
-      T2(u1, u1 + 0.36, 0.075, hs, hh, f, f + sg * 0.075, m, G);
-      T2(u0 - 0.58, u1 + 0.58, 0.1, hh, hh + 0.44, f, f + sg * 0.1, m, G);       // long Craftsman head
+      const lim = o.lim ?? [-Infinity, Infinity];
+      const T2 = (a, b, p, ...rest) => { let [a2, b2] = c.trim(sg, kind, a, b, p); a2 = Math.max(a2, lim[0]); b2 = Math.min(b2, lim[1]); if (b2 - a2 > 0.01) L(a2, b2, ...rest); };
+      // (heads, stools and aprons of walls along Y sit 0.004 higher, as the wall trim does: at a corner window the two
+      // walls' pieces run into each other, and their tops and undersides lay in one plane)
+      const dz = c.isX ? 0 : 0.004;
+      T2(u0 - 0.36, u0, 0.075, hs, hh + dz, f, f + sg * 0.075, m, G);
+      T2(u1, u1 + 0.36, 0.075, hs, hh + dz, f, f + sg * 0.075, m, G);
+      T2(u0 - 0.58, u1 + 0.58, 0.1, hh + dz, hh + 0.44 + dz, f, f + sg * 0.1, m, G);       // long Craftsman head
       if (o.kind === 'win') {
         const out = kind === 'ext' ? 0.16 : 0.24;
-        T2(u0 - 0.46, u1 + 0.46, out, hs - 0.12, hs, f - sg * 0.04, f + sg * out, m, G);  // sill / stool
-        T2(u0 - 0.36, u1 + 0.36, 0.066, hs - 0.5, hs - 0.12, f, f + sg * 0.066, m, G);       // apron
+        T2(u0 - 0.46, u1 + 0.46, out, hs - 0.12 + dz, hs + dz, f - sg * 0.04, f + sg * out, m, G);  // sill / stool
+        T2(u0 - 0.36, u1 + 0.36, 0.066, hs - 0.5 + dz, hs - 0.12 + dz, f, f + sg * 0.066, m, G);       // apron
       }
     }
 
@@ -319,6 +332,13 @@ export function buildHouse(B) {
   wall({ ...i1, ax: 'Y', c: KX, a: PAN, b: KIT - T, neg: 'int', pos: 'int' });
   // The hall side of the stair is closed in above the first few steps
   wall({ ...i1, ax: 'Y', c: ST.X0 - TP / 2, a: HOLE_Y0, b: ST.Y1, neg: 'int', pos: 'int' });
+  // Where the bedroom wing meets the main block, its outside walls stand 0.3 ft off the line of the partitions they
+  // continue, and between the partition's end and the wing wall's start was a pocket half a foot deep, open to the
+  // office, its back the shingled end of the main block's west wall (and, in the north-east corner, the porch roof's
+  // end) flickering in the gap. The pockets are plastered in, flush with the partitions (office.js covers each joint
+  // with a post).
+  B.pbox('plaster', P1, P1 + TP / 2, D - T, D, F1, C1);
+  B.pbox('plaster', KX - TP / 2, KX, KIT - T, KIT, F1, C1);
   // Dropped beam carrying the upper west wall across the wing
   B.pbox('fir', P1 + TP / 2, W - T, D - 0.3, D + 0.3, C1 - 0.75, C1, { grain: 'long' });
   // Living-room ceiling beams
@@ -485,8 +505,12 @@ export function buildHouse(B) {
     B.pbox('screen', KX, 35.2, SCR - 0.26, SCR - 0.24, fl + 3, top); B.pbox('screen', 38.2, W, SCR - 0.26, SCR - 0.24, fl + 3, top);
     portal(KX, KX + 0.5, BED, SCR, fl + 3, top, 'x', 'screen'); portal(W - 0.5, W, KIT, SCR, fl + 3, top, 'x', 'screen');
     portal(KX, 35.2, SCR - 0.5, SCR, fl + 3, top, 'z', 'screen'); portal(38.2, W, SCR - 0.5, SCR, fl + 3, top, 'z', 'screen');
-    B.pbox('timber', KX - 1.6, W + 2.2, KIT, SCR + 2.2, top, top + 0.1, { grain: 'long' });
-    B.pbox('roof', KX - 1.7, W + 2.3, KIT, SCR + 2.3, top + 0.1, top + 0.3);
+    // (Its west eave overhangs only beyond the bedroom wing. Run the whole length, it came 1.5 ft through the
+    // office wall beside the wing and hung under the office ceiling, in the corner over the bookcase, shakes and all.)
+    B.pbox('timber', KX - T / 2, W + 2.2, KIT, SCR + 2.2, top, top + 0.1, { grain: 'long' });
+    B.pbox('roof', KX - T / 2, W + 2.3, KIT, SCR + 2.3, top + 0.1, top + 0.3);
+    B.pbox('timber', KX - 1.6, KX - T / 2, BED - T / 2, SCR + 2.2, top, top + 0.1, { grain: 'long' });
+    B.pbox('roof', KX - 1.7, KX - T / 2, BED - T / 2, SCR + 2.3, top + 0.1, top + 0.3);
     for (let X = KX + 0.6; X < W + 1; X += 2) timberY(X, KIT, SCR + 2, top, 0.17, 0.42);
     // Back steps down to the garden
     // (the top step runs back under the door sill, with a board closing the space between them: the sill stops

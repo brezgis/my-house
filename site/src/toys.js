@@ -195,7 +195,7 @@ function telescope(ctx, modes, hold) {
   const moonUp = () => ctx.day?.moonUp && ctx.day.moonDir.y > 0.08;
   const mode = {
     active: false,
-    hint: () => 'the mouse aims · the wheel (or + and −) brings things closer · step away to stand',
+    hint: () => 'the mouse aims · the wheel (or + and −) brings things closer · E or any step to stop',
     click: () => true,
     leave() { ring.style.opacity = '0'; cam.fov = was; cam.updateProjectionMatrix(); ctx.walker.lookScale = 1; cam.near = 0.25; },
   };
@@ -209,7 +209,8 @@ function telescope(ctx, modes, hold) {
   another = s => { delete s.entry.seat; s.entry.act = () => look(false, s); };      // (addTelescope, below)
   waiting.splice(0).forEach(another);
   addEventListener('wheel', e => { if (mode.active) setFov(fov * (e.deltaY > 0 ? 1.12 : 0.89)); }, { passive: true });
-  addEventListener('keydown', e => { if (!mode.active) return; if (e.code === 'Equal' || e.code === 'NumpadAdd') { setFov(fov * 0.8); e.stopImmediatePropagation(); } if (e.code === 'Minus' || e.code === 'NumpadSubtract') { setFov(fov * 1.25); e.stopImmediatePropagation(); } }, true);
+  addEventListener('keydown', e => { if (!mode.active) return; if (e.code === 'KeyE' || e.code === 'Escape') { ctx.walker.seated = null; e.stopImmediatePropagation(); return; }      // (E used to do nothing here, and only a step let go: "once I'm using the telescope I can't stop")
+    if (e.code === 'Equal' || e.code === 'NumpadAdd') { setFov(fov * 0.8); e.stopImmediatePropagation(); } if (e.code === 'Minus' || e.code === 'NumpadSubtract') { setFov(fov * 1.25); e.stopImmediatePropagation(); } }, true);
   ctx.animated.push(() => { if (mode.active && cam.fov !== fov) setFov(fov); });
   if (TOY.startsWith('scope')) setTimeout(() => { look(TOY.endsWith('moon') ? true : false); const z = Number(Q.get('zoom')); if (z) setFov(z); const a = Q.get('aim'); if (a) { const [yaw, pitch] = a.split(',').map(Number); ctx.walker.yaw = yaw; ctx.walker.pitch = pitch; } }, 300);
 }

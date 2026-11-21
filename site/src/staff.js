@@ -68,6 +68,7 @@ export function hireStaff(ctx) {
   H.see = (a, b) => (a.f ?? 0) === (b.f ?? 0) && nav.see(a.f ?? 0, a.x, a.z, b.x, b.z);
   H.near = (a, d) => { const v = H.visitor; return v.present && v.f === a.f && Math.hypot(v.x - a.x, v.z - a.z) < d && (a.outdoor ? out.see(0, v.x, v.z, a.x, a.z) : nav.see(v.f, v.x, v.z, a.x, a.z)); };      // the indoor plan ends at the walls: the garden has its own
   H.busyTalking = () => { const v = H.visitor; return [...H.robots, ...H.gardeners].some(r => r.bubble.talking(H.now) && Math.hypot(r.x - v.x, r.z - v.z) < 20); };
+  H.guestsTalking = () => { const g = H.ctx?.guestTalk; return !!g && (g.open() || g.near()); };      // a guest has the floor (friends/party.js)
   // Doorways: the doors, the narrower cased openings, and the foot and head of the stair (as the friends count them)
   H.nearDoor = (f, x, z, r) => {
     for (const d of nav.doors) if (d.staffFloor === f && Math.hypot(d.cx - x, d.cz - z) < r) return true;

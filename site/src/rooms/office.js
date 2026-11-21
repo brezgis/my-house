@@ -54,8 +54,15 @@ export default function (kit) {
   const pic = { canvas: 'imac', glow: 1.0, onModel: true, rotY: yawOf(im.dir), w: 1.0, h: 0.74 };
   { const [a, c] = world(im, 0.18, 0.625); Object.assign(pic, { x: a, y: im.h + 0.79, z: c }); extras.push(pic); }
   model('imac_g3', im, 0, 0.2, 0, 0, { turn: 1.5708, screen: pic });
-  it.box('fir', -1.4, 1.4, 0.0, 0.08, 4.05, 5.85, G);
-  sign(it, 0, 0.09, 4.95, 2.6, 1.7, DRAWN.pinboard, { cw: 640, ch: 420, rough: 0.95 });
+  // (the wall here stands 0.3 ft back from the frame's line, which is the back wing's wall beyond Y 30: the board hung
+  // that far off it. And between the two walls, Y 29.7 to 30, the main block's shingles showed through a gap in the
+  // plaster, flickering against it: a fir post now covers the joint, floor to ceiling, as the room's other trim)
+  it.box('fir', -1.25, 1.55, -0.3, -0.22, 4.05, 5.85, G);
+  sign(it, 0.15, -0.21, 4.95, 2.6, 1.7, DRAWN.pinboard, { cw: 640, ch: 420, rough: 0.95 });
+  it.box('fir', -1.68, -1.1, -0.52, 0.03, 0, 8.6, G);      // Y 29.5 (the partition's end, so no slot is left beside it) to 30.08
+  // Its twin in the north-east corner, where the wing's wall (X 30.3) meets the kitchen partition (X 30.6) at Y 35-35.5,
+  // over the end of the bookcase. It stops a hair inside the wing wall's outer face (X 30.8), which it would otherwise share.
+  B.pbox('fir', 30.27, 30.78, 35.0, 35.55, F1, F1 + 8.6, G);
   // Chalkboard, on the wall by the door
   const cb = fr(26.9, 22.8, F1, 0);
   picture(cb, null, 0, 4.7, 5.6, 3.3, { canvas: 'chalk', border: 0.14 });

@@ -87,7 +87,7 @@ export default function (kit) {
     const [a, b] = world(c, 0.6, 0.78); (kit.spots ??= []).push({ x: a, y: F1 + 2.47, z: b, action: 'record' });
     // Crate of records on the floor: sleeves leaning in a wooden box
     const k = fr(0.5, 17.6, F1, 3);
-    k.box('oak_light', -0.75, 0.75, 0.1, 0.16, 0, 1.0, G); k.box('oak_light', -0.75, 0.75, 1.24, 1.3, 0, 1.0, G); k.box('oak_light', -0.75, -0.69, 0.1, 1.3, 0, 1.0, G); k.box('oak_light', 0.69, 0.75, 0.1, 1.3, 0, 1.0, G); k.box('oak_light', -0.75, 0.75, 0.1, 1.3, 0, 0.06, G);
+    k.box('oak_light', -0.75, 0.75, 0.1, 0.16, 0, 1.0, G); k.box('oak_light', -0.75, 0.75, 1.24, 1.3, 0, 1.0, G); k.box('oak_light', -0.75, -0.69, 0.16, 1.24, 0, 1.0, G); k.box('oak_light', 0.69, 0.75, 0.16, 1.24, 0, 1.0, G); k.box('oak_light', -0.69, 0.69, 0.16, 1.24, 0, 0.06, G);      // (ends and bottom between the boards: their faces used to coincide at the corners, grain crossed, and flickered)
     const SLEEVES = ['c#b8452e', 'c#2a3549', 'c#c9a23a', 'c#3d5a4a', 'c#d9cdb2', 'c#17140f', 'c#7a3b5e', 'c#4f7f86', 'c#a8583a', 'c#e8dfc8', 'c#26364f', 'c#6b2a25'];
     SLEEVES.forEach((col, i) => k.box(col + '/0.7', -0.66, 0.66, 0.2 + i * 0.085, 0.2 + i * 0.085 + 0.03, 0.06, 1.1 + (i % 3) * 0.02));
     k.block(-0.75, 0.75, 0.1, 1.3, 0, 1.6);

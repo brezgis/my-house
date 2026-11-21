@@ -51,7 +51,7 @@ export function makeTalk(H, headless) {
   function close() { S.robot = null; S.opts = []; S.pending = false; render(); }
   // E on a robot: open its card, or move down it
   function press(robot) {
-    if (S.robot !== robot) { open(robot, robot.dialogue()); return; }
+    if (S.robot !== robot) { H.ctx?.guestTalk?.close?.(); open(robot, robot.dialogue()); return; }      // (one conversation at a time: a guest's card closes, as theirs closes this one, friends/party.js)
     S.idx = (S.idx + 1) % S.opts.length; S.lastE = H.now; S.pending = true; S.since = H.now; render();
   }
   function choose(i) {

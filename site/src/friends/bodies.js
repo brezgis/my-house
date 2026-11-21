@@ -292,7 +292,8 @@ export function buildGuest(key) {
     book.position.set(-0.19, 0.06, 0.02); book.rotation.x = -0.9; book.visible = false; hands[1].add(book);
   }
   root.traverse(o => { o.castShadow = false; o.receiveShadow = !!o.isMesh; o.userData.staff = true; });
-  return { root, bob, body, face: fc, ring, hands, cup, book, panel, spec: S, R, bs, top, handSize };
+  // low: how far below its middle the lowest part of it reaches (the ring under it, where that hangs below the body): what it sits on
+  return { root, bob, body, face: fc, ring, hands, cup, book, panel, spec: S, R, bs, top, handSize, low: Math.max(R * bs[1], -ringY + 0.04) };
 }
 
 // Draw calls and triangles for one body (for the cost report)

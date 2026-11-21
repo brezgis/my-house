@@ -406,7 +406,8 @@ export function makeSoft(K) {
     else if (kind === 'cloche') g = lathe([[0, 0], [0.26, 0], [0.3, 0.04], [0.24, 0.1], [0.22, 0.25], [0.15, 0.36], [0, 0.39]], { seg: 16, sy: 0.9 });
     else g = lathe([[0, 0], [0.24, 0], [0.25, 0.1], [0.24, 0.22], [0.17, 0.36], [0.07, 0.42], [0, 0.43]], { seg: 14, mod: (t) => 1 + 0.02 * Math.sin(t * 24) });
     put(f, fab(colour, 'wool'), g, { rx: o.tilt ?? 0, rz: o.turn ?? 0, at: [x, y, z] });
-    if (kind === 'fedora') put(f, 'c#2a2420/0.8', lathe([[0.222, 0.05], [0.218, 0.12]], { seg: 18, sy: 0.88 }), { rx: o.tilt ?? 0, rz: o.turn ?? 0, at: [x, y, z + 0.001] });
+    // (the band stands just proud of the crown, above the flare: it lay a hair inside the crown's face and flickered through it)
+    if (kind === 'fedora') put(f, 'c#2a2420/0.8', lathe([[0.226, 0.1], [0.222, 0.17]], { seg: 18, sy: 0.88 }), { rx: o.tilt ?? 0, rz: o.turn ?? 0, at: [x, y, z] });
   }
 
   // ---- shoes ------------------------------------------------------------------------------------------

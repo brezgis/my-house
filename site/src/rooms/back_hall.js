@@ -19,7 +19,7 @@ export default function (kit) {
 
   // ---- Against the back of the stair (X 24-27.4, facing the passage): a boot bench ----
   const b = fr(25.7, 17.36, F1, 0);
-  for (const x of [-1.4, 1.28]) b.box(OAK, x, x + 0.12, 0.02, 0.85, 0, 1.55, G);
+  for (const x of [-1.4, 1.28]) b.box(OAK, x, x + 0.12, 0.02, 0.85, 0, 1.43, G);      // the ends stop under the seat (they shared its end faces)
   b.box(OAK, -1.4, 1.4, 0.02, 0.85, 1.43, 1.55, G); b.box(OAK, -1.28, 1.28, 0.06, 0.82, 0.18, 0.24, G); b.box(OAK, -1.28, 1.28, 0.02, 0.08, 0.24, 1.43, G);
   b.block(-1.4, 1.4, 0, 0.85, 0, 1.55);
   P.boxBasket(b, -0.62, 0.45, 0.25, 1.15, 0.7, 0.75); P.boxBasket(b, 0.62, 0.45, 0.25, 1.15, 0.7, 0.75);

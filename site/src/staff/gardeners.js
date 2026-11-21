@@ -810,11 +810,15 @@ export class Gardener extends Robot {
     const o = this.other; if (o && (o.inGlass() || o.site?.in)) return false;
     const D = GLASS.door, c = this.nav.nearest(0, D.x, D.out, 1.2, 3); if (c < 0) return false;
     if (!(yield* this.go(0, this.nav.cx(c), this.nav.cz(c)))) return false;
+    yield* this.openGlassDoor();
     return (yield* this.stepTo(D.x, D.sill)) && (yield* this.stepTo(D.x, D.in));
   }
+  // The glasshouse door can be shut now (garden/potager.js): a gardener who finds it so opens it, and waits for it to swing
+  *openGlassDoor() { const d = typeof window !== 'undefined' ? window.__glasshouseDoor : null; if (!d?.shut) return; d.open(); for (let t = 0; t < 1.6; t += this.H.dt) yield; }
   *leaveGlass() {
     const D = GLASS.door;
     if (Math.abs(this.x - D.x) > 0.6 || this.z < D.in - 0.5) yield* this.go(0, D.x, D.in, { tries: 2 });
+    yield* this.openGlassDoor();
     if ((yield* this.stepTo(D.x, D.in)) && (yield* this.stepTo(D.x, D.sill))) yield* this.stepTo(D.x, D.out);
   }
   *tend(s) {

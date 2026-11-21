@@ -21,16 +21,21 @@
 
 import * as THREE from 'three';
 
-export function openStage({ mark = () => {}, onEarlyEnter = null } = {}) {
+// early: false (as the three sites now ask): the threshold is NOT lifted on the bare still picture. It stays until
+// everything is set going and the first moving frame is drawn (main.js's own onLoad and first frame, then ui.js), so
+// the place is first seen furnished and already turning. (Anna, 2026-11-21: "on startup, it's bare... and there's a
+// moment before everything renders and it starts rotating. The rotation should be at the very start OR the logo
+// screen thing is there until it's ok to start spinning".) The furnishing is still done a step at a time, behind it.
+export function openStage({ mark = () => {}, onEarlyEnter = null, early = true } = {}) {
   const M = THREE.DefaultLoadingManager, $ = id => document.getElementById(id);
   let photosIn = false, pictured = false, counting = true, left = 0, enterEarly = false;
   // Only the photos asked for before the first picture hold the threshold (the ground's, the walls', the roofs').
   // What the insides ask for a moment later is not waited for.
   const first = new Map(), s0 = M.itemStart, e0 = M.itemEnd;
   M.itemStart = u => { if (counting) { first.set(u, (first.get(u) ?? 0) + 1); left++; } s0(u); };
-  M.itemEnd = u => { e0(u); const n = first.get(u); if (n) { first.set(u, n - 1); if (!--left && pictured) lift(); } };
+  M.itemEnd = u => { e0(u); const n = first.get(u); if (n) { first.set(u, n - 1); if (!--left && pictured && early) lift(); } };
   M.onStart = () => { photosIn = false; };
-  M.onLoad = () => { photosIn = true; if (pictured) lift(); };
+  M.onLoad = () => { photosIn = true; if (pictured && early) lift(); };
 
   function lift() {
     if (document.body.classList.contains('ready')) return;
@@ -53,7 +58,7 @@ export function openStage({ mark = () => {}, onEarlyEnter = null } = {}) {
     const draw = () => {
       picture();
       if (!pictured) { pictured = true; counting = false; window.__pictureMs = Math.round(performance.now()); window.__firstPhotos = first.size; mark('picture'); }
-      if (photosIn || !left) lift();
+      if (early && (photosIn || !left)) lift();
     };
     draw(); await frame();
     let t0 = performance.now();

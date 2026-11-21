@@ -358,9 +358,13 @@ export function makeLampPool({ scene, lamps, vis, size, day, camera, rooms = [] 
   // box round them all, let out a little into the walls (some wall faces lie exactly on a room's edge). The nearest
   // few to the eye are given to the shader with their lamps, each lit as far as the pool has not lit it. Coming in
   // from the garden this is taken up over a quarter of a second; from out of doors every room is as it was.
+  // (Let out by less than half a partition: the rooms' edges are the partitions' centre lines, and let out by 0.2,
+  // half the 0.4 partition, each room reached exactly to the neighbouring room's face of the wall. A point on that face
+  // fell in one room or the other by rounding, pixel by pixel, and after dark the two rooms' light speckled across it
+  // as you moved, just like z-fighting: the hall-tree wall, the office wall behind the iMac, the kitchen doorway.)
   const REGIONS = [];
   if (!LIGHT_OLD) {
-    const by = new Map(), P = 0.2;
+    const by = new Map(), P = 0.13;
     for (const r of rooms) { if (!vis.roomAt((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2, (r.z0 + r.z1) / 2)) continue; const q = by.get(r.name); if (!q) by.set(r.name, { name: r.name, x0: r.x0 - P, x1: r.x1 + P, z0: r.z0 - P, z1: r.z1 + P, y0: r.y0 - P, y1: r.y1 + P }); else { q.x0 = Math.min(q.x0, r.x0 - P); q.x1 = Math.max(q.x1, r.x1 + P); q.z0 = Math.min(q.z0, r.z0 - P); q.z1 = Math.max(q.z1, r.z1 + P); q.y0 = Math.min(q.y0, r.y0 - P); q.y1 = Math.max(q.y1, r.y1 + P); } }
     REGIONS.push(...by.values());
   }

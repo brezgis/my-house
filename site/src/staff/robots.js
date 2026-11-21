@@ -103,6 +103,7 @@ export class Robot extends Agent {
   }
   // toGuest: turn to her and hold still while speaking (the default when she is near)
   say(text, { expr = null, secs = null, extra, toGuest = true } = {}) {
+    if (!toGuest && (secs ?? 0) < 1e5 && this.H.talk?.robot !== this && this.H.guestsTalking?.()) return '';      // a remark to nobody in particular waits while a guest is speaking, or she is talking with one
     if (typeof window !== 'undefined') window.__said?.push(`${this.name}: ${text}`);      // tests may collect what is said
     const H = this.H, t = this.fill(text, extra);
     const dur = Math.max(secs ?? 0, Math.min(15, 2.6 + t.length * 0.075));      // as bubbles.js: long enough to read
@@ -407,7 +408,7 @@ export class Robot extends Agent {
         if (st === 'idle' || st === 'arrived') this.m.faceTo(v.x, v.z, H.dt * 0.8);
         this.helpDoors();
         // remarks, only when she has paused a moment
-        if (H.now > next && still > 1.2 && d < 10 && !H.busyTalking()) { if (this.comment()) { remarks++; next = H.now + 18 + H.rnd() * 12; } else next = H.now + 4; }
+        if (H.now > next && still > 1.2 && d < 10 && !H.busyTalking() && !H.guestsTalking()) { if (this.comment()) { remarks++; next = H.now + 18 + H.rnd() * 12; } else next = H.now + 4; }
         if (remarks >= 2 && !this.engaged) break;
         yield;
       }

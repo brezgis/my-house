@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import { PAINT, GLOW } from './tools.js';
 import { buildHives } from './hives.js';
 import { buildPuddle } from './puddle.js';
-import { ownPlants, place } from './little_library.js';
+import { ownPlants, place, buildPart, swinger } from './little_library.js';
 
 export const POT = { x0: 26, x1: 66, z0: -104, z1: -56, cx: 46, cz: -80 };
 
@@ -208,17 +208,20 @@ export function buildPotager(K) {
     K.box('glass', gx0 + 0.2, gx1 - 0.2, 1.6, eave - 0.2, gz0 + 0.22, gz0 + 0.28); K.box('glass', gx0 + 0.22, gx0 + 0.28, 1.6, eave - 0.2, gz0, gz1); K.box('glass', gx1 - 0.28, gx1 - 0.22, 1.6, eave - 0.2, gz0, gz1);
     K.box('glass', gx0, cx - 1.6, 1.6, eave - 0.2, gz1 - 0.28, gz1 - 0.22); K.box('glass', cx + 1.6, gx1, 1.6, eave - 0.2, gz1 - 0.28, gz1 - 0.22);
     K.box(frame, cx - 1.7, cx - 1.5, 0, 7.0, gz1 - 0.3, gz1 - 0.1); K.box(frame, cx + 1.5, cx + 1.7, 0, 7.0, gz1 - 0.3, gz1 - 0.1); K.box(frame, cx - 1.7, cx + 1.7, 6.8, 7.0, gz1 - 0.3, gz1 - 0.1);
-    // the door, standing wide open on its hinges: stiles and rails, a boarded panel below the lock rail, four panes
-    // above it, a brass knob on each side (it was a blank white slab laid against the wall)
+    // the door: stiles and rails, a boarded panel below the lock rail, four panes above it, a brass knob on each side
+    // (it was a blank white slab laid against the wall). A part of its own, built shut across the doorway about its
+    // hinge on the east jamb, and swung by potagerLife (below): it stands wide open to begin with, as it always did,
+    // and can be shut and opened (Anna, 2026-11-21: "the greenhouse door needs to be able to open/close").
     {
-      const d = place(K, cx + 1.62, 0.14, gz1 - 0.04, -1.5), W = 2.9, H = 6.62, T = 0.06;
+      const W = 2.9, H = 6.62, T = 0.06, hx = cx + 1.62, hz = gz1 - 0.04, d = place(K, hx, 0.14, hz, Math.PI).part(0, 0, 0);
       d.box(frame, 0, 0.22, 0, H, -T, T); d.box(frame, W - 0.22, W, 0, H, -T, T);
       d.box(frame, 0.22, W - 0.22, 0, 0.32, -T, T); d.box(frame, 0.22, W - 0.22, 2.9, 3.14, -T, T); d.box(frame, 0.22, W - 0.22, H - 0.22, H, -T, T);
       d.box(frame, 0.22, W - 0.22, 0.32, 2.9, -0.025, 0.025);
       d.box(frame, W / 2 - 0.035, W / 2 + 0.035, 3.14, H - 0.22, -0.04, 0.04); d.box(frame, 0.22, W - 0.22, 4.74, 4.81, -0.04, 0.04);
       d.box('glass', 0.22, W - 0.22, 3.14, H - 0.22, -0.012, 0.012);
       d.tube(PAINT.brass, [W - 0.11, 3.35, -0.17], [W - 0.11, 3.35, 0.17], 0.022, 5); for (const s of [-1, 1]) d.sphere(PAINT.brass, W - 0.11, 3.35, s * 0.19, 0.06, 1, 1);
-      d.collide(0, W, -0.1, 0.1, 6.8);
+      K.glasshouseDoor = { part: d, hx, hz, w: W, open: Math.PI - 1.5,      // (the same standing-open angle as before: the leaf along +z, a little past square)
+        stop: { x0: cx - 1.5, x1: cx + 1.5, z0: gz1 - 0.3, z1: gz1 + 0.06, y0: 0, y1: 7 }, ajar: { x0: hx - 0.12, x1: hx + 0.3, z0: hz, z1: hz + W, y0: 0, y1: 6.8 } };
     }
     // gables and the roof
     for (const z of [gz0 + 0.25, gz1 - 0.25]) {
@@ -335,4 +338,27 @@ export function buildPotager(K) {
     F.drift('lavender', 89.5, -97.5, 2.5, 2, 10, 1); F.drift('catmint', 92, -88, 2, 2, 4, 1); F.drift('wildflowers', 95, -113, 3, 2, 6, 1);      // (as many as ever, so the plants sown after these stay put)
     K.model('wooden_picnic_table', 90, -66, 0.25, { collide: true }); K.seat(90.4, 1.45, -63.6, 0.25 + Math.PI, 'sit at the orchard table');
   }
+}
+
+// The glasshouse door: E opens and shuts it (it waits if you are standing in its way). The gardeners open it for
+// themselves when they find it shut (staff/gardeners.js, through window.__glasshouseDoor).
+export function potagerLife(ctx, K) {
+  const d = K.glasshouseDoor; if (!d) return;
+  const leaf = buildPart(ctx, d.part, 'the glasshouse door'), sw = swinger(ctx, leaf, 'y', d.open, 0, 2.4);      // (it starts at its first angle: open)
+  const stop = { ...d.stop, off: true }, ajar = { ...d.ajar, off: false }; ctx.colliders?.push(stop, ajar);
+  const mid = { x: d.hx - d.w / 2, y: 3.5, z: d.hz }, out = { x: d.hx + 0.1, y: 3.5, z: d.hz + d.w * 0.55 };
+  let shut = false, want = null;
+  const inWay = () => {
+    const w = ctx.walker; if (!w || ctx.mode !== 'walk') return false;
+    const { x, y, z } = w.pos; if (y > 7) return false;
+    if (x > stop.x0 - 0.4 && x < stop.x1 + 0.4 && z > stop.z0 - 0.5 && z < stop.z1 + 0.5) return true;      // in the doorway
+    return z > d.hz - 0.2 && Math.hypot(x - d.hx, z - d.hz) < d.w + 0.5;                                    // in its swing, outside
+  };
+  const go = () => { shut = want; want = null; sw.set(shut); stop.off = !shut; ajar.off = shut; Object.assign(ent, shut ? mid : out); };
+  const ent = { ...out, reach: 7, size: 1.2, label: () => `${shut ? 'open' : 'close'} the glasshouse door`,
+    act: () => { want = !shut; if (inWay()) window.houseUI?.toast?.('The door needs room to swing.'); else go(); } };
+  ctx.interact?.push(ent);
+  ctx.animated.push(() => { if (want !== null && !inWay()) go(); });
+  const ctl = ctx.glasshouseDoor = { get shut() { return shut; }, open() { if (shut && want !== false) { want = false; if (!inWay()) go(); } } };
+  if (typeof window !== 'undefined') window.__glasshouseDoor = ctl;      // (the staff have a ctx of their own: as window.__staff, window.__hands)
 }

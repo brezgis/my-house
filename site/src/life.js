@@ -4,6 +4,7 @@
 
 import * as THREE from 'three';
 import { makeFlames, makeCandleFlame, NOISE } from './flame.js';
+import { firewoodMaterials, ashMaterial, ashBed, Heap } from './kit/firewood.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { shuffle } from './shuffle.js';
@@ -40,26 +41,41 @@ const DRAW = {
     for (let i = 0; i < 60; i++) { g.fillStyle = `rgba(255,255,255,${0.012 + r() * 0.02})`; g.beginPath(); g.ellipse(r() * w, r() * h, 60 + r() * 220, 20 + r() * 60, r() * 3, 0, 7); g.fill(); }
     const chalk = (c = '#f1efe6') => { g.strokeStyle = c; g.fillStyle = c; g.lineWidth = 3.2; g.lineCap = 'round'; };
     const hand = px => { g.font = `${px}px "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive`; };
-    // Left and middle: a computational linguist's working board (attention, a transformer block, subword
-    // tokens, the language-model loss, a training run that has started to overfit, results, the usual vows)
-    chalk(); hand(42); g.fillText('Attn(Q, K, V) = softmax(QKᵀ/ √d) · V', 40, 72);
-    const cell = (t, x, y, bw = 104) => { g.strokeRect(x, y, bw, 56); hand(30); const m = g.measureText(t).width; g.fillText(t, x + (bw - m) / 2, y + 38); };
+    // Left and middle: Anna's own working board (2026-11-20: "I don't really do training, I do like representation
+    // analysis ... looking at embeddings ... Shepard's universal law of generalization, a doodle of maybe a lizard"):
+    // Shepard's law with its curve, cosine similarity, a dissimilarity matrix, a cloud of embeddings with one stray, a lizard
     const arrow = (a, b, c, d) => { const t = Math.atan2(d - b, c - a); g.beginPath(); g.moveTo(a, b); g.lineTo(c, d); g.moveTo(c - 13 * Math.cos(t - 0.45), d - 13 * Math.sin(t - 0.45)); g.lineTo(c, d); g.lineTo(c - 13 * Math.cos(t + 0.45), d - 13 * Math.sin(t + 0.45)); g.stroke(); };
-    ['tokens', 'embed', 'attn', 'MLP', 'logits'].forEach((t, i) => { cell(t, 40 + i * 132, 130); if (i < 4) arrow(146 + i * 132, 158, 170 + i * 132, 158); });
-    chalk('#f2d16b'); g.beginPath(); g.moveTo(300, 198); g.lineTo(300, 210); g.lineTo(544, 210); g.lineTo(544, 198); g.stroke(); hand(30); g.fillText('× N', 400, 244);
-    chalk(); hand(34); g.fillText('“unbelievable”  →  un · believ · able', 40, 310);
-    chalk('#f2d16b'); hand(28); g.fillText('tokens ≠ words!', 470, 352);
-    chalk('#e58f9a'); hand(36); g.fillText('L = − Σ log p(wᵢ | w₁ … wᵢ₋₁)', 40, 420); g.beginPath(); g.moveTo(36, 436); g.lineTo(520, 436); g.stroke();
-    // the run: train goes down and down, validation turns up again
-    chalk(); arrow(70, 720, 70, 480); arrow(70, 720, 470, 720); hand(26); g.fillText('loss', 20, 500); g.fillText('steps', 400, 752);
-    const curve = f => { g.beginPath(); for (let k = 0; k <= 40; k++) { const u = k / 40, x = 80 + u * 370, y = 705 - f(u) * 200 + (r() - 0.5) * 5; k ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); };
-    curve(u => 0.06 + 0.94 * Math.exp(-u * 5.5)); g.fillText('train', 462, 690);
-    chalk('#f2d16b'); curve(u => 0.24 + 0.78 * Math.exp(-u * 6) + 0.42 * Math.max(0, u - 0.42) ** 1.5); g.fillText('val', 462, 628);
-    chalk('#e58f9a'); hand(26); g.fillText('stop here', 196, 560); arrow(250, 570, 258, 640);
-    chalk(); hand(36); g.fillText('F1 = 2PR / (P + R)', 610, 462);
-    hand(32); g.fillText('baseline  71.2', 610, 524); g.fillText('ours        71.4', 610, 568); chalk('#e58f9a'); g.fillText('!!', 830, 568);
-    chalk(); hand(28); g.fillText('lr = 3e-4    seed = 42', 610, 622);
-    chalk('#f2d16b'); hand(32); g.fillText('TODO: ablations', 610, 684); g.beginPath(); g.moveTo(606, 696); g.lineTo(850, 696); g.stroke();
+    const dot = (x, y, q = 4.5) => { g.beginPath(); g.arc(x, y, q, 0, 7); g.fill(); };
+    const PINK = '#e58f9a', GOLD = '#f2d16b', GREEN = '#a9d6a6', BLUE = '#9cc4e4';
+    // Shepard (1987), Science 237: generalization falls off exponentially with distance in psychological space
+    chalk(GOLD); hand(30); g.fillText('Shepard 1987: the universal law of generalization', 40, 50);
+    chalk(); hand(46); g.fillText('g(x, y) = e', 40, 118); hand(30); g.fillText('− d(x, y)', 262, 92);
+    chalk(); arrow(70, 400, 70, 170); arrow(70, 400, 440, 400); hand(24); g.fillText('g', 44, 186); g.fillText('distance in psychological space', 110, 432);
+    g.beginPath(); for (let k = 0; k <= 40; k++) { const u = k / 40, x = 78 + u * 340, y = 392 - 200 * Math.exp(-u * 4.2) + (r() - 0.5) * 3; k ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
+    chalk(PINK); for (let k = 0; k < 11; k++) { const u = 0.04 + k * 0.088; dot(78 + u * 340, 392 - 200 * Math.exp(-u * 4.2) + (r() - 0.5) * 26, 4); }
+    hand(24); g.fillText('colours, tones, pigeons, people:', 196, 236); g.fillText('the same curve', 250, 266);
+    // cosine similarity, and the caution that goes with it
+    chalk(); hand(36); g.fillText('cos(u, v) =  u · v  /  ‖u‖ ‖v‖', 500, 118);
+    chalk(GOLD); hand(26); g.fillText('compare the geometry, not the units', 500, 162);
+    // a representational dissimilarity matrix: two blocks on the diagonal, and a faint third
+    { const X = 560, Y = 200, c = 30, grp = [0, 0, 0, 1, 1, 1, 2, 2];
+      for (let a = 0; a < 8; a++) for (let b = 0; b < 8; b++) { const same = grp[a] === grp[b], v = a === b ? 0.95 : same ? 0.5 + r() * 0.25 : 0.06 + r() * 0.12; g.fillStyle = `rgba(241,239,230,${v.toFixed(2)})`; g.fillRect(X + b * c + 2, Y + a * c + 2, c - 4, c - 4); }
+      chalk(); g.lineWidth = 2.4; g.strokeRect(X - 3, Y - 3, 8 * c + 6, 8 * c + 6); hand(26); g.fillText('RDM', X + 8 * c + 16, Y + 28); hand(22); g.fillText('layer 12', X + 8 * c + 16, Y + 58);
+      chalk(PINK); hand(24); g.fillText('why a 3rd block??', X + 8 * c + 14, Y + 210); arrow(X + 8 * c + 60, Y + 218, X + 7.6 * c, Y + 7.2 * c); }
+    // the embeddings themselves, in two dimensions: three clouds and one that will not join
+    chalk(); arrow(70, 730, 70, 500); arrow(70, 730, 470, 730); hand(22); g.fillText('PC 2', 22, 512); g.fillText('PC 1', 420, 756);
+    for (const [cx, cy, col, n] of [[170, 570, BLUE, 13], [330, 640, GOLD, 12], [390, 540, GREEN, 9]]) { chalk(col); for (let k = 0; k < n; k++) { const a = r() * 6.283, q = Math.sqrt(r()) * 46; dot(cx + Math.cos(a) * q * 1.25, cy + Math.sin(a) * q * 0.8); } }
+    chalk(PINK); dot(150, 688); g.lineWidth = 2.4; g.beginPath(); g.ellipse(150, 688, 20, 16, 0, 0, 7); g.stroke(); hand(24); g.fillText('who are you?', 104, 660);
+    chalk(BLUE); hand(22); g.fillText('nouns', 96, 520); chalk(GOLD); g.fillText('verbs', 396, 676); chalk(GREEN); g.fillText('?', 446, 520);
+    chalk(); hand(28); g.fillText('king − man + woman ≈ queen', 520, 510); chalk(GOLD); hand(24); g.fillText('(sometimes)', 792, 542);
+    chalk(); hand(28); g.fillText('is it linear?  check before you believe it', 520, 590);
+    chalk(GOLD); hand(30); g.fillText('TODO: read Shepard again', 520, 648); g.beginPath(); g.moveTo(516, 660); g.lineTo(872, 660); g.stroke();
+    // a lizard, why not: seen from above, tail curled
+    { chalk(GREEN); g.lineWidth = 3.4; const L = (...q) => { g.beginPath(); g.moveTo(q[0], q[1]); for (let k = 2; k < q.length; k += 6) g.bezierCurveTo(q[k], q[k + 1], q[k + 2], q[k + 3], q[k + 4], q[k + 5]); g.stroke(); };
+      L(640, 706, 650, 690, 676, 686, 692, 700, 730, 684, 790, 690, 820, 706, 846, 716, 872, 742, 850, 752, 832, 760, 822, 742, 836, 738);      // back: nose, head, body, tail curling in
+      L(640, 706, 652, 722, 676, 722, 692, 712, 730, 728, 790, 726, 820, 706);                                                                    // belly side
+      for (const [x, y, dx, dy] of [[706, 692, -14, -24], [706, 720, -16, 22], [790, 692, 16, -22], [792, 722, 18, 20]]) { L(x, y, x + dx * 0.4, y + dy * 0.5, x + dx * 0.9, y + dy * 0.6, x + dx, y + dy); for (const t of [-0.5, 0, 0.5]) { g.beginPath(); g.moveTo(x + dx, y + dy); g.lineTo(x + dx + 9 * Math.cos(Math.atan2(dy, dx) + t), y + dy + 9 * Math.sin(Math.atan2(dy, dx) + t)); g.stroke(); } }
+      dot(657, 699, 2.6); chalk(); hand(22); g.fillText('(lizard)', 880, 716); }
     chalk(); hand(32); ['☑ espresso', '☐ feed the koi', '☐ water the tomatoes', '☐ light a candle'].forEach((t, i) => g.fillText(t, 960, 150 + i * 52));
     chalk('#e58f9a'); g.beginPath(); g.moveTo(1150, 430); g.bezierCurveTo(1110, 380, 1060, 440, 1150, 500); g.bezierCurveTo(1240, 440, 1190, 380, 1150, 430); g.stroke();
     chalk(); hand(30); g.fillText('welcome home', 1040, 560);
@@ -314,7 +330,7 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
     track(mesh, zoneAt(e.x, e.y, e.z, Math.max(e.w ?? 0.5, e.h ?? 0, e.d ?? 0) / 2));
     if (e.canvas === 'chalk') {
       chalk = { mesh, tex: map, canvas: map.image, ctx: map.image.getContext('2d') };
-      try { const saved = localStorage.getItem('chalkboard2'); if (saved) { const img = new Image(); img.onload = () => { chalk.ctx.drawImage(img, 0, 0); map.needsUpdate = true; }; img.src = saved; } } catch { /* private window */ }
+      try { const saved = localStorage.getItem('chalkboard3'); if (saved) { const img = new Image(); img.onload = () => { chalk.ctx.drawImage(img, 0, 0); map.needsUpdate = true; }; img.src = saved; } } catch { /* private window */ }
     }
   }
 
@@ -528,7 +544,7 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
       // panel and its raised inset share a material: one mesh
       const panel = new THREE.BoxGeometry(w - 0.02, h1 - h0, d.slab.th), raised = new THREE.BoxGeometry(Math.max(0.05, w - 0.5), Math.max(0.05, h1 - h0 - 0.5), d.slab.th + 0.02);
       const body = new THREE.Mesh(mergeGeometries([panel, raised]), materials.make(d.slab.mat)); body.position.set(w / 2, (h0 + h1) / 2, 0); body.castShadow = body.receiveShadow = true;
-      const pull = new THREE.Mesh(new THREE.BoxGeometry(0.05, Math.min(0.5, (h1 - h0) * 0.3), 0.12), materials.make(d.slab.handle)); pull.position.set(w - 0.16, (h0 + h1) / 2, 0.06 * Math.sign(d.open - d.closed) * -1);
+      const pull = new THREE.Mesh(new THREE.BoxGeometry(0.05, Math.min(0.5, (h1 - h0) * 0.3), 0.12), materials.make(d.slab.handle)); pull.position.set(w - 0.16, (h0 + h1) / 2, (d.slab.th / 2 + 0.045) * Math.sign(d.open - d.closed) * -1);      // (standing off the panel's own face: on a thick door, the fridge's, its front lay exactly in that face)
       g.add(body, pull);
       d.isOpen = false;
       interact.push({ x: d.cx, y: (h0 + h1) / 2, z: d.cz, reach: 5.5, label: () => `${d.isOpen ? 'close' : 'open'} the ${d.label}`, act: () => { d.isOpen = !d.isOpen; } });
@@ -540,7 +556,7 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
       part(st, w - st, h0, h0 + 0.85, 0.15, 'fir'); part(st, w - st, h0 + 0.85, h1 - 0.42, 0.02, 'glass');
       const gh = h1 - 0.42 - (h0 + 0.85), gw = w - 2 * st, cols = gw > 2 ? 3 : 2;
       for (let i = 1; i < 4; i++) part(st, w - st, h0 + 0.85 + (gh * i) / 4 - 0.03, h0 + 0.85 + (gh * i) / 4 + 0.03, 0.09, 'fir');
-      for (let i = 1; i < cols; i++) part(st + (gw * i) / cols - 0.03, st + (gw * i) / cols + 0.03, h0 + 0.85, h1 - 0.42, 0.09, 'fir');
+      for (let i = 1; i < cols; i++) part(st + (gw * i) / cols - 0.03, st + (gw * i) / cols + 0.03, h0 + 0.85, h1 - 0.42, 0.096, 'fir');      // (a hair proud of the cross bars: where they cross, the two lay in one plane with the grain running two ways, and flickered)
     } else {
       part(st, w - st, h0, h1 - 0.42, 0.08, 'fir'); part(st, w - st, h0, h0 + 0.7, 0.15, 'fir');
       const ph = (h1 - 0.42 - (h0 + 0.7)) / 5;
@@ -596,11 +612,26 @@ export function bringToLife({ scene, outdoors = scene, vis = null, quality = {},
     const uT = { value: 0 };
     const flames = makeFlames(THREE, mergeGeometries, uT, [[-Math.PI / 2, 0.0, 0, 2.3, 2.1, 0], [-Math.PI / 2, 0.22, -0.2, 2.0, 1.75, 3.7], [-Math.PI / 2, -0.2, 0.25, 1.7, 1.5, 8.1]]);
     hearth.add(flames);
-    // Three split logs across the opening on a bed of embers that breathes
-    const logMat = new THREE.MeshStandardMaterial({ color: 0x241710, roughness: 1, emissive: 0x9a2c08, emissiveIntensity: 0.1 });
-    for (const [dx, dy, len, rot, rad] of [[0.3, 0.2, 2.2, 0.08, 0.19], [-0.25, 0.19, 2.0, -0.1, 0.17], [0.05, 0.5, 1.8, 0.05, 0.16]]) {
-      const l = new THREE.Mesh(new THREE.CylinderGeometry(rad, rad * 0.9, len, 9).rotateX(Math.PI / 2), logMat); l.rotation.y = rot; l.position.set(dx, dy, 0); l.receiveShadow = true; hearth.add(l);
+    // Three logs of sixteen to eighteen inches on an iron grate, over a bed of ash and embers that breathes: a round
+    // and a split one side by side, a smaller split laid point down into the gap between them (kit/firewood.js).
+    // Charred where the fire has them, glowing in checks underneath, still in their bark above and at the ends.
+    // (They were three smooth cylinders two feet long lying on the floor.) Here x runs back into the firebox
+    // (its floor y 0.03, the back wall x 0.9), z across the opening (the piers at z +-1.4).
+    const fw = firewoodMaterials(materials.bark), heap = new Heap(0.03);
+    {
+      const bars = [], bar = (x0, y0, x1, y1, z, t = 0.045) => { const L = Math.hypot(x1 - x0, y1 - y0); bars.push(new THREE.BoxGeometry(t, L, t).rotateZ(-Math.atan2(x1 - x0, y1 - y0)).translate((x0 + x1) / 2, (y0 + y1) / 2, z)); };
+      for (const z of [-0.8, -0.48, -0.16, 0.16, 0.48, 0.8]) { bar(-0.42, 0.28, 0.53, 0.28, z); bar(0.52, 0.28, 0.63, 0.72, z); bar(-0.41, 0.28, -0.47, 0.43, z); }
+      for (const x of [-0.39, 0.5]) { bars.push(new THREE.BoxGeometry(0.05, 0.05, 1.72).translate(x, 0.25, 0)); for (const z of [-0.84, 0.84]) bars.push(new THREE.BoxGeometry(0.045, 0.24, 0.045).translate(x, 0.14, z)); }
+      const g = mergeGeometries(bars); heap.add(g);
+      const grate = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0x1c1917, roughness: 0.7, metalness: 0.5 })); grate.receiveShadow = true; hearth.add(grate);
     }
+    const ashMat = ashMaterial(0x6a6662), ash = new THREE.Mesh(ashBed(0.52, 1.0, 0.035, 0.075, 5, 20, 4, 0.5).translate(0.08, 0, 0), ashMat); ash.receiveShadow = true; hearth.add(ash); heap.add(ash.geometry);
+    const heat = (x, y, z) => Math.max(0, Math.min(1, 1.25 - (y - 0.28) / 0.55)) * Math.max(0, Math.min(1, 4 - Math.abs(z) / 0.2));
+    heap.lay({ x: -0.21, z: 0.03, yaw: 0.06, len: 1.45, r: 0.19, seed: 1 }, heat);
+    heap.lay({ x: 0.27, z: -0.05, yaw: -0.05, len: 1.5, r: 0.26, split: 1.5, roll: -(Math.PI - 1.5) / 2, seed: 2 }, heat);
+    heap.lay({ x: 0.03, z: 0.1, yaw: -0.12, len: 1.35, r: 0.23, split: 1.3, roll: 0.15, seed: 3 }, heat);
+    const wood = heap.merged();
+    for (const [g, m] of [[wood.bark, fw.bark], [wood.wood, fw.wood]]) { const l = new THREE.Mesh(g, m); l.receiveShadow = true; hearth.add(l); }
     const embers = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 2.4).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
       uniforms: { uT }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
       vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
@@ -612,9 +643,9 @@ void main() {
   gl_FragColor = vec4(mix(vec3(0.9, 0.12, 0.01), vec3(1.0, 0.55, 0.12), coals * breath) * (0.25 + coals) * breath * edge, 1.0);
 }`,
     }));
-    embers.position.set(0.05, 0.07, 0); hearth.add(embers);
+    embers.position.set(0.05, 0.085, 0); hearth.add(embers);
     hearth.traverse(n => { n.userData.cat = 'fire'; });
-    animated.push(t => { uT.value = t; logMat.emissiveIntensity = 0.1 + 0.04 * Math.sin(t * 6.3) + 0.025 * Math.sin(t * 14.1); });
+    animated.push(t => { uT.value = t; const k = 0.9 + 0.25 * Math.sin(t * 6.3) + 0.15 * Math.sin(t * 14.1); fw.bark.emissiveIntensity = fw.wood.emissiveIntensity = k; ashMat.emissiveIntensity = 0.6 * k; });
   }
 
   // ---- Steam off a hot cup ----------------------------------------------------------------------
@@ -725,7 +756,7 @@ void main() {
     for (let i = 0; i < 40; i++) { ctx.fillStyle = `rgba(255,255,255,${0.012 + Math.random() * 0.02})`; ctx.beginPath(); ctx.ellipse(Math.random() * c.width, Math.random() * c.height, 80 + Math.random() * 240, 20 + Math.random() * 60, Math.random() * 3, 0, 7); ctx.fill(); }
     tex.needsUpdate = true; chalkSave();
   }
-  function chalkSave() { try { localStorage.setItem('chalkboard2', chalk.canvas.toDataURL('image/jpeg', 0.7)); } catch { /* too big or private */ } }
+  function chalkSave() { try { localStorage.setItem('chalkboard3', chalk.canvas.toDataURL('image/jpeg', 0.7)); } catch { /* too big or private */ } }
 
   setupTaps({ scene, camera, materials, taps: items.taps, interact, animated, track, zoneAt });      // the taps run (taps.js)
   return { update: (t, dt = 0.016) => { for (const f of animated) f(t, dt); }, cull: cullModels, track, zoneAt, pending: () => left, target, interact, animated, get chalk() { return chalk; }, chalkStroke, chalkWipe, chalkSave,

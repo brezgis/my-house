@@ -484,11 +484,13 @@ function build(K, opts) {
   for (const [x, y, z] of jars) {
     const g = new THREE.LatheGeometry([[0.01, 0], [0.14, 0.03], [0.14, 0.38], [0.1, 0.46], [0.01, 0.48]].map(([r, h]) => new THREE.Vector2(r, h)), 8); g.translate(TX + x, y + 0.02, TZ + z); glow(g);
     cyl(BRASS, x, y + 0.48, y + 0.54, z, 0.105, 0.105, 8);
+    K.lamp(TX + x, y + 0.3, TZ + z, 0.22, 'lamp');      // (they glowed but lit nothing: the deck was black after dark)
   }
   {
     const ze = ZC - HE + 0.1, y = roofY(ze) - 0.3, pts = sagged([RX0 + 0.35, y, ze], [RX1 - 0.35, y, ze], 0.25, 16);
     rope(CABLE, pts, 0.012, 3);
     for (let i = 1; i < pts.length - 1; i += 2) { const g = new THREE.SphereGeometry(0.13, 8, 5); g.scale(1, 1.2, 1); g.translate(TX + pts[i][0], pts[i][1] - 0.2, TZ + pts[i][2]); glow(g); }
+    for (const k of [4, 12]) K.lamp(TX + pts[k][0], pts[k][1] - 0.3, TZ + pts[k][2], 0.25, 'lamp');      // the string's light on the boards under it, from two points along it
   }
 
   // ---- the net, slung beside the balcony from a spar hung off the great limb ------------------------------------------

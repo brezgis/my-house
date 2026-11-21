@@ -72,7 +72,7 @@ export const RECT = {
 export function drawGlow() {
   const c = document.createElement('canvas'); c.width = c.height = SHEET / 8; const g = c.getContext('2d');
   g.fillStyle = '#000'; g.fillRect(0, 0, c.width, c.height);
-  for (const [r, c] of [[RECT.glow, '#4a3218'], [RECT.bulb, '#ffd9a0']]) { const [x, y, w, h] = r; g.fillStyle = c; g.fillRect(x / 8 + 0.5, y / 8 + 0.5, w / 8 - 1, h / 8 - 1); }
+  for (const [r, c] of [[RECT.glow, '#2c1c0c'], [RECT.bulb, '#ff9d3e']] /* (amber, and the ceiling low: at night's strength the paler pair burned out to flat white bulbs and a glaring ceiling) */) { const [x, y, w, h] = r; g.fillStyle = c; g.fillRect(x / 8 + 0.5, y / 8 + 0.5, w / 8 - 1, h / 8 - 1); }
   return c;
 }
 // A geometry made ready for the sheet's material: position, normal, uv (into the sheet), colour

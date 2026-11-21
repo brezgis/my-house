@@ -135,7 +135,8 @@ export default function (kit) {
     const ps = fr(39.75, 22.31, F1, 2), D = 1.25, H = 7.45;      // x = 39.75 - X (-2.8..3.15), y = 22.31 - Y
     const P = CREAMP, XW = -2.8;
     for (const x of [XW, -1.78, 0.68, 3.08]) ps.box(P, x, x + 0.07, 0, D, 0, H);
-    ps.box(P, XW, 3.15, 0, 0.04, 0, H); ps.box(P, XW - 0.05, 3.2, 0, D + 0.06, H, H + 0.12); ps.box('c#2c2520/0.6', XW + 0.07, 3.08, 0.1, D - 0.15, 0, 0.28);
+    ps.box(P, XW + 0.07, 3.08, 0, 0.04, 0, H);      // (the back between the sides, not sharing their outer faces)
+    ps.box(P, XW - 0.05, 3.2, 0, D + 0.06, H, H + 0.12); ps.box('c#2c2520/0.6', XW + 0.07, 3.08, 0.1, D - 0.15, 0, 0.28);
     const Z = [0.35, 1.45, 2.55, 3.6, 4.65, 5.7, 6.75];
     for (const z of Z) { ps.box(HONEY, -1.71, 0.68, 0.04, D, z - 0.07, z, G); ps.box(HONEY, 0.75, 3.08, 0.04, D, z - 0.07, z, G); if (z >= 4.6 || z < 0.4) ps.box(HONEY, XW + 0.07, -1.78, 0.04, D, z - 0.07, z, G); }
     ps.box('shade', XW + 0.1, 3.0, D - 0.12, D - 0.07, 6.664, 6.676); ps.block(XW, 3.15, 0, D, 0, H);     // the light strip just under the top shelf, not sharing its face
@@ -197,8 +198,8 @@ export default function (kit) {
   }
   // A library step under the window for the top shelves
   { const st = fr(42.83, 19.9, F1, 1);                       // x → +Y, y → out from the north wall
-    st.box(OAKW, -0.65, -0.58, 0.15, 1.25, 0, 1.6); st.box(OAKW, 0.58, 0.65, 0.15, 1.25, 0, 1.6);
-    st.box(OAKW, -0.65, 0.65, 0.65, 1.25, 0.78, 0.86, G); st.box(OAKW, -0.65, 0.65, 0.15, 0.7, 1.55, 1.63, G); st.box(OAKW, -0.58, 0.58, 0.15, 0.22, 0.86, 1.55);
+    st.box(OAKW, -0.65, -0.58, 0.15, 1.25, 0, 1.55); st.box(OAKW, 0.58, 0.65, 0.15, 1.25, 0, 1.55);      // sides under the top, tread between them (their end faces coincided)
+    st.box(OAKW, -0.58, 0.58, 0.65, 1.25, 0.78, 0.86, G); st.box(OAKW, -0.65, 0.65, 0.15, 0.7, 1.55, 1.63, G); st.box(OAKW, -0.58, 0.58, 0.15, 0.22, 0.86, 1.55);
     st.soft('linen#9a5a3a', -0.6, 0.6, 0.2, 0.68, 1.63, 1.7, 0.03); st.block(-0.65, 0.65, 0.15, 1.25, 0, 1.6); }
   rug(33.9, 41.4, 18.85, 21.0, F1, 'runner');
   // Pictures at the meeting place at the west end: Larsson's kitchen, Cezanne's apples

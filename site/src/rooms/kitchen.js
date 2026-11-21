@@ -454,8 +454,10 @@ export default function (kit) {
   // The fridge: cream, rounded, a real door onto lit, stocked shelves
   {
     const fz = fr(31.0, 26.47, F1, 3);                    // x -1.15..1.15 = Y 27.62..25.32, y out to X 33.2
-    fz.soft(CREAMF, -1.15, 1.15, 0.0, 0.25, 0, 5.75, 0.08); fz.soft(CREAMF, -1.15, -0.98, 0, 2.2, 0, 5.75, 0.07); fz.soft(CREAMF, 0.98, 1.15, 0, 2.2, 0, 5.75, 0.07);
-    fz.soft(CREAMF, -1.15, 1.15, 0, 2.2, 5.42, 5.75, 0.12); fz.box(CREAMF, -0.99, 0.99, 0.05, 2.2, 0.0, 0.42); fz.box(DARK, -0.85, 0.85, 2.2, 2.215, 0.08, 0.32);
+    // (back between the sides, and sides and back stopping inside the top: they used to share their outer faces with each
+    // other and with the top, whose rounder edges shaded differently, and flickered down the fridge's side by the doorway)
+    fz.soft(CREAMF, -0.98, 0.98, 0.0, 0.25, 0, 5.5, 0.08); fz.soft(CREAMF, -1.15, -0.98, 0, 2.2, 0, 5.5, 0.07); fz.soft(CREAMF, 0.98, 1.15, 0, 2.2, 0, 5.5, 0.07);
+    fz.soft(CREAMF, -1.15, 1.15, 0, 2.2, 5.42, 5.75, 0.12); fz.box(CREAMF, -0.98, 0.98, 0.05, 2.18, 0.0, 0.42); fz.box(DARK, -0.85, 0.85, 2.2, 2.215, 0.08, 0.32);
     for (let i = 0; i < 7; i++) fz.box('c#8a8478/0.5', -0.8, 0.8, 2.214, 2.218, 0.11 + i * 0.03, 0.125 + i * 0.03);
     const LINER = 'c#f2efe8/0.3';
     fz.box('e#fff1d0/0.5', -0.98, 0.98, 0.25, 0.27, 0.42, 5.42); fz.box(LINER, -0.98, -0.95, 0.27, 2.2, 0.42, 5.42); fz.box(LINER, 0.95, 0.98, 0.27, 2.2, 0.42, 5.42);
@@ -558,7 +560,7 @@ export default function (kit) {
   // ========================================================================================
   {
     const pc = fr(37.55, 22.9, F1, 0), D = 1.6, H = 7.3;       // x -0.95..0.95 = X 36.6..38.5, off the picture rail and the opening's head casing
-    pc.box(SAGEP, -0.95, -0.88, 0, D, 0, H); pc.box(SAGEP, 0.88, 0.95, 0, D, 0, H); pc.box(SAGEP, -0.95, 0.95, 0, 0.05, 0, H);
+    pc.box(SAGEP, -0.95, -0.88, 0, D, 0, H); pc.box(SAGEP, 0.88, 0.95, 0, D, 0, H); pc.box(SAGEP, -0.88, 0.88, 0, 0.05, 0, H);      // (the back between the sides, not sharing their outer faces)
     pc.box(SAGEP, -1.0, 1.0, 0, D + 0.06, H, H + 0.12); pc.box('c#2c2520/0.6', -0.88, 0.88, 0.1, D - 0.15, 0, 0.32); pc.box(SAGEP, -0.88, 0.88, 0.05, D, 0.32, 0.4);
     const shelves = [0.4, 1.55, 2.7, 3.85, 5.0, 6.15];
     for (const z of shelves.slice(1)) pc.box(HONEY, -0.88, 0.88, 0.05, D - 0.08, z - 0.06, z, G);

@@ -286,6 +286,7 @@ export function makeParty(ctx, ui) {
   // May this one pipe up with something nobody asked for? Not over somebody else, not straight after them,
   // and not twice in a row (a remark, then another, then "I will just sit here" in one breath)
   function chime(g, gap = 10) {
+    const SH = staff()?.H; if (SH?.talk?.robot || SH?.busyTalking?.()) return false;      // not over the staff either, nor while she is talking with one of them
     if (P.now - (P.lastLine ?? -99) < 2.5 || P.now - (g.lastLine ?? -99) < gap) return false;
     for (const o of P.guests) if (o.state !== 'away' && o.bubble.talking(P.now)) return false;
     return true;
@@ -321,6 +322,8 @@ export function makeParty(ctx, ui) {
   const GSEATS = (ctx.items.seats ?? []).filter(q => q.y - 2.45 < 2.2 && !nav.roomAt(q.x, q.y - 1, q.z)).map(q => ({ x: q.x, z: q.z, top: q.y - 2.45, yaw: q.yaw + Math.PI, by: null }));
   const SEATS = (ctx.items.seats ?? []).map(q => { const top = q.y - 2.45, f = top > nav.FLOORS[1] - 0.6 ? 1 : 0; return { x: q.x, z: q.z, top, yaw: q.yaw + Math.PI, f, by: null }; })      // a seat's yaw is the sitter's view (camera convention); a body's heading is the opposite angle
     .filter(q => q.top - nav.FLOORS[q.f] > 0.9 && q.top - nav.FLOORS[q.f] < 2.7);
+  // Is a guest in this seat of hers (or on the way to it)? She cannot sit down on top of one (main.js)
+  ctx.seatTakenBy = s => [...SEATS, ...GSEATS].find(q => q.by && Math.abs(q.top - (s.y - 2.45)) < 0.6 && Math.hypot(q.x - s.x, q.z - s.z) < 0.6)?.by ?? null;
   const inHall = (f, x, z) => { const r = nav.roomAt(x, nav.FLOORS[f] + 1, z); return !!r && /hall/i.test(r.name); };
   function takeSeat(g) {
     if (g.sitting || g.out || !v.present || v.outside) return false;
@@ -338,7 +341,8 @@ export function makeParty(ctx, ui) {
     return sitIn(g, best, bc, () => { if (rnd() < 0.5 && P.now - P.saidSeat > 50 && chime(g)) { P.saidSeat = P.now; line(g, g.C.pools.sitDown ? 'sitDown' : 'seated', { toGuest: false, secs: 3 }); } });
   }
   // To a seat and into it: walk to the open floor beside it, then settle in, facing out of it, at its height
-  // (the body resting just above the cushion: a robot sits on its bottom like anybody else)
+  // (hovering a little above the cushion)
+  const HOVER_OVER_SEAT = 0.3;      // sitting, a robot still hovers: this far (ft) between its lowest part and the cushion (Anna: "hover a bit above the chair, not really resting there")
   function sitIn(g, q, bc, then = null) {
     if (bc === undefined || bc < 0) bc = nav.nearest(q.f, q.x, q.z, 2, 3.4, true);
     if (bc < 0) return false;
@@ -350,7 +354,7 @@ export function makeParty(ctx, ui) {
       g.seatGlide = true;
       glide(g, [[q.x, nav.FLOORS[f], q.z]], () => {
         g.seatGlide = false; g.sitting = true; g.seat = q; g.seatWant = null; g.seatAccess = { x: ax, z: az, f };
-        const tall = g.spec.tall ?? 1; g.drop = Math.max(0, g.spec.hover - (q.top - nav.FLOORS[f]) - (g.body.R * g.body.bs[1] * tall + 0.08));
+        const tall = g.spec.tall ?? 1; g.drop = Math.max(0, g.spec.hover - (q.top - nav.FLOORS[f]) - ((g.body.low ?? g.body.R * g.body.bs[1]) * tall + HOVER_OVER_SEAT));      // (down to its lowest part, the ring: Feynbot's hangs a quarter foot below him, and sank into the cushion)
         g.m.x = q.x; g.m.z = q.z; g.m.v = 0;
         then?.();
       });
@@ -626,7 +630,7 @@ export function makeParty(ctx, ui) {
         const fx = q.x + Math.sin(q.yaw) * 1.3, fz = q.z + Math.cos(q.yaw) * 1.3;
         if (lawnPath(m.x, m.z, fx, fz, pts, g)) {
           q.by = g; pts.push([q.x, 0.05, q.z]); g.gSeatWant = q;
-          g.glK = 1.6; glide(g, pts, () => { g.glK = 1; g.gSettled = true; g.gSeat = q; g.gSeatWant = null; const tall = g.spec.tall ?? 1; g.drop = Math.max(0, g.spec.hover - q.top - (g.body.R * g.body.bs[1] * tall + 0.08)); });
+          g.glK = 1.6; glide(g, pts, () => { g.glK = 1; g.gSettled = true; g.gSeat = q; g.gSeatWant = null; const tall = g.spec.tall ?? 1; g.drop = Math.max(0, g.spec.hover - q.top - ((g.body.low ?? g.body.R * g.body.bs[1]) * tall + HOVER_OVER_SEAT)); });
           return;
         }
         pts.length = 0;
@@ -755,6 +759,8 @@ export function makeParty(ctx, ui) {
     chips: id => brain.chips(id, { present: hereIds() }),
     closed: () => { P.chatWith = null; },
   };
+  // For the staff (staff/talk.js, staff.js): is she in conversation with a guest, or is one speaking near her? And a way to end it
+  ctx.guestTalk = { open: () => !!(P.chatWith && ui?.chat.open), near: () => P.guests.some(g => g.state !== 'away' && g.bubble.talking(P.now) && Math.hypot(g.m.x - v.x, g.m.z - v.z) < 20), close: () => { ui?.chat.hide?.(); } };
   function talkTo(g, focus = true) {
     if (!here(g)) return;
     staff()?.H?.talk?.close?.();                         // one conversation at a time
@@ -1481,7 +1487,7 @@ export function makeParty(ctx, ui) {
       if (!P.door) findDoor(); P.active = true; ctx.forcePresent = true; watch();
       const g = P.byId[id] ?? (P.byId[id] = makeGuest(id, ORDER.indexOf(id))); if (!P.guests.includes(g)) P.guests.push(g);
       g.state = 'here'; g.out = false; g.body.root.visible = true; g.greeted = true; P.been.add(id); g.mode = 'idle'; g.thinkAt = 0;
-      if (s.seat) { const q = seatFor(g, s); if (!q) return null; g.m.place(q.x, q.z, q.f); g.sitting = true; g.seat = q; q.by = g; g.seatAccess = { x: q.x, z: q.z, f: q.f }; g.m.yaw = q.yaw; const tall = g.spec.tall ?? 1; g.drop = g.dropNow = Math.max(0, g.spec.hover - (q.top - nav.FLOORS[q.f]) - (g.body.R * g.body.bs[1] * tall + 0.08)); }
+      if (s.seat) { const q = seatFor(g, s); if (!q) return null; g.m.place(q.x, q.z, q.f); g.sitting = true; g.seat = q; q.by = g; g.seatAccess = { x: q.x, z: q.z, f: q.f }; g.m.yaw = q.yaw; const tall = g.spec.tall ?? 1; g.drop = g.dropNow = Math.max(0, g.spec.hover - (q.top - nav.FLOORS[q.f]) - (g.body.R * g.body.bs[1] * tall + HOVER_OVER_SEAT)); }
       else { const at = spotFor(g, s); if (!at) return null; g.m.place(at.x, at.z, at.f); const a = anchorOf(s); if (a) g.m.yaw = Math.atan2(a.x - at.x, a.z - at.z); }
       if (id === 'gigi' && (s.pose === 'sip' || s.key === 'sofa')) { g.hasCup = true; g.body.cup.visible = true; }
       g.away = { spot: s, until: P.now + 1e6, arrived: false, room: v.room, f: s.f }; startAct(g, s); g.dropNow = g.drop;

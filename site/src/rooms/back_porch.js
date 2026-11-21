@@ -38,7 +38,7 @@ export default function (kit) {
   bead('X', 42.79, -1, 35.55, 45.79);                                       // north
   bead('X', 31.34, 1, 39.72, 45.79);                                        // south, beyond the bedroom wing
   bead('Y', 45.79, -1, 31.34, 34.83); bead('Y', 45.79, -1, 38.57, 42.79);   // west, either side of the steps
-  for (const [X0, X1, Y0, Y1] of [[42.74, 43.38, 35.5, 46.38], [31.0, 31.38, 39.68, 46.38], [30.95, 35.2, 45.76, 46.38], [38.2, 43.38, 45.76, 46.38]]) P0.box(CREAMP, X0, X1, Y0, Y1, 3.0, 3.08, G);
+  for (const [X0, X1, Y0, Y1] of [[42.74, 43.38, 35.5, 45.76], [31.0, 31.38, 39.68, 45.76], [30.95, 35.2, 45.76, 46.38], [38.2, 43.38, 45.76, 46.38]]) P0.box(CREAMP, X0, X1, Y0, Y1, 3.0, 3.08, G);      // (the side caps stop at the west ones: they overlapped in the corners, grain crossed, and flickered)
 
   // ---- Café lights along the north and west screens ---------------------------------------
   { const string = (pts) => { const path = []; for (let i = 0; i + 1 < pts.length; i++) { const [a, b] = [pts[i], pts[i + 1]]; for (let k = 0; k < 8; k++) { const t = k / 8; path.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, 7.55 - 0.38 * Math.sin(Math.PI * t)]); } } path.push([...pts[pts.length - 1], 7.55]);

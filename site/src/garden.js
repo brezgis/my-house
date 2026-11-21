@@ -49,7 +49,7 @@ import { buildPond, pondLife, POND } from './garden/pond.js';
 import { buildPlay, playLife } from './garden/play.js';
 import { buildTreehouse, treehouseLife } from './garden/treehouse.js';
 import { rippleLife } from './garden/ripples.js';
-import { buildPotager } from './garden/potager.js';
+import { buildPotager, potagerLife } from './garden/potager.js';
 import { buildLibrary } from './garden/little_library.js';
 import { buildMailbox } from './garden/mailbox.js';
 import { buildFrontWalk } from './garden/front_walk.js';
@@ -58,6 +58,7 @@ import { creatures } from './garden/creatures.js';
 import { chaplain } from './garden/chaplain.js';
 import { wind, rng } from './garden/cards.js';
 import { makeFlames } from './flame.js';
+import { firewoodMaterials, ashMaterial, ashBed, Heap } from './kit/firewood.js';
 import { buildAirstop, airstopLife } from './garden/airstop.js';
 import { smoresLife } from './garden/smores.js';
 import { inPoly } from './garden/flora.js';
@@ -584,14 +585,27 @@ export function plantGarden(B, items) {
     if (K.fire) {
       const f = K.fire, lamp = { x: f.x, y: f.y + 1.6, z: f.z, power: 0, kind: 'fire' }; items.lamps.push(lamp);
       const hearth = new T3.Group(); hearth.position.set(f.x, f.y, f.z); scene.add(hearth);
-      const logMat = new T3.MeshStandardMaterial({ color: 0x2a1a12, roughness: 1, emissive: 0x401000, emissiveIntensity: 0 });
-      for (let i = 0; i < 4; i++) { const l = new T3.Mesh(new T3.CylinderGeometry(0.17, 0.2, 2.0, 7), logMat); l.rotation.set(Math.PI / 2 - 0.35, (i / 4) * Math.PI * 2, 0); l.position.set(Math.cos(i * 1.57) * 0.3, 0.35, Math.sin(i * 1.57) * 0.3); hearth.add(l); }
+      // The firewood (kit/firewood.js), built log-cabin fashion on a bed of ash in the bottom of the bowl: two rounds,
+      // two splits laid across them, round a short burnt-down piece in the middle. Charred toward the middle, where they
+      // glow in checks while it burns; the ash scatters coals. (They were four plain cylinders, all leaning the same
+      // way, standing on end on the bare earth.) Laid out from the ground at the pit's centre, then hung in `hearth`.
+      const fw = firewoodMaterials(materials.bark), heap = new Heap(0.05), ashMat = ashMaterial(0x6e6964);      // (grey, as the hearth's: the pale tint lit to a white plate under the fire at night)
+      const ashG = ashBed(1.75, 1.7, 0.095, 0.24, 9, 30, 5, 0.3); heap.add(ashG);
+      const ash = new T3.Mesh(ashG.translate(0, -f.y, 0), ashMat); ash.receiveShadow = true; hearth.add(ash);
+      const heat = (x, y, z) => Math.max(0, Math.min(1, 1.0 - Math.hypot(x, z) / 0.6 - Math.max(0, y - 0.55) * 0.8));
+      heap.lay({ x: 0.02, z: 0.0, yaw: 0.75, len: 0.55, r: 0.12, taper: 0.25, seed: 25 }, (x, y, z) => Math.min(1, heat(x, y, z) + 0.2));
+      heap.lay({ x: 0.04, z: 0.48, yaw: Math.PI / 2 + 0.05, len: 1.45, r: 0.2, seed: 21 }, heat);
+      heap.lay({ x: -0.03, z: -0.5, yaw: Math.PI / 2 - 0.08, len: 1.4, r: 0.18, seed: 22 }, heat);
+      heap.lay({ x: 0.46, z: 0.02, yaw: 0.07, len: 1.4, r: 0.28, split: 1.5, roll: -(Math.PI - 1.5) / 2, seed: 23 }, heat);
+      heap.lay({ x: -0.47, z: -0.03, yaw: -0.1, len: 1.35, r: 0.26, split: 1.6, roll: (Math.PI - 1.6) / 2, seed: 24 }, heat);
+      const wood = heap.merged();
+      for (const [g, m] of [[wood.bark, fw.bark], [wood.wood, fw.wood]]) { const l = new T3.Mesh(g.translate(0, -f.y, 0), m); l.castShadow = l.receiveShadow = true; hearth.add(l); }
       // flames you can walk all round: four sheets crossed through the middle (flame.js; one draw)
       const uT = { value: 0 }, flames = makeFlames(T3, mergeGeometries, uT, [0, 1, 2, 3].map(i => [(i / 4) * Math.PI + 0.2, 0, 0, 2.0 - (i % 2) * 0.3, 2.7 - (i % 2) * 0.5, i * 2.9]), 0.25); hearth.add(flames);
       let manual = null;
       ctx.interact.push({ x: f.x, y: 1.4, z: f.z, reach: 8, label: () => (lit() ? 'let the fire die down' : 'light the fire'), act: () => { manual = !lit(); } });
       const lit = () => manual ?? day.night > 0.45;
-      animated.push(t => { const on = lit(); lamp.power = on ? 0.9 : 0; logMat.emissiveIntensity = on ? 0.5 + 0.2 * Math.sin(t * 7) : 0; flames.visible = on; uT.value = t; });
+      animated.push(t => { const on = lit(); lamp.power = on ? 0.9 : 0; const k = on ? 0.9 + 0.25 * Math.sin(t * 7) + 0.1 * Math.sin(t * 15.3) : 0; fw.bark.emissiveIntensity = fw.wood.emissiveIntensity = k; ashMat.emissiveIntensity = 0.7 * k; flames.visible = on; uT.value = t; });
     }
     // the hammock, swaying a little; lie in it and look up into the leaves
     if (K.hammock) {
@@ -625,6 +639,7 @@ export function plantGarden(B, items) {
     pondLife(ctx, K);
     playLife(ctx, K);
     treehouseLife(ctx, K);
+    try { potagerLife(ctx, K); } catch (e) { console.warn('potager: the glasshouse door', e); }
     chapelLife(ctx, K);
     airstopLife(ctx, K);      // its bell, gate and windsock, and Dandelion the airship (airship/)
     rippleLife(ctx, [K.chapelWater, K.birdbathWater].filter(Boolean));      // the chapel's bowl and the bird bath ripple at a touch

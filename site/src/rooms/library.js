@@ -1,6 +1,6 @@
 // Library (bedroom no. 3, south-west, upstairs): X 0.5-18.8, Y 17.6-29.5.
 //   Bookcases on the east wall (front at Y 18.55), the north wall (front X 17.85, Y 21.5-29.1)
-//   and the west wall north of the window (front Y 28.55, X 12.5-18.5). Window seat under the
+//   and the west wall north of the window (front Y 28.55, X 12.5-17.75). Window seat under the
 //   south window (X 0.5-2.3, Y 19.9-26.7); west window X 4.5-11.7. Door X 18.8, Y 17.9-20.6.
 import { LINEN, OAT, SAGE, RUST, NAVY, MUSTARD, CREAM, ROSE, ENAMEL, BRASS, STEEL, BLACK, GREEN, MARBLE, DARK, WHITE, G, DIRS } from '../kit.js';
 import { wx, wz } from '../builder.js';
@@ -13,7 +13,9 @@ export default function (kit) {
   const { B, fr, world, yawOf, seat, lampAt, model, tableLamp, floorLamp, candle, book, bookRow, bookStack, bookcase, sofa, armchair, bed, table, mug, picture, rug, posy, cabinets, cup, rnd, pick, lamps, seats, candles, models, extras, books, steam, jarCandle, throwBlanket } = kit;
   const P = props(kit);
   rug(3.0, 15.6, 19.5, 28.2, F2, 'tabriz');
-  bookcase(fr(8.6, 17.6, F2, 0), 15.6, 6.8); bookcase(fr(18.8, 25.3, F2, 1), 7.6, 6.8); bookcase(fr(15.5, 29.5, F2, 2), 6.0, 6.8);   // tops under the picture rail (6.95)
+  bookcase(fr(8.6, 17.6, F2, 0), 15.6, 6.8); bookcase(fr(18.8, 25.3, F2, 1), 7.6, 6.8); bookcase(fr(15.125, 29.5, F2, 2), 5.25, 6.8);   // tops under the picture rail (6.95)
+  // (the west-wall case now stops at X 17.75, short of the north-wall case's front: it ran 0.65 ft behind it, and their
+  // shelves and cornices, at the same heights, met in one plane in the corner and flickered)
   // A ladder for the top shelves
   const ld = fr(9.4, 18.75, F2, 0); ld.block(-0.7, 0.7, -0.2, 0.9, 0, 6);   /* moved along, out of the telescope's way */ for (const x of [-0.65, 0.55]) ld.box('fir', x, x + 0.1, 0, 0.12, 0, 7.2, { rot: [0.17, 0, 0], ...G });
   for (let z = 0.9; z < 7; z += 0.95) ld.box('fir', -0.6, 0.6, 0.55 - z * 0.17, 0.85 - z * 0.17, z, z + 0.07, G);
