@@ -19,6 +19,9 @@ const NO_STAIRS = '*Reginald does not do stairs. He sends his regrets.*';
 const NO_OUT = '*Reginald is an indoor gentleman.*';
 const NO_ROOM = '*no clear floor here for crumbs*';
 const N = 9, COOL = 25, GIVEUP = 30, CRUMB = 0xc89a5c;
+// Reginald Treats(TM), from the catalogue: glitter. He prefers it to anything, and trails a little of it for a while after
+const GLITTER = [0xff7ac8, 0xffd75e, 0x7ae0ff, 0xb693ff, 0x8dffb0, 0xffffff, 0xff9a5e], SHINE = 100;
+const GLAM = ['*a sound no vacuum has made before. It is joy.*', '*GLITTER. Reginald has seen the face of God, and it is sparkly.*', '*beep boop BEEP. He will be finding it in his brushes for weeks, and is glad.*', '*spins twice. Sheds a little. Regrets nothing.*'];
 // Crumbs of bakery things; bits of anything else, in roughly its colour
 function crumbKind(n) {
   if (/cake|tart|turnover|bread|roll|pretzel|cheez|croissant|scone|biscuit|cookie|muffin|toast/i.test(n)) return { crumbs: true, color: /chocolate/i.test(n) ? 0x4a2c1c : /cheez/i.test(n) ? 0xe08a2a : CRUMB };
@@ -55,6 +58,7 @@ export class Roomba extends Agent {
   // What she could share: food in her hand (hands/carry.js) first, then food the staff served her
   shareable() {
     const h = window.__hands?.holding;
+    if (h?.treat === 'glitter') return { n: 'Reginald Treats', hand: true, glitter: true };
     if (h?.eat) return { n: h.n, hand: true };
     const v = this.H.visitor;
     return v.holding?.food ? { n: v.holding.name.replace(/^(piece|slice) of /, ''), hand: false } : null;
@@ -62,6 +66,7 @@ export class Roomba extends Agent {
   label() {
     if (!this.treatable()) return 'pat Reginald';
     const f = this.shareable(); if (!f) return 'drop a few crumbs for Sir Reginald';
+    if (f.glitter) return 'shake out some Reginald Treats™ for Sir Reginald';
     const k = crumbKind(f.n);
     return k.crumbs ? `share some ${f.n.replace(/^(box|bag|bar) of /, '')} crumbs with Sir Reginald` : `share a few bits of ${f.n} with Sir Reginald`;
   }
@@ -73,8 +78,9 @@ export class Roomba extends Agent {
     if (onStair || v.f !== 0) return this.bubble.say(NO_STAIRS, 4, H.now);
     const at = this.crumbSpot(); if (!at) return H.bubbles.toast(NO_ROOM, H.now, 3);
     const f = this.shareable();
-    this.scatter(at.x, at.z, f ? crumbKind(f.n).color : CRUMB);
-    if (f?.hand) window.__hands.crumble?.();                                    // (a little less of it left in her hand)
+    this.scatter(at.x, at.z, f?.glitter ? 0xffffff : f ? crumbKind(f.n).color : CRUMB, !!f?.glitter);
+    if (f?.hand && !f.glitter) window.__hands.crumble?.();
+    if (f?.glitter) window.__catalogue?.used?.('reginald-treats');                                    // (a little less of it left in her hand)
     this.aside.on = 0; this.run('treat', this.treat());
   }
   // A little clear floor a couple of feet in front of her that he can reach (never inside the furniture)
@@ -87,14 +93,16 @@ export class Roomba extends Agent {
     return null;
   }
   // The crumbs: a few specks, one draw call, made the first time and kept
-  scatter(x, z, color = CRUMB) {
+  scatter(x, z, color = CRUMB, glitter = false) {
     const H = this.H, THREE = H.THREE, y = H.nav.floorY(0, x, z) + 0.012;
     if (!this.crumbs) {
       const mesh = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(0.042, 0), new THREE.MeshStandardMaterial({ color: 0xc89a5c, roughness: 0.95 }), N);
       mesh.userData.staff = true; mesh.frustumCulled = false; mesh.castShadow = false; mesh.receiveShadow = false;
       this.crumbs = { mesh, pts: new Float32Array(N * 2), left: 0, eaten: new Uint8Array(N), o: new THREE.Object3D() };
     }
-    const C = this.crumbs, o = C.o; C.mesh.material.color.setHex(color);
+    const C = this.crumbs, o = C.o, M = C.mesh.material; M.color.setHex(color); C.glitter = glitter;
+    M.roughness = glitter ? 0.22 : 0.95; M.metalness = glitter ? 0.55 : 0; M.emissive.setHex(glitter ? 0x554a4a : 0);
+    C.col ??= new THREE.Color(); for (let i = 0; i < N; i++) C.mesh.setColorAt(i, C.col.setHex(glitter ? GLITTER[i % GLITTER.length] : 0xffffff)); C.mesh.instanceColor.needsUpdate = true;
     for (let i = 0; i < N; i++) {
       const a = H.rnd() * Math.PI * 2, r = 0.06 + Math.sqrt(H.rnd()) * 0.36, px = x + Math.cos(a) * r, pz = z + Math.sin(a) * r;
       C.pts[i * 2] = px; C.pts[i * 2 + 1] = pz; C.eaten[i] = 0;
@@ -161,8 +169,9 @@ export class Roomba extends Agent {
       }
       // delight
       this.treats++; H.events.treatsEaten = (H.events.treatsEaten ?? 0) + 1;
-      this.bubble.say(YUM[(this.treats - 1) % YUM.length], 3.5, H.now); H.chirp([84, 88, 91, 96], 0.045, this, 0.09);
-      for (let t = 0; t < 1.6; t += H.dt) { m.v = 0; this.spin = Math.PI * 4 * (1 - Math.cos(Math.PI * t / 1.6)) / 2; yield; }
+      if (C.glitter) { this.glam = (this.glam ?? 0) + 1; this.shineUntil = H.now + SHINE; this.bubble.say(GLAM[(this.glam - 1) % GLAM.length], 4.5, H.now); H.chirp([84, 88, 91, 96, 100, 103], 0.05, this, 0.08); }
+      else { this.bubble.say(YUM[(this.treats - 1) % YUM.length], 3.5, H.now); H.chirp([84, 88, 91, 96], 0.045, this, 0.09); }
+      for (let t = 0; t < (C.glitter ? 3.2 : 1.6); t += H.dt) { if (C.glitter) { m.v = 0; this.spin = Math.PI * 8 * (1 - Math.cos(Math.PI * t / 3.2)) / 2; yield; continue; } m.v = 0; this.spin = Math.PI * 4 * (1 - Math.cos(Math.PI * t / 1.6)) / 2; yield; }
       this.spin = 0;
       for (let t = 0; t < 0.9; t += H.dt) { this.spin = 0.25 * Math.sin(t * 22) * (1 - t / 0.9); yield; }      // a wiggle
       this.spin = 0;
@@ -279,5 +288,17 @@ export class Roomba extends Agent {
     if (this.mode !== 'dock') b.brush.rotation.y += dt * (this.mode === 'treat' ? 30 : 14);
     b.led.material.color.setHex(this.mode === 'dock' ? (Math.sin(t * 2) > 0 ? 0x6dff9a : 0x1c4a2a) : this.mode === 'treat' ? (Math.sin(t * 9) > 0 ? 0xffd27a : 0x6dff9a) : 0x6dff9a);
     this.inter.x = m.x; this.inter.y = m.y + 0.6; this.inter.z = m.z;
+    if (this.shineUntil > H.now || this.sparks?.alive) this.shine(dt, t);
+  }
+  // Full of glitter: a few sparks off him as he goes, and his lamp in every colour (catalogue/sparks.js, fetched the first time)
+  shine(dt, t) {
+    const H = this.H, m = this.m, on = this.shineUntil > H.now;
+    if (!this.sparks) { if (!this.sparksP) this.sparksP = import('../catalogue/sparks.js').then(k => { this.sparks = k.makeSparks(H.THREE, 90); H.ctx.scene.add(this.sparks.points); }).catch(() => {}); return; }
+    if (on) {
+      this.body.led.material.color.setHex(GLITTER[Math.floor(t * 5) % GLITTER.length]);
+      const busy = this.mode === 'treat' || Math.abs(this.spin) > 0.1, n = busy ? 3 : m.v > 0.2 ? (H.rnd() < 0.35 ? 1 : 0) : (H.rnd() < 0.04 ? 1 : 0);
+      for (let i = 0; i < n; i++) { const a = H.rnd() * 6.283, r = 0.25 + H.rnd() * 0.3; this.sparks.spawn(m.x + Math.cos(a) * r, m.y + 0.2 + H.rnd() * 0.15, m.z + Math.sin(a) * r, Math.cos(a) * (busy ? 1.6 : 0.3), 0.5 + H.rnd() * (busy ? 1.6 : 0.5), Math.sin(a) * (busy ? 1.6 : 0.3), 0.7 + H.rnd() * 0.9, GLITTER[Math.floor(H.rnd() * GLITTER.length)], 0.11, { g: 1.6, twinkle: 18 }); }
+    }
+    this.sparks.step(dt);
   }
 }

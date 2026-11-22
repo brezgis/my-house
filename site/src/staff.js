@@ -506,6 +506,7 @@ export function hireStaff(ctx) {
   }
   if (!headless) ctx.animated.push(tick);
 
+  ctx.household = H;                    // for the catalogue's porter (catalogue/delivery.js): the visitor, the bubbles, the list of empties
   const api = {
     H, nav, step: (dt = 1 / 30) => tick(H.now, dt), rebuild: () => maybeRebuild(true), stage,
     // For the logic test: is anybody inside a wall or a piece of furniture?

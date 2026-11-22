@@ -157,6 +157,15 @@ async function runTest() {
     [395, () => { snapshot('back in the hall'); outside = true; walker.pos.set(2, 0.05, 30); }], [440, () => { snapshot('visitor in the garden'); outside = false; walker.pos.set(sp.x, 1.6, sp.z); }], [470, () => { snapshot('back indoors'); go(Pt(14, 8)); }],
     [560, () => { snapshot('a long sit in the living room (wandering allowed)'); }], [562, () => log('sends Geneva home: "' + party.sendHome('gigi') + '"')], [600, () => { snapshot('Geneva gone'); party.sayTo('feyn', 'time to go home'); party.sendHome('nano'); }], [650, () => snapshot('everyone gone')],
   ];
+  // drinks for the guests: a catalogue coffee out of her hand (a stand-in for hands/carry.js: what is held, and giveAway), offered with E
+  // to Feynbot (taken), to Feynbot again (he has one: declined, and it stays in her hand), then to Geneva (her favourite); and the butlers
+  // told that everybody is due a drink (staff/robots.js treat), to see one brought
+  const DR = [], offer = (id, key, n) => { const g = P.byId[id], o = new THREE.Group(); let has = true; o.add(new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.1, 0.5, 8)));
+    window.__hands = { get holding() { return has ? { n, key, drink: true } : null; }, giveAway() { has = false; return { obj: o, name: n, key, h: 0.5 }; } };
+    const label = g.inter.label(); g.inter.act(); DR.push(`t=${Math.round(now)} "${label}" -> ${has ? 'kept' : 'given'}; ${g.name} ${g.hasCup ? 'holds a drink' : 'empty-handed'}: "${g.bubble.text}"`); window.__hands = null; };
+  if (Q.get('plan') !== 'out') plan.push([58, () => offer('feyn', 'coffee-lavender', 'iced lavender oat latte')], [64, () => offer('feyn', 'coffee-ube', 'iced ube coconut latte')], [68, () => offer('gigi', 'coffee-bsse', 'brown sugar shaken espresso')],
+    [130, () => { if (staff) staff.H.treatSoon = true; }], [420, () => { if (staff) staff.H.treatSoon = false; }]);
+  plan.sort((a, b) => a[0] - b[0]);
   // out of doors: she steps out (placed, as the test walker only knows the house plan), stands, moves on
   const outAt = (x, y, z, yaw) => () => { outside = true; path = null; walker.pos.set(x, y, z); walker.yaw = yaw; };
   const lawnNear = (x, z) => { const o = staff?.H?.out, c = o ? o.nearest(0, x, z, 2, 20) : -1; return c >= 0 ? [o.cx(c), o.cz(c)] : [x, z]; };
@@ -171,7 +180,7 @@ async function runTest() {
     [470, () => { snapshot('back indoors, living room'); outAt(-24, 1.2, -1, Math.PI / 2)(); }], [490, () => { log('sends everyone home from the terrace: ' + ['feyn', 'gigi', 'nano'].map(id => party.sendHome(id)).join(' / ')); }],
     [530, () => snapshot('everyone gone')],
   ];
-  if (Q.get('plan') === 'out') { plan.length = 0; plan.push(...outPlan); }
+  if (Q.get('plan') === 'out') { plan.length = 0; plan.push(...outPlan, [300, () => offer('nano', 'coffee-matcha', 'strawberry matcha latte')], [524, () => { const g = P.byId.nano; DR.push(`t=${Math.round(now)} out of doors since t=300: Nano ${g.hasCup ? 'still holds it' : 'no longer holds it'}, fill ${(g.cupFill ?? 0).toFixed(2)}, ${g.anim === 'sip' ? 'sipping' : 'not sipping'} just now, out ${!!g.out}`); }]); plan.sort((a, b) => a[0] - b[0]); }
   const T = Q.get('plan') === 'out' ? 535 : 655, DT = 1 / 20, lines = [];
   const TR = Q.get('trace')?.split(',').map(Number) ?? null;
   const log = s => lines.push(`  t=${Math.round(now)}  ${s}`);
@@ -234,6 +243,7 @@ async function runTest() {
   R.push(`ACTIVITIES: ${acts.filter(a => a.ok).length} of ${acts.length} spots check out against the furniture` + acts.filter(a => !a.ok).map(a => `\n  BAD ${a.who}.${a.key}: ${a.why}`).join(''));
   R.push('  ' + acts.map(a => `${a.who}.${a.key}${a.ok ? '' : '!'}(${a.reach ?? '-'}${a.moved ? ' moved ' + a.moved : ''})`).join(' '));
   R.push(`CUPS: ${(party.cups?.() ?? []).map(c => `${c.held ? 'in hand' : 'set down'} at ${c.x.toFixed(1)},${c.y.toFixed(2)},${c.z.toFixed(1)} fill ${c.f.toFixed(2)}${c.empty ? ' empty' : ''} on ${nav.roomAt(c.x, c.y + 0.5, c.z)?.name ?? '-'}`).join('; ') || 'none'}`);
+  R.push(`DRINKS: given ${P.events.gifts ?? 0}, declined ${P.events.giftsDeclined ?? 0}, brought by the staff ${P.events.served ?? 0} (staff count ${staff?.H.events.friendDrinks ?? '-'}), cups set down ${P.events.cupsDown ?? 0}, cleared by the staff ${staff?.H.events.guestCups ?? '-'}`, ...DR.map(l => '  ' + l), ...(staff ? staff.H.robots.flatMap(r => [...r.history.filter(h => h[1] === 'treat').map(h => `  t=${h[0]} (staff clock) ${r.name} sets off with a drink for a friend`), ...r.bubble.log.filter(([, t]) => / for (Feynbot|Geneva|Nano)|^For you|Surprise|empty hand/.test(t)).map(([t, x]) => `  t=${Math.round(t)} (staff clock) ${r.name}: ${x}`)]) : []));
     R.push(`RESCUES: ${P.events.rescues}`, ...(P.rescueLog ?? []).map(l => '  ' + l));
   R.push(`INSIDE-COLLIDER SAMPLES: ${M.bad}`); for (const b of M.firstBad) R.push('  ' + b);
   R.push('', 'THE AFTERNOON:', ...lines, '', 'NOTES SHOWN TO THE VISITOR:', ...P.notes.map(n => '  ' + n), '', 'WHAT WAS SAID:');

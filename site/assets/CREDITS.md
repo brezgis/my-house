@@ -32,6 +32,15 @@ All textures and the lighting environment are CC0 (public domain).
   - *Infatigables*, 1895, oil on panel. RISD Museum, Providence, 29.109.
     https://risdmuseum.org/art-design/collection/infatigables-29109 . Image from the RISD Museum, public domain, CC0 1.0
     Universal. (ronner_infatigables.jpg)
+- Two more jigsaws come from the catalogue:
+  - *The Moon* (round): "View of a full Moon photographed from Apollo 11 spacecraft", AS11-44-6667, taken on 21 July 1969
+    on the journey home, about 10,000 nautical miles out. NASA (Johnson Space Center).
+    https://images.nasa.gov/details/as11-44-6667 . A NASA photograph, in the public domain as a work of the United States
+    Government (https://www.nasa.gov/nasa-brand-center/images-and-media/); no endorsement by NASA is implied. The disc
+    cropped from the 1920 x 1930 scan, resized and set on black at 1400 x 1050.
+    (puzzles/moon_apollo_11.jpg, and moon_apollo_11_thumb.jpg for the catalogue's page)
+  - *The Island at Night*: drawn in code for this house (src/catalogue/jigsaw_art.js); no image file. The seven stars at
+    its upper left are the Plough, placed from the stars' right ascensions and declinations (entered by hand, to about a tenth of a degree).
 - Framed drawings (assets/art/plan_*.jpg): crops of Greene & Greene's 1906 sheets for the Bentz
   house, from scans held by Columbia University's Avery Library. Check the rights position
   before publishing these on the open web.
@@ -115,3 +124,24 @@ All textures and the lighting environment are CC0 (public domain).
   https://archive.org/details/31761034970749 (the same file on Wikimedia Commons, marked public domain:
   https://commons.wikimedia.org/wiki/File:Das_wohltemperirte_Klavier._Kritische_Ausg._mit_Fingersatz_und_Vortragsbezeichnungen_versehen_von_Hans_Bischoff_(IA_31761034970749).pdf).
   The two pages were set side by side, levelled to greyscale and reduced to 1080 x 704.
+
+## Records from the catalogue
+
+Two old records that can be ordered from the catalogue and played on the record player (assets/audio; listed with
+the house's other music in assets/audio/manifest.json). Both are acoustic recordings made by the Victor Talking
+Machine Company. Each was reduced to mono, trimmed, levelled to sit with the other records and encoded as MP3;
+the surface noise is the record's own.
+
+- *Maple Leaf Rag* (joplin_maple_leaf_rag_marine_band_1906.mp3). Scott Joplin, published 1899. United States
+  Marine Band, conducted by William H. Santelmann. Victor 4911 (10-inch, single-faced), matrix B-3887, take 2,
+  recorded 15 October 1906 and released in January 1907. Transfer by the UCSB Library, from the Discography of
+  American Historical Recordings: https://adp.library.ucsb.edu/index.php/matrix/detail/200005528/B-3887-Maple_leaf_rag_
+  (the disc: https://adp.library.ucsb.edu/index.php/objects/detail/37311/Victor_4911). Public domain: the music was
+  published before 1930, and under the Music Modernization Act sound recordings published in the United States
+  before 1923 entered the public domain on 1 January 2022.
+- *El Choclo* (Tango argentino) (villoldo_el_choclo_victor_orchestra_1912.mp3). Ángel Villoldo, published 1903,
+  in an orchestration by Elsie Janis. Victor Orchestra. Victor 17242 (10-inch, double-faced), matrix B-12530,
+  take 2, recorded at Camden, New Jersey, on 22 October 1912 and released in February 1913. Transfer by the
+  Library of Congress, National Jukebox: https://www.loc.gov/item/jukebox-132231/ (the disc:
+  https://adp.library.ucsb.edu/index.php/objects/detail/11702/Victor_17242). Public domain for the same reasons.
+  Credit line: Library of Congress, National Jukebox.

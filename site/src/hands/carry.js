@@ -82,13 +82,15 @@ export function setupCarry(ctx, api) {
     it.obj.removeFromParent(); camera.add(it.obj); it.state = 'held'; held = it; it.takenAt = performance.now(); inspecting = false; zoom = 1; chew = -1;
     if (!snap) { camera.updateMatrixWorld(); /* start where it was, so it comes to the hand rather than jumping */ }
     pose(true); it.obj.position.copy(goal); it.obj.scale.setScalar(goalS); it.obj.position.y -= 0.25;
-    refresh(); hook(); bar?.classList.add('on'); bar?.classList.toggle('food', !!it.T.eat);
+    refresh(); hook(); bar?.classList.add('on'); bar?.classList.toggle('food', !!(it.T.eat || it.T.use)); if (bar) bar.querySelector('.eat').textContent = it.T.button ?? 'Take a bite';
+    it.T.onTake?.(it);
     if (it.home) { backEnt.x = it.home.x; backEnt.y = it.home.y; backEnt.z = it.home.z; backEnt.size = Math.max(0.6, it.w, it.d); }
     const first = !seen.has(it.T); seen.add(it.T);
     api.handled.push(it.T.n);
     if (first) note(it.T.l, 5200);
-    if (!told) { told = true; setTimeout(() => { if (held) note(touch ? 'Tap a table, a shelf or the floor to set it down. The buttons at the left turn it over.' : `E sets it down where you are looking. R turns it over in your hand${it.T.eat ? ', Q takes a bite' : ''}.`, 6000); }, first ? 5400 : 300); }
-    else if (first && it.T.eat && !toldEat) { toldEat = true; setTimeout(() => held === it && note(touch ? 'The button at the left takes a bite.' : 'Q takes a bite.'), 5400); }
+    if (!told) { told = true; setTimeout(() => { if (held) note(touch ? 'The buttons at the left set it down where you are looking, and turn it over.' : `G sets it down where you are looking. R turns it over in your hand${it.T.eat || it.T.use ? `, Q ${it.T.q ?? 'takes a bite'}` : ''}.`, 6000); }, first ? 5400 : 300); }
+    else if (first && (it.T.eat || it.T.use) && !toldEat && !it.T.q) { toldEat = true; setTimeout(() => held === it && note(touch ? 'The button at the left takes a bite.' : 'Q takes a bite.'), 5400); }
+    else if (first && it.T.q) setTimeout(() => held === it && note(touch ? `The button at the left ${it.T.q}.` : `Q ${it.T.q}.`), 5400);
   }
   let toldEat = false;
 
@@ -114,8 +116,8 @@ export function setupCarry(ctx, api) {
   ctx.animated.push((t, dt) => {
     const it = held;
     if (!it) { const o = otherIt(); if (o) { hook(); planDown(o); } else plan.how = plan.text = null; return; }
-    const o = it.obj; o.visible = ctx.mode === 'walk';
-    if (chew >= 0) { chew += dt / 0.9; if (chew > 0.5 && it.bitten) { it.bitten = false; if (!it.T.taste) it.shrink = Math.max(0.2, 1 - it.bites / ((it.T.eat === 'whole' ? it.T.bites ?? 3 : it.T.eat.length) + 0.6)); } if (chew >= 1) { chew = -1; if (it.eaten) return finish(it); } }
+    const o = it.obj; o.visible = ctx.mode === 'walk' && !api.open;      // (not hanging in front of a book or a screen that is open)
+    if (chew >= 0) { chew += dt / 0.9; if (chew > 0.5 && it.bitten) { it.bitten = false; it.T.onBite?.(it, it.bites); if (!it.T.taste && !it.T.keep) it.shrink = Math.max(0.2, 1 - it.bites / ((it.T.eat === 'whole' ? it.T.bites ?? 3 : it.T.eat.length) + 0.6)); } if (chew >= 1) { chew = -1; if (it.eaten) return finish(it); } }
     pose();
     const k = snap ? 1 : Math.min(1, dt * 11);
     o.position.lerp(goal, k); o.scale.setScalar(o.scale.x + (goalS - o.scale.x) * k);
@@ -136,10 +138,10 @@ export function setupCarry(ctx, api) {
   const plan = { how: null, text: null };
   function planDown(it) {
     plan.how = plan.text = null; putEnt.x = FAR;
-    if (inspecting || ctx.mode !== 'walk' || ctx.walker?.seated) return;
+    if (inspecting || ctx.mode !== 'walk') return;
     camera.getWorldDirection(dir); const p = camera.position;
     for (const e of ctx.interact) {                                   // something else squarely in view comes first (a seat never does)
-      if (e === putEnt || e.seat || e.x > 1e8) continue;
+      if (e !== backEnt || e.x > 1e8) continue;                      // (only its own place matters: G is this key's alone, and E is left to seats, doors and people)
       to.set(e.x - p.x, e.y - p.y, e.z - p.z); const d = to.length(); if (d > e.reach || d < 1e-3) continue;
       const ang = Math.acos(Math.min(1, to.dot(dir) / d)), allow = Math.min(0.45, Math.atan((e.size ?? (e.reach >= 7 ? 1.7 : 1.05)) / d) + 0.09);
       if (ang >= allow * (e === backEnt ? 1 : 0.35)) continue;
@@ -148,7 +150,6 @@ export function setupCarry(ctx, api) {
       if (l) return;
     }
     if (aimAny(spot, p.x, p.y, p.z, dir.x, dir.y, dir.z, ctx.colliders, ctx.house.surfaces, REACH) && spot.y < p.y + 0.4) { plan.how = 'aim'; plan.text = `set the ${it.T.n} down`; return; }
-    if (touch) return;                                                 // (on a touch screen a tap at nothing is still a sip)
     const home = nearHome(it);
     plan.how = home ? 'back' : 'feet'; plan.text = home ? `put the ${it.T.n} back` : `set the ${it.T.n} down at your feet`;
   }
@@ -180,7 +181,7 @@ export function setupCarry(ctx, api) {
   function look(on, button = false) {
     if (!held || on === inspecting) return;
     inspecting = on; byButton = on && button; ctx.walker.lookScale = on ? 0 : 1; zoom = 1;
-    if (on) { putEnt.x = FAR; held.obj.quaternion.setFromAxisAngle(Y, 0.5); const T = held.T; if (!seen.has(T)) { seen.add(T); note(T.l, 5200); } }
+    if (on) { putEnt.x = FAR; held.obj.quaternion.setFromAxisAngle(Y, 0.5); if (held.h < 0.2 && held.h < 0.3 * Math.max(held.w, held.d)) held.obj.quaternion.premultiply(qa.setFromAxisAngle(X, 1.25));      /* a flat thing (a record sleeve) is tipped up to be read */ const T = held.T; if (!seen.has(T)) { seen.add(T); note(T.l, 5200); } }
     bar?.classList.toggle('looking', on);
   }
   function turn(dx, dy) { const o = held.obj; qa.setFromAxisAngle(Y, dx * 0.008); o.quaternion.premultiply(qa); qa.setFromAxisAngle(X, dy * 0.008); o.quaternion.premultiply(qa); }
@@ -197,9 +198,11 @@ export function setupCarry(ctx, api) {
       else turn(a.clientX - lx, a.clientY - ly);
       lx = a.clientX; ly = a.clientY;
     }, { passive: true }); }
+  addEventListener('keydown', e => { if (e.code === 'KeyG' && !held && !e.repeat && ctx.mode === 'walk' && otherIt() && !/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName ?? '')) { planDown(otherIt()); doPlan(); } });      // (a drink the staff brought, in the other hand)
   addEventListener('keydown', e => {
     if (!held || e.repeat || ctx.mode !== 'walk' || /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName ?? '')) return;
     if (e.code === 'KeyR') look(!inspecting);
+    if (e.code === 'KeyG') { if (inspecting) look(false); if (!doPlan()) { camera.getWorldDirection(dir); setDown(false, atFeet(held), 'feet'); } }      // set it down: where she looks, back in its place, or at her feet
     if ((e.code === 'KeyB' || e.code === 'KeyQ') && !ctx.otherHand) eatOrSip();      // (with the staff in, staff.js listens for Q and B)
   });
   function eatOrSip() { return ctx.sip ? ctx.sip() : bite(); }
@@ -209,18 +212,24 @@ export function setupCarry(ctx, api) {
   // toys.js owns ctx.capture and ctx.hint: its functions are called first, then these.
   let wrapC = null, wrapH = null, wrapS = null;
   function hook() {
-    if (ctx.capture !== wrapC) { const prev = ctx.capture; wrapC = ctx.capture = () => { if (prev?.()) return true; if (inspecting) { look(false); return true; } if (plan.how && ctx.mode === 'walk' && !ctx.walker?.seated) { doPlan(); return true; } return false; }; }
-    if (ctx.hint !== wrapH) { const prev = ctx.hint; wrapH = ctx.hint = () => prev?.() ?? (inspecting && held ? (touch ? `the ${held.T.n} · drag to turn it · pinch to bring it closer` : `the ${held.T.n} · move the mouse to turn it · the wheel brings it closer · <b>E</b>lowers it`) : plan.text && ctx.mode === 'walk' && !ctx.walker?.seated ? `<b>E</b>${plan.text}` : null); }
-    if (ctx.sip !== wrapS) { const prev = ctx.sip; wrapS = ctx.sip = () => { const O = ctx.otherHand, mineFirst = held?.T.eat && (!O?.name?.() || (held.takenAt ?? 0) > (O.at?.() ?? 0)); return (mineFirst && bite()) || prev?.() || (held?.T.eat ? bite() : false); }; }      // (the one picked up last first)
+    if (ctx.capture !== wrapC) { const prev = ctx.capture; wrapC = ctx.capture = () => { if (prev?.()) return true; if (inspecting) { look(false); return true; } return false; }; }      // (E is not for setting down: that is G, so that she can sit with a drink)
+    if (ctx.hint !== wrapH) { const prev = ctx.hint; wrapH = ctx.hint = () => prev?.() ?? (inspecting && held ? (touch ? `the ${held.T.n} · drag to turn it · pinch to bring it closer` : `the ${held.T.n} · move the mouse to turn it · the wheel brings it closer · <b>E</b>lowers it`) : null); }
+    if (ctx.sip !== wrapS) { const prev = ctx.sip; wrapS = ctx.sip = () => { const O = ctx.otherHand, mine = held?.T.eat || held?.T.use, mineFirst = mine && (!O?.name?.() || (held.takenAt ?? 0) > (O.at?.() ?? 0)); return (mineFirst && bite()) || prev?.() || (mine ? bite() : false); }; }      // (the one picked up last first)
   }
 
   // ---- Eating -------------------------------------------------------------------------------
   function bite() {
-    const it = held, T = it?.T; if (!T?.eat || chew >= 0) return false;
+    const it = held, T = it?.T; if (!T || chew >= 0) return false;
+    if (T.use) {                                              // a thing with a use of its own (catalogue/: a rocket to light): Q does that
+      if (inspecting) look(false);
+      const r = T.use(it); if (r === 'gone') finish(it);
+      return r !== false;
+    }
+    if (!T.eat) return false;
     if (inspecting) look(false);
     it.bites = (it.bites ?? 0) + 1; chew = 0; it.bitten = true;
     if (T.eat === 'whole') { if (it.bites >= (T.bites ?? 3)) it.eaten = true; }
-    else { const last = !T.taste && it.bites >= T.eat.length; if (last) it.eaten = true; else setTimeout(() => note(T.eat[Math.min(it.bites, T.eat.length) - 1]), 450); }      // (the last bite finishes it, with its done line)
+    else { const last = !T.taste && it.bites >= T.eat.length; if (last) it.eaten = true; else if (!T.drink) setTimeout(() => note(T.eat[Math.min(it.bites, T.eat.length) - 1]), 450); }      // (a drink says something when it is first picked up and when it is finished, not at every sip)      // (the last bite finishes it, with its done line)
     return true;
   }
   function finish(it) {
@@ -350,6 +359,7 @@ export function setupCarry(ctx, api) {
     groupAt(o.position.x, o.position.y, o.position.z).add(o);
     it.state = back ? 'home' : 'down'; it.x = o.position.x; it.y = o.position.y; it.z = o.position.z; it.ent.y = it.y; it.ent.z = it.z;
     held = null; chew = -1; done();
+    if (!back) it.T.onDown?.(it, { x: s.x, y: s.y, z: s.z, yaw });
     api.moved = all.filter(a => a.state === 'down').map(a => ({ what: a.T.n, x: +a.x.toFixed(2), y: +a.y.toFixed(2), z: +a.z.toFixed(2) }));
     return true;
   }
@@ -406,6 +416,29 @@ export function setupCarry(ctx, api) {
     return true;
   }
 
+  // ---- Things that arrive later (catalogue/delivery.js): made elsewhere, handled like the rest ----
+  // add(T, body, { key, at: { x, y, z, yaw }, hold }): body is any Object3D (it is centred here). With `at` it is
+  // set down there (y is the top it stands on); with `hold` it goes straight to the hand. T is as in things.js,
+  // and may also have: use(it) for Q (return false: nothing happened, 'gone': it is used up), q and button (the
+  // words for Q), keep (it does not get smaller), drink, onBite(it, n), onTake(it), onDown(it, where).
+  function add(T, body, { key = 'made', at = null, hold = false } = {}) {
+    body.traverse(n => { if (n.isMesh) n.castShadow = false; });
+    body.position.set(0, 0, 0); body.updateMatrixWorld(true); box.setFromObject(body); box.getCenter(v); box.getSize(v2); body.position.sub(v);
+    const it = { T, snack: true, id: key, state: 'down', obj: new THREE.Group(), home: null, x: 0, y: 0, z: 0 };
+    it.obj.add(body); it.obj.userData.cat = 'held'; shape(it, v2.x, v2.y, v2.z);
+    it.ent = { x: FAR, y: 0, z: 0, reach: 6.5, size: Math.max(0.5, it.w, it.h), label: () => `pick up the ${T.n}`, act: () => pickUp(it) };
+    ctx.interact.push(it.ent); all.push(it);
+    it.remove = () => { if (held === it) { camera.remove(it.obj); held = null; done(); } it.obj.removeFromParent(); it.state = 'gone'; it.ent.x = FAR; };
+    if (hold && !held) take(it);
+    else {
+      const s = at ?? atFeet(it), o = it.obj;
+      o.position.set(s.x, s.y + it.hh + 0.004, s.z); o.rotation.set(0, s.yaw ?? 0, 0); groupAt(o.position.x, o.position.y, o.position.z).add(o);
+      it.x = o.position.x; it.y = o.position.y; it.z = o.position.z; it.ent.y = it.y; it.ent.z = it.z; refresh();
+    }
+    return it;
+  }
+  api.add = add;
+
   // ---- Touch: two small buttons while something is held -------------------------------------
   let bar = null;
   if (touch) {
@@ -414,15 +447,18 @@ export function setupCarry(ctx, api) {
 #hd-bar.on { display: flex; } #hd-bar button { font: 15px var(--serif, Georgia, serif); color: var(--cream, #f6eddc); background: var(--smoke, rgba(30,21,15,.74)); border: 1.5px solid rgba(246,237,220,.55); border-radius: 22px; padding: 9px 14px; }
 #hd-bar .eat { display: none; } #hd-bar.food .eat { display: block; } #hd-bar.looking .turn { border-color: var(--amber, #e2a647); color: var(--amber, #e2a647); }`;
     document.head.appendChild(st);
-    bar = document.createElement('div'); bar.id = 'hd-bar'; bar.innerHTML = '<button class="turn" type="button">Turn it over</button><button class="eat" type="button">Take a bite</button>';
+    bar = document.createElement('div'); bar.id = 'hd-bar'; bar.innerHTML = '<button class="down" type="button">Set it down</button><button class="turn" type="button">Turn it over</button><button class="eat" type="button">Take a bite</button>';
     document.body.appendChild(bar);
     bar.querySelector('.turn').addEventListener('click', () => look(!inspecting));
+    bar.querySelector('.down').addEventListener('click', () => { if (!held) return; if (inspecting) look(false); planDown(held); if (!doPlan()) { camera.getWorldDirection(dir); setDown(false, atFeet(held), 'feet'); } });
     bar.querySelector('.eat').addEventListener('click', () => bite());
   }
 
   // ---- For the test pages and for other parts of the house -----------------------------------
   Object.defineProperties(api, { held: { get: () => (held ? held.T.n : null), configurable: true }, inspecting: { get: () => inspecting, configurable: true },
-    holding: { get: () => (held ? { n: held.T.n, eat: !!held.T.eat, whole: held.T.eat === 'whole' } : null), configurable: true } });      // (what is in the hand, for staff/roomba.js)
+    holding: { get: () => (held ? { n: held.T.n, eat: !!held.T.eat && !held.T.drink, whole: held.T.eat === 'whole', treat: held.T.treat ?? null, key: held.id, drink: !!held.T.drink } : null), configurable: true } });
+  // Hand what is held to somebody else (friends/: a coffee for a guest): it leaves the hand, and its object comes back for them to hold
+  api.giveAway = () => { const it = held; if (!it) return null; if (inspecting) look(false); camera.remove(it.obj); it.state = 'gone'; it.ent.x = FAR; held = null; chew = -1; done(); it.obj.scale.setScalar(1); it.obj.position.set(0, 0, 0); it.obj.rotation.set(0, 0, 0); it.obj.visible = true; return { obj: it.obj, name: it.T.n, key: it.id, h: it.h }; };      // (what is in the hand, for staff/roomba.js)
   // A few crumbs off what is held (Reginald's treat): whole food gets a little smaller, never gone
   api.crumble = () => { const it = held; if (!it?.T.eat) return false; if (it.T.eat === 'whole') it.shrink = Math.max(0.2, (it.shrink ?? 1) - 0.05); return true; };
   Object.assign(api, {

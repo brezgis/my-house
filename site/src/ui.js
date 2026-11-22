@@ -139,7 +139,7 @@ const help = makeCard('help', 'How to get about', `
       ${row(k('M') + ' ' + k('I'), 'sound on or off; about this house')}
     </dl></section>
   </div>
-  <p class="more keys-only">Also: ${k('C')} crouch · ${k('−')} ${k('=')} eye height · ${k('Q')} sip or bite · ${k('R')} turn what you hold · ${k('X')} wipe the chalkboard · ${k('N')} new chess game · ${k('T')} television off · the telephone in the hall rings a friend round.</p>
+  <p class="more keys-only">Also: ${k('C')} crouch · ${k('−')} ${k('=')} eye height · ${k('Q')} sip or bite · ${k('R')} turn what you hold · ${k('G')} set it down · ${k('X')} wipe the chalkboard · ${k('N')} new chess game · ${k('T')} television off · the telephone in the hall rings a friend round.</p>
   <div class="groups touch-only">
     <section><h3>Walking and looking</h3><dl>
       ${row('left thumb', 'press and slide to walk')}

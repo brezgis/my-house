@@ -1,4 +1,5 @@
 import { shuffle } from './shuffle.js';
+import { owns } from './catalogue/owned.js';
 // Sound: quiet music as if someone had put a record on, and the small noises
 // of a lived-in house - birds outside, the fire, a clock. Nothing plays until
 // the visitor steps in (browsers require a gesture). M mutes. The piano is a
@@ -8,6 +9,7 @@ export function makeSound() {
   let ctx = null, started = false, muted = false, master = null, house = null, houseAim = 0;
   let vol = 1;      // ui.js hook: overall volume 0..1 from the settings card
   const tracks = [], loops = {};
+  const shelf = [], wanted = new Set(); let crated = false;      // records from the catalogue that have not come yet; see putOn
   let music = null, trackNo = 0;
 
   let starting = null;
@@ -20,7 +22,7 @@ export function makeSound() {
     let manifest = [];
     try { manifest = await (await fetch('assets/audio/manifest.json')).json(); } catch { /* no audio gathered yet */ }
     for (const m of manifest) {
-      if (m.kind === 'music') tracks.push(m);
+      if (m.kind === 'music') (m.order && !owns(m.order) && !wanted.has(m.order) ? shelf : tracks).push(m);
       else {
         const name = /wind|breeze|leaves/i.test(m.file) ? 'wind' : /bird/i.test(m.file) ? 'birds' : /fire|crackl/i.test(m.file) ? 'fire' : /clock|tick/i.test(m.file) ? 'clock' : /rain/i.test(m.file) ? 'rain' : /cricket|night/i.test(m.file) ? 'night' : null;
         if (!name || loops[name]) continue;
@@ -31,7 +33,7 @@ export function makeSound() {
     tracks.push({ youtube: 'Cw-IjuVAVk0', title: 'My House, piano cover', composer: 'Pianistmiri (YouTube)', seconds: 215 });
     // "My House" is always the first record on when a guest comes in; after it the crate is shuffled,
     // and reshuffled each time it has been played through (never the same record twice running)
-    order = [tracks.find(t => t.youtube === 'Cw-IjuVAVk0'), ...shuffled(tracks.filter(t => t.youtube !== 'Cw-IjuVAVk0'))]; trackNo = 0; nextTrack();
+    order = [tracks.find(t => t.youtube === 'Cw-IjuVAVk0'), ...shuffled(tracks.filter(t => t.youtube !== 'Cw-IjuVAVk0'))]; trackNo = 0; crated = true; nextTrack();
   }
   // "Come On In": the house's own welcome tune, written for it. A bright, bouncy
   // piano piece at 97 beats a minute in B-flat major (written in G, played up a minor third).
@@ -42,6 +44,17 @@ export function makeSound() {
     clearTimeout(timer); music?.pause(); music = null;
     house.disconnect(); house = ctx.createGain(); house.gain.value = houseAim; house.connect(master);
     nextTrack(); return nowTitle || music?.title || '';
+  }
+  // A record ordered from the catalogue (an `order` id in the manifest) is not in the crate until it has come
+  // (catalogue/owned.js). putOn takes it out of its parcel: if music has started, the needle is lifted and it goes
+  // on now, and from then on it is shuffled with the rest; before that it waits in the crate for the music to start
+  // (and '' is returned, since the manifest that knows its title has not been read yet).
+  function putOn(id) {
+    if (!crated) { wanted.add(id); return ''; }
+    let t = tracks.find(t => t.order === id);
+    if (!t) { const i = shelf.findIndex(t => t.order === id); if (i < 0) return ''; [t] = shelf.splice(i, 1); tracks.push(t); }
+    const later = order.indexOf(t, trackNo); if (later >= 0) order.splice(later, 1);      // not twice in one pass through the crate
+    order.splice(trackNo, 0, t); return next();
   }
   // Drums and bass for the mix: a kick, a clap, hats and a long sliding 808
   function hit(kind, when, vol = 0.5) {
@@ -179,7 +192,7 @@ export function makeSound() {
     if (Math.abs(aim - wet.v) > 0.001 || v <= 0) { wet.v = aim; wet.g.gain.setTargetAtTime(aim, ctx.currentTime, 0.12); }
     if (v <= 0) { const w = wet; wet = null; setTimeout(() => { w.src.stop(); w.g.disconnect(); }, 900); }
   }
-  return { water, start, update, playPhrase, key, note, next, setDuck: v => { ducked = v; }, toggleMute: () => { muted = !muted; tube?.player?.setVolume?.(muted ? 0 : 28 * vol); return muted; },
+  return { water, start, update, playPhrase, key, note, next, putOn, setDuck: v => { ducked = v; }, toggleMute: () => { muted = !muted; tube?.player?.setVolume?.(muted ? 0 : 28 * vol); return muted; },
     isMuted: () => muted, volume: () => vol, setVolume: v => { vol = Math.max(0, Math.min(1, v)); if (master) master.gain.value = vol; },      // ui.js hook: the settings card
     set onNote(f) { onNote = f; }, nowPlaying: () => nowTitle || (music && !music.paused ? music.title : '') };
 }

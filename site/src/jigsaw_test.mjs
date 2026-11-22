@@ -1,7 +1,7 @@
 // node site/src/jigsaw_test.mjs   (node 18+). Tests the jigsaw's plain arithmetic (jigsaw_shapes.js):
 // the cuts tile the picture, neighbours share their curves, snapping, groups, sorting, saving, solving.
 import assert from 'node:assert/strict';
-import { gridFor, makeCuts, outlines, pointInPoly, Puzzle, REGION, BOARD_UV, PLACE, toPuzzle, toTable, rng, SIZES } from './jigsaw_shapes.js';
+import { gridFor, makeCuts, outlines, pointInPoly, Puzzle, REGION, BOARD_UV, PLACE, toPuzzle, toTable, rng, SIZES, ROUND, roundPuzzle, toDisc } from './jigsaw_shapes.js';
 
 let n = 0; const ok = (name, f) => { f(); n++; console.log('ok  ', name); };
 const { W, H } = PLACE;
@@ -105,5 +105,65 @@ ok('solving: pieces dropped one by one at their places finish it, and only then'
 });
 ok('solveSome adds that many pieces to the done part', () => {
   const { P } = make(54); P.begin(REGION, 4); const before = P.placed(); P.solveSome(10); assert(P.placed() >= before + 10); assert.equal(new Set(P.p.filter(q => q.home).map(q => q.g)).size, 1);
+});
+
+// ---- The round puzzle (the Moon) ----
+const round = size => { const k = Math.round(Math.sqrt(size)), r = roundPuzzle(k, 99 + size, W, H); return { ...r, k, P: new Puzzle(r.cols, r.rows, W, H, r.shape) }; };
+const area = p => { let a = 0; for (let i = 0; i < p.length; i += 2) { const j = (i + 2) % p.length; a += p[i] * p[j + 1] - p[j] * p[i + 1]; } return Math.abs(a / 2); };
+ok('round: the square goes onto the disc ring by ring, and the disc lies within the picture', () => {
+  assert.deepEqual(ROUND.sizes.map(s => Math.round(Math.sqrt(s)) ** 2), ROUND.sizes); assert(ROUND.sizes.every(s => Math.sqrt(s) % 2 === 1), 'odd, so that there is a middle piece');
+  for (const [x, y] of [[1, 0.3], [-1, -0.9], [0.2, 1], [-0.7, -1], [1, 1]]) assert(Math.abs(Math.hypot(...toDisc(x, y)) - 1) < 1e-12, 'the border goes to the rim');
+  for (const [x, y] of [[0.5, 0.1], [-0.5, 0.5], [0.2, -0.5]]) assert(Math.abs(Math.hypot(...toDisc(x, y)) - 0.5) < 1e-12);
+  assert.deepEqual(toDisc(0, 0), [0, 0]); assert(2 * ROUND.r <= H && 2 * ROUND.r <= W);
+});
+for (const size of ROUND.sizes) ok(`round ${size}: the pieces tile the disc exactly, nothing lies outside it, and they are all much of a size`, () => {
+  const { outl, k } = round(size), r = rng(size), R = ROUND.r;
+  assert.equal(outl.length, size);
+  for (let i = 0; i < 4000; i++) {
+    const u = W / 2 + (r() * 2 - 1) * R * 1.05, v = H / 2 + (r() * 2 - 1) * R * 1.05, d = Math.hypot(u - W / 2, v - H / 2);
+    if (Math.abs(d - R) < 0.002) continue;                      // the rim is drawn as short chords
+    const hits = outl.filter(p => pointInPoly(p, u, v)).length;
+    assert.equal(hits, d < R ? 1 : 0, `point ${u.toFixed(4)},${v.toFixed(4)} is in ${hits} pieces`);
+  }
+  const each = Math.PI * R * R / size, areas = outl.map(area);
+  assert(Math.abs(areas.reduce((a, b) => a + b, 0) - Math.PI * R * R) < 0.002);
+  assert(Math.min(...areas) > 0.6 * each && Math.max(...areas) < 1.5 * each, `areas ${Math.min(...areas) / each} to ${Math.max(...areas) / each}`);
+  // the middle piece is round: every point of it but its knobs and sockets lies on one small circle
+  const mid = outl[(size - 1) / 2], on = []; for (let i = 0; i < mid.length; i += 2) on.push(Math.hypot(mid[i] - W / 2, mid[i + 1] - H / 2) / (R / k));
+  assert(on.filter(d => Math.abs(d - 1) < 0.12).length >= on.length * 0.3 && Math.max(...on) < 2 && Math.min(...on) > 0.25, `${on.filter(d => Math.abs(d - 1) < 0.12).length} of ${on.length} on the circle, ${Math.min(...on)} to ${Math.max(...on)}`);
+  // no straight edge: of the rim pieces' points, those on the rim are many (an arc), not two
+  const rimPts = p => { let c = 0; for (let i = 0; i < p.length; i += 2) if (Math.abs(Math.hypot(p[i] - W / 2, p[i + 1] - H / 2) - R) < 1e-9) c++; return c; };
+  outl.forEach((p, i) => { const edge = i % k === 0 || i % k === k - 1 || i < k || i >= size - k; assert(edge ? rimPts(p) >= 5 : rimPts(p) === 0, `piece ${i} has ${rimPts(p)} points on the rim`); });
+});
+ok('round: each piece is kept by a cell-sized box about its middle, and neighbours share their cut', () => {
+  const { outl, P, k } = round(49), key = (x, y) => `${x.toFixed(9)},${y.toFixed(9)}`;
+  for (const q of P.p) {
+    const p = outl[q.i]; let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+    for (let i = 0; i < p.length; i += 2) { u0 = Math.min(u0, p[i]); u1 = Math.max(u1, p[i]); v0 = Math.min(v0, p[i + 1]); v1 = Math.max(v1, p[i + 1]); }
+    assert(Math.abs((u0 + u1) / 2 - (P.hx(q.i) + P.cw / 2)) < 1e-12 && Math.abs((v0 + v1) / 2 - (P.hy(q.i) + P.ch / 2)) < 1e-12);
+    assert(u1 - u0 < 2 * P.cw && v1 - v0 < 2 * P.ch, 'a piece no bigger than two cells across');
+    assert.equal(q.x, P.hx(q.i)); assert.equal(P.edge(q.i), q.c === 0 || q.r === 0 || q.c === k - 1 || q.r === k - 1);
+    for (const o of P.neighbours(q.i)) { const set = new Set(); for (let i = 0; i < outl[o].length; i += 2) set.add(key(outl[o][i], outl[o][i + 1])); let shared = 0; for (let i = 0; i < p.length; i += 2) if (set.has(key(p[i], p[i + 1]))) shared++; assert(shared >= 14, `pieces ${q.i} and ${o} share ${shared} points`); }
+  }
+});
+ok('round: a piece dropped near its neighbour joins it exactly where the cut fits; scatter, sort, save and solve work as for the others', () => {
+  const { P, outl, cols, rows, shape } = round(25); P.scatter(REGION, 5);
+  for (const q of P.p) assert(!q.home && q.x >= REGION.u0 - 1e-9 && q.y >= REGION.v0 - 1e-9);
+  const a = P.p[7], b = P.p[8], ox = P.hx(8) - P.hx(7), oy = P.hy(8) - P.hy(7);
+  a.x = -0.5; a.y = 0.2; P.restack(a.g); b.x = a.x + ox + 0.015; b.y = a.y + oy - 0.012;
+  const res = P.drop(b.g); assert.equal(res.joined, 1); assert.equal(a.g, b.g);
+  assert(Math.abs(b.x - a.x - ox) < 1e-12 && Math.abs(b.y - a.y - oy) < 1e-12);
+  // joined, their outlines meet along the cut: a shared point of the two is one point on the table
+  const at = (q, i) => [outl[q.i][i] + q.x - P.hx(q.i), outl[q.i][i + 1] + q.y - P.hy(q.i)], pa = [], pb = [];
+  for (let i = 0; i < outl[7].length; i += 2) pa.push(at(a, i)); for (let i = 0; i < outl[8].length; i += 2) pb.push(at(b, i));
+  assert(pa.filter(([x, y]) => pb.some(([u, v]) => Math.hypot(x - u, y - v) < 1e-9)).length >= 14);
+  const s = JSON.parse(JSON.stringify(P.save())), Q = new Puzzle(cols, rows, W, H, shape); assert(Q.restore(s));
+  for (let i = 0; i < P.n; i++) { assert(Math.abs(P.p[i].x - Q.p[i].x) < 1e-3 && Math.abs(P.p[i].y - Q.p[i].y) < 1e-3); assert.equal(P.p[i].g, Q.p[i].g); }
+  assert(Math.abs(Q.p[8].x - Q.p[7].x - ox) < 1e-12, 'a restored group keeps its exact offsets');
+  P.tidy(REGION);
+  for (const q of P.p.filter(q => P.members(q.g).length === 1)) assert(q.x + P.cw <= 1e-9 || q.x >= W - 1e-9 || q.y + P.ch <= 1e-9, `piece ${q.i} sorted onto the picture`);
+  let last; for (const q of P.p) { if (q.home) continue; P.shift(q.g, P.hx(q.i) - q.x + 0.01, P.hy(q.i) - q.y - 0.01); last = P.drop(q.g); if (P.placed() < P.n) assert(!last.solved); }
+  assert(last.solved && P.solved()); assert.equal(P.groups().size, 1);
+  for (const q of P.p) assert(Math.abs(q.x - P.hx(q.i)) < 1e-9 && Math.abs(q.y - P.hy(q.i)) < 1e-9);
 });
 console.log(`${n} passed`);

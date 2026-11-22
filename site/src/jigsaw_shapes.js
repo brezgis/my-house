@@ -102,6 +102,38 @@ export function outlines(cols, rows, cw, ch, cuts) {
   return list;
 }
 
+// ---- A round puzzle -------------------------------------------------------------------------------
+// The same cuts on a square of n x n cells, bent onto a disc (Shirley and Chiu's concentric map: the
+// square's rings of cells become rings of pieces round the middle, and every piece keeps the same
+// area). With n odd the middle cell becomes a perfectly round piece. The only straight edge the
+// square had is its border, which becomes the rim. Each piece's "true-place corner" (what Puzzle
+// keeps for it) is the corner of a cell-sized box centred on the bent piece, since the pieces no
+// longer lie on a square grid.
+export const ROUND = { r: 0.5, sizes: [25, 49, 81] };       // the disc's radius in feet (it is centred on the picture)
+export function toDisc(x, y) {                              // the square -1..1 to the unit disc
+  if (x === 0 && y === 0) return [0, 0];
+  if (Math.abs(x) > Math.abs(y)) { const a = (Math.PI / 4) * (y / x); return [x * Math.cos(a), x * Math.sin(a)]; }
+  const a = Math.PI / 2 - (Math.PI / 4) * (x / y); return [y * Math.cos(a), y * Math.sin(a)];
+}
+export function roundPuzzle(n, seed, W, H, R = ROUND.r) {
+  const h = 2 / n, cell = R * h, steps = Math.ceil(40 / n), onRim = v => Math.abs(Math.abs(v) - 1) < 1e-9;
+  const outl = [], hx = [], hy = [];
+  for (const p of outlines(n, n, h, h, makeCuts(n, n, seed))) {
+    const m = p.length / 2, pts = []; let u0 = Infinity, v0 = Infinity, u1 = -Infinity, v1 = -Infinity;
+    for (let k = 0; k < m; k++) {
+      const j = (k + 1) % m, xa = p[k * 2] - 1, ya = p[k * 2 + 1] - 1, xb = p[j * 2] - 1, yb = p[j * 2 + 1] - 1;
+      // a stretch of the border is divided, so that it bends into the rim
+      const div = (onRim(xa) && xa === xb) || (onRim(ya) && ya === yb) ? steps : 1;
+      for (let s = 0; s < div; s++) {
+        const [x, y] = toDisc(xa + (xb - xa) * s / div, ya + (yb - ya) * s / div), u = W / 2 + x * R, v = H / 2 + y * R;
+        pts.push(u, v); u0 = Math.min(u0, u); v0 = Math.min(v0, v); u1 = Math.max(u1, u); v1 = Math.max(v1, v);
+      }
+    }
+    outl.push(pts); hx.push((u0 + u1 - cell) / 2); hy.push((v0 + v1 - cell) / 2);
+  }
+  return { cols: n, rows: n, outl, shape: { cw: cell, ch: cell, hx, hy } };
+}
+
 export function pointInPoly(pts, x, y) {
   let inside = false;
   for (let i = 0, j = pts.length - 2; i < pts.length; j = i, i += 2) {
@@ -116,13 +148,16 @@ export function pointInPoly(pts, x, y) {
 // it), whether that group is in its true place on the board (home: such groups stay put), and how
 // high it lies in a pile (layer). Members of a group keep their exact offsets from one another.
 export class Puzzle {
-  constructor(cols, rows, W, H) {
-    this.cols = cols; this.rows = rows; this.n = cols * rows; this.W = W; this.H = H; this.cw = W / cols; this.ch = H / rows;
-    this.tol = 0.3 * Math.min(this.cw, this.ch);
-    this.p = Array.from({ length: this.n }, (_, i) => ({ i, c: i % cols, r: Math.floor(i / cols), x: (i % cols) * this.cw, y: Math.floor(i / cols) * this.ch, g: i, home: false, layer: 0 }));
+  // `shape` (a round puzzle: roundPuzzle above) gives the size of a piece and each piece's true place,
+  // where they are not simply the cells of the picture
+  constructor(cols, rows, W, H, shape = null) {
+    this.cols = cols; this.rows = rows; this.n = cols * rows; this.W = W; this.H = H; this.cw = shape?.cw ?? W / cols; this.ch = shape?.ch ?? H / rows;
+    this.tol = 0.3 * Math.min(this.cw, this.ch); this.shape = shape;
+    this.p = Array.from({ length: this.n }, (_, i) => ({ i, c: i % cols, r: Math.floor(i / cols), x: 0, y: 0, g: i, home: false, layer: 0 }));
+    for (const q of this.p) { q.x = this.hx(q.i); q.y = this.hy(q.i); }
   }
-  hx(i) { return this.p[i].c * this.cw; }
-  hy(i) { return this.p[i].r * this.ch; }
+  hx(i) { return this.shape ? this.shape.hx[i] : this.p[i].c * this.cw; }
+  hy(i) { return this.shape ? this.shape.hy[i] : this.p[i].r * this.ch; }
   edge(i) { const q = this.p[i]; return q.c === 0 || q.r === 0 || q.c === this.cols - 1 || q.r === this.rows - 1; }
   members(g) { return this.p.filter(q => q.g === g); }
   groups() { const s = new Map(); for (const q of this.p) { if (!s.has(q.g)) s.set(q.g, []); s.get(q.g).push(q); } return s; }
@@ -153,7 +188,7 @@ export class Puzzle {
       for (const q of this.members(g)) {
         for (const k of this.neighbours(q.i)) {
           const o = this.p[k]; if (o.g === g) continue;
-          const ex = (o.x - q.x) - (o.c - q.c) * this.cw, ey = (o.y - q.y) - (o.r - q.r) * this.ch;
+          const ex = (o.x - q.x) - (this.hx(o.i) - this.hx(q.i)), ey = (o.y - q.y) - (this.hy(o.i) - this.hy(q.i));
           if (Math.hypot(ex, ey) < this.tol) { this.shift(g, ex, ey); g = this.merge(g, o.g); joined++; again = true; break; }
         }
         if (again) break;
@@ -284,7 +319,7 @@ export class Puzzle {
     if (!s.p.every(a => Array.isArray(a) && a.length === 5 && a.every(Number.isFinite) && a[2] >= 0 && a[2] < this.n)) return false;
     s.p.forEach(([x, y, g, home, layer], i) => Object.assign(this.p[i], { x, y, g, home: !!home, layer }));
     // repair anything inconsistent (a group's members keep exact offsets; its id is its lowest member)
-    for (const [g, m] of this.groups()) { const lo = Math.min(...m.map(q => q.i)); const a = m[0]; for (const q of m) { q.g = lo; q.home = a.home; q.x = a.x + (q.c - a.c) * this.cw; q.y = a.y + (q.r - a.r) * this.ch; } if (a.home) for (const q of m) { q.x = this.hx(q.i); q.y = this.hy(q.i); } }
+    for (const [g, m] of this.groups()) { const lo = Math.min(...m.map(q => q.i)); const a = m[0]; for (const q of m) { q.g = lo; q.home = a.home; q.x = a.x + this.hx(q.i) - this.hx(a.i); q.y = a.y + this.hy(q.i) - this.hy(a.i); } if (a.home) for (const q of m) { q.x = this.hx(q.i); q.y = this.hy(q.i); } }
     return true;
   }
 }

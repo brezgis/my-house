@@ -143,6 +143,7 @@ import('./toys.js').then(m => m.setupToys(ctx)).catch(e => console.warn('toys', 
 import('./reticle.js').then(m => m.setupReticle(ctx)).catch(e => console.warn('reticle', e));      // the mark in the middle, and the ring on what it has hold of
 import('./welcome.js').then(m => m.setupWelcome(ctx)).catch(e => console.warn('welcome', e));      // the fade into the hall, the card on the hall table
 if (Q.get('hands') !== '0') import('./hands.js').then(m => m.setupHands?.(ctx)).catch(() => {});      // picking things up, taking books down, using the computers
+if (Q.get('catalogue') !== '0') import('./catalogue.js').then(m => m.setupCatalogue(ctx)).catch(e => console.warn('catalogue', e));      // the mail-order catalogue by the telephone, and what comes of it
 if (Q.get('friends') !== '0') import('./friends.js').then(m => m.setupFriends?.(ctx)).catch(() => {});      // the telephone, and the friends it brings round
 
 // ---- Lamps ---------------------------------------------------------------------------
@@ -351,6 +352,7 @@ const fpsBox = Q.has('fps') ? $('room') : null;
 setHour(hour);
 
 const meter = makeFrameMeter();      // (where a frame's time goes, for the ?fps caption: engine/frame.js)
+let quietN = 0;
 renderer.setAnimationLoop(() => {
   meter.begin();
   const raw = clock.getDelta(), dt = Math.min(raw, 0.05), t = clock.elapsedTime;
@@ -388,7 +390,8 @@ renderer.setAnimationLoop(() => {
   // one by one as rooms are first seen
   if (!perf.frames && !cullOff) { cullScene(true); renderer.compile(scene, camera); warmer.settle(); }
   cullScene();
-  meter.draw(); renderer.render(scene, camera); meter.end();
+  // (while the catalogue is open over the view, the house behind it is drawn only now and then, so that its pages turn smoothly)
+  meter.draw(); if (!(ctx.quiet && (quietN = (quietN + 1) % 8))) renderer.render(scene, camera); meter.end();
   warmer.update(dt);
   perf.frames++; perf.lastCalls = renderer.info.render.calls; perf.lastTris = renderer.info.render.triangles;
   if (perf.firstFrameMs === undefined) { perf.firstFrameMs = Math.round(performance.now()); if (window.__ready) document.body.classList.add('ready'); }      // (the threshold lifts when the photos are in AND a frame has been drawn: whichever comes second, onLoad below or this)

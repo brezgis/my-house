@@ -94,6 +94,7 @@ const TEMPI = [
   [/op\. 9 no\. 2/i, 56, 0.45], [/72 no\. 1/i, 66, 0.5], [/prelude no\. 1 /i, 70, 0.7], [/prelude no\. 9/i, 60, 0.6], [/prelude no\. 17/i, 104, 0.85],
   [/träumerei|traumerei/i, 60, 0.45], [/am kamin|fireside/i, 100, 0.85], [/foreign lands/i, 96, 0.75], [/moonlight/i, 54, 0.4], [/k\. 333/i, 64, 0.55],
   [/romance an[oó]nimo|spanish romance/i, 72, 0.55], [/cello suite/i, 76, 0.7],
+  [/maple leaf/i, 96, 1], [/choclo/i, 120, 0.9],      // the catalogue's two records (tempi estimated, not measured)
 ];
 export function tempoFor(title, bpm = null) {
   const hit = TEMPI.find(([re]) => re.test(title ?? ''));

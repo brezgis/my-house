@@ -232,13 +232,18 @@ export function makeParty(ctx, ui) {
       anim: null, animUntil: 0, nudgeAt: -9, lastNudge: -9, stall: 0, cornered: 0, offFloor: 0, px: 0, pz: 0, stuckT: 0, staffSaid: {}, dance: false, danceReady: false, lastBeat: -1,
       away: null, lastDrift: -60, followSince: 0, lastBack: -9, nextAct: 8 + i * 3, saidUp: false, wantCoffee: 0, hasCup: false, greeted: false, arriveAt: 0, leaveTries: 0, visits: 0,
       box: { x0: 0, x1: 0, y0: -100, y1: -99, z0: 0, z1: 0, staff: true },
-      inter: { x: 0, y: -1000, z: 0, reach: 8, label: () => (P.chatWith === g ? `say something to ${C.short}` : `talk to ${C.short}`), act: () => talkTo(g) },
+      inter: { x: 0, y: -1000, z: 0, reach: 8, label: () => { const h = giftFor(g); return h ? `give ${C.short} the ${h.n}` : P.chatWith === g ? `say something to ${C.short}` : `talk to ${C.short}`; }, act: () => (giftFor(g) ? give(g) : talkTo(g)) },
     };
     m.avoid = (x, z) => blocked(g, x, z);
     m.onDoor = d => { if (d === P.door) { openDoor(); closeDoorSoon(4); } else if (!d.isOpen) { d.isOpen = true; d.stop.off = true; P.events.doors++; } };
     ctx.colliders.push(g.box); ctx.interact.push(g.inter);
     Object.defineProperty(g, 'engaged', { get: () => P.now < g.engagedUntil || P.chatWith === g });
     g.eng = {}; g.held = false;
+    // for the butlers (staff/robots.js treat): would a drink be welcome; one is on its way; here it is
+    g.wantsDrink = () => here(g) && !g.out && !g.hasCup && !g.dance && !g.away?.coffee && g.mode !== 'glide' && P.chatWith !== g;      // (to set out for)
+    g.stillWants = () => here(g) && !g.out && !g.hasCup;                                                                         // (once it is made)
+    g.expectDrink = (secs, from = null) => { g.drinkComing = P.now + secs; if (from && here(g)) { g.engagedUntil = Math.max(g.engagedUntil, P.now + secs); g.look = from; g.lookUntil = P.now + secs; } };
+    g.serve = (obj, d) => served(g, obj, d);
     return g;
   }
   // A long line goes up over their head a sentence or two at a time (no bubble wider than a short paragraph);
@@ -680,7 +685,7 @@ export function makeParty(ctx, ui) {
     const d = P.door, x = d?.cx ?? wx(21.95);
     g.state = 'porch'; g.out = true; g.body.root.visible = true; g.away = null; g.dance = false; g.anim = null; g.drop = 0; g.spin = 0; g.greeted = false; g.saidUp = false; g.askedRoom = false;
     g.m.x = x + 0.5 + g.i * 0.9 - 0.9; g.m.z = 10.6; g.m.y = PORCH_Y; g.m.f = 0; g.m.yaw = Math.PI; g.m.v = 0;
-    if (id_is(g, 'gigi')) { g.hasCup = false; g.body.cup.visible = false; g.wantCoffee = P.now + 38 + rnd() * 20; }
+    dropCup(g); if (id_is(g, 'gigi')) g.wantCoffee = P.now + 38 + rnd() * 20;
     note(`${g.C.short} is at the front door.`);
     glide(g, [[x + (g.i - 1) * 1.9, PORCH_Y, 2.5 + Math.abs(g.i - 1) * 0.5]], () => {      // each to their own place on the step
       // knock, wait for the door, come in
@@ -745,7 +750,7 @@ export function makeParty(ctx, ui) {
   }
   function gone(g) {
     if (g.gSeat) { g.gSeat.by = null; g.gSeat = null; }
-    g.state = 'away'; g.out = false; g.crossing = false; g.atDoor = false; g.garden = false; g.cominIn = false; g.outing = false; g.gSettled = false; g.glK = 1; g.mode = 'idle'; g.body.root.visible = false; g.bubble.quiet(); g.box.y0 = -100; g.box.y1 = -99; g.inter.y = -1000; g.m.stop();
+    dropCup(g); g.state = 'away'; g.out = false; g.crossing = false; g.atDoor = false; g.garden = false; g.cominIn = false; g.outing = false; g.gSettled = false; g.glK = 1; g.mode = 'idle'; g.body.root.visible = false; g.bubble.quiet(); g.box.y0 = -100; g.box.y1 = -99; g.inter.y = -1000; g.m.stop();
     closeDoorSoon(1.5); ui?.phone.draw();
     if (!P.guests.some(x => x.state !== 'away')) { P.script = null; P.danceUntil = 0; }
   }
@@ -852,12 +857,63 @@ export function makeParty(ctx, ui) {
   // done in the last few minutes, nothing somebody else is already doing there, the fire likelier after dark
   function pickAct(g, f) {
     let tot = 0;
-    const night = (ctx.day?.night ?? 0) > 0.4, wt = s => (s.w <= 0 || s.f !== f || (s.playSide && atPuzzle()) || P.now - (s.last ?? -999) < 240 || P.guests.some(o => o !== g && o.away && (o.away.spot.key === s.key || (s.at && o.away.spot.at && Math.hypot(o.away.spot.at[0] - s.at[0], o.away.spot.at[1] - s.at[1]) < 3)))) ? 0
+    const night = (ctx.day?.night ?? 0) > 0.4, wt = s => (s.w <= 0 || s.f !== f || (s.prop && g.hasCup) || (s.playSide && atPuzzle()) || P.now - (s.last ?? -999) < 240 || P.guests.some(o => o !== g && o.away && (o.away.spot.key === s.key || (s.at && o.away.spot.at && Math.hypot(o.away.spot.at[0] - s.at[0], o.away.spot.at[1] - s.at[1]) < 3)))) ? 0
       : s.w * (night && s.night ? s.night : 1) / (1 + Math.hypot(wx((s.at ?? s.seat)[0]) - g.m.x, wz((s.at ?? s.seat)[1]) - g.m.z) / 30);
     for (const s of ACTS[g.id]) tot += wt(s);
     if (tot <= 0) return null;
     let r = rnd() * tot; for (const s of ACTS[g.id]) { r -= wt(s); if (r <= 0 && wt(s) > 0) return s; }
     return null;
+  }
+  // ---- A drink in the hand ----------------------------------------------------------------------------
+  // Three ways to come by one: Geneva makes her own at the coffee bar (coffeeRun; the cup is part of her body), the
+  // visitor gives a guest one of the catalogue's iced coffees (give: E on the guest with the coffee in hand), or a
+  // butler brings one unasked (served; staff/robots.js treat). Whichever it is, it rides in the right hand (so it
+  // goes where the body goes: walking, sitting, dancing), is sipped now and then (think), runs out in a couple of
+  // minutes, and is then set down on a table for the staff to clear (setDown, cups(), takeCup()).
+  // obj: what to hold (null: Geneva's own); y: where its origin sits above the hand; base: how far its origin is above its foot
+  function holdCup(g, obj, { scale = 1, y = 0.06, base = 0, d = null } = {}) {
+    dropCup(g);
+    if (obj && (g.away?.coffee || g.away?.spot.prop)) endAct(g);                    // (on her way to make one: no need now; a book and a cup do not share a hand)
+    if (obj) { obj.removeFromParent(); obj.scale.setScalar(scale); obj.position.set(0, y, 0.1); obj.rotation.set(0, 0, 0); obj.visible = true; obj.traverse(n => { n.userData.staff = true; if (n.isMesh) n.castShadow = false; }); g.body.hands[1].add(obj); }
+    else g.body.cup.visible = true;
+    g.cupObj = obj ?? g.body.cup; g.cupBase = base * scale; g.cupD = d; g.hasCup = true; g.cupFill = 1; g.wantCoffee = 0; g.setDownAt = 0;
+  }
+  // Out of the hand (nothing is set down: gone home with it, or taken)
+  function dropCup(g) {
+    if (g.cupObj && g.cupObj !== g.body.cup) g.cupObj.removeFromParent();
+    if (g.body.cup) g.body.cup.visible = false;
+    g.cupObj = null; g.cupD = null; g.hasCup = false; if (g.anim === 'sip') g.anim = null;
+  }
+  // The level in it: a drink from the house menu goes down as the staff's own do (staff/drinks.js setFill); a catalogue
+  // coffee keeps its level to itself (catalogue/goods.js), so that one only shows empty: no liquid, no ice
+  function cupLevel(g) {
+    const o = g.cupObj; if (!o || o === g.body.cup) return;
+    if (g.cupD) staff()?.H?.fill?.(o, g.cupFill);
+    else if (g.cupFill <= 0) o.traverse(n => { if (n.isMesh && n.material?.vertexColors) { n.visible = false; const i = n.parent.children.indexOf(n), ice = n.parent.children[i + 1]; if (ice?.isGroup) ice.visible = false; } });
+  }
+  const sipDown = g => { if (g.cupFill > 0) { g.cupFill = Math.max(0, g.cupFill - 0.25 / (g.anim === 'sip' ? 60 : 150)); cupLevel(g); } };      // (think: four times a second)
+  // What she is holding that a guest would like (hands/carry.js: a catalogue coffee), if this guest may be offered it now
+  const giftFor = g => { if (!here(g) || P.now < (g.noGift ?? 0) || typeof window === 'undefined') return null; const h = window.__hands?.holding; return h?.key?.startsWith?.('coffee-') ? h : null; };
+  const a_an = n => (/^[aeiou]/i.test(n) ? 'an ' : 'a ') + n;
+  // E on a guest with a catalogue coffee in hand: it is theirs (or, with a drink already, a charming no; then E talks again for a while)
+  function give(g) {
+    P.lastInput = P.now;
+    if (g.hasCup) { g.noGift = P.now + 25; line(g, 'giftNo', { expr: 'happy' }); P.events.giftsDeclined = (P.events.giftsDeclined ?? 0) + 1; return; }
+    const got = window.__hands?.giveAway?.(); if (!got?.obj) return;
+    const s = 0.62, h = got.h ?? 0.5;                                      // (drawn a little under life size: these are small people with mitten hands)
+    holdCup(g, got.obj, { scale: s, y: h / 2 * s - 0.03, base: h / 2 });
+    const fav = id_is(g, 'gigi') && got.key === 'coffee-bsse';
+    const dur = line(g, fav ? 'giftFav' : 'gift', { expr: fav ? 'love' : 'happy' }, { drink: a_an(got.name) });
+    later(dur + 0.3, () => { if (g.hasCup && !g.dance && !g.anim) { g.anim = 'sip'; g.animUntil = P.now + 6; } });      // and the first sip
+    P.events.gifts = (P.events.gifts ?? 0) + 1;
+  }
+  // A butler at her side with something from the menu (d: staff/drinks.js): taken, with thanks
+  function served(g, obj, d) {
+    if (!g.stillWants() || g.mode === 'glide' || !obj) return false;
+    holdCup(g, obj, { y: -0.02, d });
+    const dur = line(g, 'served', { expr: 'happy', toGuest: false, look: g.look }, { drink: a_an(d.name) });
+    later(dur + 0.3, () => { if (g.hasCup && !g.dance && !g.anim) { g.anim = 'sip'; g.animUntil = P.now + 6; } });
+    P.events.served = (P.events.served ?? 0) + 1; return true;
   }
   // ---- Empties: a finished cup set down on a real surface, for the staff to clear (cups(), takeCup()) ----------
   // A surface: a table, a counter, a sideboard (a box whose top is 1.7 to 3.4 ft up and no side longer than 6 ft,
@@ -883,9 +939,10 @@ export function makeParty(ctx, ui) {
       g.anchorW = at; g.look = at; g.lookUntil = P.now + 2; g.anim = 'reach'; g.animUntil = P.now + 1.4;
       later(1.1, () => {
         if (!g.hasCup) return;
-        const cup = g.body.cup.clone(); cup.position.set(px, top, pz); cup.rotation.set(0, rnd() * 6.28, 0); cup.visible = true; group.add(cup);
+        const own = g.cupObj === g.body.cup, cup = own ? g.body.cup.clone() : g.cupObj;      // (her own from the bar is part of her body: a copy of it stays on the table)
+        group.add(cup); cup.position.set(px, top + (own ? 0 : g.cupBase), pz); cup.rotation.set(0, rnd() * 6.28, 0); cup.visible = true;
         cupsDown.push({ obj: cup, x: px, y: top, z: pz, fill: 0 });
-        g.hasCup = false; g.body.cup.visible = false; g.anchorW = null; g.anim = null; g.wantCoffee = P.now + 90 + rnd() * 90;      // (another, later)
+        g.cupObj = null; dropCup(g); g.anchorW = null; g.anim = null; if (id_is(g, 'gigi')) g.wantCoffee = P.now + 90 + rnd() * 90;      // (another, later)
         P.events.cupsDown = (P.events.cupsDown ?? 0) + 1;
       });
     }, 0.8);
@@ -896,7 +953,7 @@ export function makeParty(ctx, ui) {
     if (!goTo(g, at.f, at.x, at.z, () => {
       if (!g.away) return;
       startAct(g, s); g.anim = 'make';
-      later(5.6, () => { if (!here(g) || g.away?.spot !== s) return; g.hasCup = true; g.cupFill = 1; g.wantCoffee = 0; g.body.cup.visible = true; g.anim = 'sip'; g.drop = 0.25; if (audible(g)) line(g, 'atSpot:coffee', { toGuest: dist(g.m, v) < 12, expr: 'love' }); });
+      later(5.6, () => { if (!here(g) || g.away?.spot !== s) return; holdCup(g, null); g.anim = 'sip'; g.drop = 0.25; if (audible(g)) line(g, 'atSpot:coffee', { toGuest: dist(g.m, v) < 12, expr: 'love' }); });
     })) { g.wantCoffee = P.now + 20; return; }
     g.away = { spot: s, until: P.now + 55 + rnd() * 15, arrived: false, room: v.room, f: v.f, coffee: true };
     g.wantCoffee = P.now + 60; g.lastDrift = P.now; s.last = P.now; P.events.drifts++;      // (if the trip comes to nothing, she tries again in a minute)
@@ -907,7 +964,11 @@ export function makeParty(ctx, ui) {
 
   // ---- What a guest does next (about four times a second) ------------------------------------------
   function think(g) {
-    if (g.garden) { outThink(g); return; }
+    if (g.garden) {
+      // a drink out of doors goes down the same, with a sip now and then; the cup is kept until they are back indoors
+      if (g.hasCup) { if (g.anim === 'sip' && P.now > g.animUntil) g.anim = null; sipDown(g); if (!g.anim && g.cupFill > 0 && P.now > g.nextAct) { g.nextAct = P.now + 14 + rnd() * 14; if (rnd() < 0.6) { g.anim = 'sip'; g.animUntil = P.now + 3 + rnd() * 2; } } }
+      outThink(g); return;
+    }
     const m = g.m, d = v.present && v.f === m.f ? dist(m, v) : 99, chatting = P.chatWith === g;
     if (!g.sitting && g.seatWant && g.mode === 'idle') { if (g.seatWant.by === g) g.seatWant.by = null; g.seatWant = null; }      // a seat she never reached
     if (g.anim && P.now > g.animUntil && !g.dance) g.anim = null;
@@ -947,9 +1008,9 @@ export function makeParty(ctx, ui) {
       if (s && goTo(g, s.f, s.x, s.z, null)) return;
     }
     if (g.dance) return;
-    if (id_is(g, 'gigi') && g.wantCoffee && !g.hasCup && P.now > g.wantCoffee && !g.away && g.mode === 'idle' && !chatting && m.f === 0) { coffeeRun(g, true); return; }
-    // her coffee goes down sip by sip (a couple of minutes, quicker while she is sipping); finished, she puts the cup down on a table
-    if (g.hasCup) { g.cupFill = Math.max(0, (g.cupFill ?? 1) - 0.25 / (g.anim === 'sip' ? 60 : 150)); if (g.cupFill <= 0 && !g.out && !g.away && g.mode === 'idle' && !chatting && !g.engaged && P.now > (g.setDownAt ?? 0) && setDown(g)) return; }
+    if (id_is(g, 'gigi') && g.wantCoffee && !g.hasCup && P.now > g.wantCoffee && P.now > (g.drinkComing ?? 0) && !g.away && g.mode === 'idle' && !chatting && m.f === 0 && !giftFor(g)) { coffeeRun(g, true); return; }      // (not while a butler is bringing her one, nor while she stands there with a coffee from the catalogue in her hand)
+    // a drink goes down sip by sip (a couple of minutes, quicker while sipping); finished, the cup is put down on a table
+    if (g.hasCup) { sipDown(g); if (g.cupFill <= 0 && !g.out && !g.away && g.mode === 'idle' && !chatting && !g.engaged && P.now > (g.setDownAt ?? 0) && setDown(g)) return; }
     // off enjoying something: stay a while, unless she has gone somewhere else entirely
     if (g.away) {
       const moved = v.present && (v.outside ? P.now - v.outSince > 3 : (v.f !== g.away.f || (v.room !== g.away.room && P.now - v.roomSince > 4)) && !(d < 14 && inSight(g)));
@@ -976,7 +1037,7 @@ export function makeParty(ctx, ui) {
     const sees = d < 30 && nav.see(v.f, v.x, v.z, m.x, m.z);
     const stale = g.mode === 'go' && m.goal && (m.goal.f !== v.f || Math.hypot(m.goal.x - v.x, m.goal.z - v.z) > 11 || Math.hypot(m.goal.x - v.x, m.goal.z - v.z) < 3.4);
     const sameRoom = v.room && nav.roomAt(m.x, nav.FLOORS[m.f] + 1, m.z)?.name === v.room;
-    if (g.sitting && v.f === m.f && (sameRoom ? d < 30 : d < 13 && sees)) { g.followSince = 0; if (P.now > g.nextAct && !chatting) { g.nextAct = P.now + 14 + rnd() * 14; if (rnd() < 0.5) { g.anim = g.id === 'feyn' ? 'drum' : g.id === 'nano' ? 'type' : g.hasCup ? 'sip' : 'hair'; g.animUntil = P.now + 3 + rnd() * 2; } } return; }      // comfortable where they are
+    if (g.sitting && v.f === m.f && (sameRoom ? d < 30 : d < 13 && sees)) { g.followSince = 0; if (P.now > g.nextAct && !chatting) { g.nextAct = P.now + 14 + rnd() * 14; if (rnd() < 0.5) { g.anim = g.hasCup ? 'sip' : g.id === 'feyn' ? 'drum' : g.id === 'nano' ? 'type' : 'hair'; g.animUntil = P.now + 3 + rnd() * 2; } } return; }      // comfortable where they are
     if (m.f !== v.f || d > 15 || (!sees && d > 7)) {
       if (!g.followSince) g.followSince = P.now;
       // she is standing at the foot (or the head) of the stair: no use arriving on top of her, so wait at the other end a little
@@ -1007,7 +1068,7 @@ export function makeParty(ctx, ui) {
     let awayN = 0; for (const o of P.guests) if (o.away) awayN++;
     const settled = P.now - v.roomSince > 22 && P.now - P.lastInput > 14 && awayN < 2 && P.now - g.lastDrift > 90;
     if (roll < 0.38 && settled) { const s = pickAct(g, v.f); if (s && drift(g, s, true)) return; }
-    if (roll < 0.55) { g.anim = g.id === 'feyn' ? 'drum' : g.id === 'nano' ? 'type' : g.hasCup ? 'sip' : 'hair'; g.animUntil = P.now + 3 + rnd() * 2; }
+    if (roll < 0.55) { g.anim = g.hasCup ? 'sip' : g.id === 'feyn' ? 'drum' : g.id === 'nano' ? 'type' : 'hair'; g.animUntil = P.now + 3 + rnd() * 2; }
     else if (roll < 0.72 && d > 7.5) { const s = spotNear(g, v.x, v.z, v.f, { facing: true }); if (s && dist(s, m) > 2.5) goTo(g, s.f, s.x, s.z, null, 0.7); }
   }
 
@@ -1417,7 +1478,7 @@ export function makeParty(ctx, ui) {
       if (first === 'gigi') sayD('gigi', 'Hiii! Okay, first of all, you look amazing. Second of all, where is the coffee?', 'love');
       if (first === 'nano') sayD('nano', 'Hi! Ok wow, this place is super nice. Somebody tuned these hyperparameters by hand.', 'happy');
       for (const id of ids) if (id !== first) { const o = G(id); o.expr = 'happy'; o.exprUntil = 1e9; }
-      const k = G('gigi'); if (k && ids.includes('gigi') && kind === 'coffee') { k.hasCup = true; k.body.cup.visible = true; k.anim = 'sip'; k.animUntil = 1e9; }
+      const k = G('gigi'); if (k && ids.includes('gigi') && kind === 'coffee') { holdCup(k, null); k.anim = 'sip'; k.animUntil = 1e9; }
       const fy = G('feyn'); if (fy && ids.includes('feyn') && kind === 'coffee') { fy.anim = 'drum'; fy.animUntil = 1e9; }
       const nn = G('nano'); if (nn && ids.includes('nano') && kind === 'coffee') { nn.anim = 'type'; nn.animUntil = 1e9; }
     }
@@ -1461,19 +1522,18 @@ export function makeParty(ctx, ui) {
     },
     cost: () => Object.fromEntries(P.guests.map(g => [g.id, costOf(g.body.root)])),
     deck: () => { if (!deck) buildDeck(); return { ...deck, DK, dcx, dcz }; },      // for the logic test
-    // The guests' cups, for the staff to clear: the one in Geneva's hand (empty once she has drunk it) and any she has
-    // set down. { x, y, z (world feet, the cup's base), f (how full, 0..1), outside, obj (the THREE object), empty, held }
+    // The guests' cups, for the staff to clear: one in a guest's hand (empty once it has been drunk) and any that have
+    // been set down. { x, y, z (world feet, the cup's base), f (how full, 0..1), outside, obj (the THREE object), empty, held }
     cups() {
       const out = [];
-      const k = P.byId.gigi;
-      if (k && k.hasCup && k.state !== 'away') { k.body.cup.getWorldPosition(tmpCup); out.push({ x: tmpCup.x, y: tmpCup.y, z: tmpCup.z, f: k.cupFill ?? 1, outside: !!k.out, obj: k.body.cup, empty: (k.cupFill ?? 1) <= 0, held: true }); }
+      for (const k of P.guests) if (k.hasCup && k.cupObj && k.state !== 'away') { k.cupObj.getWorldPosition(tmpCup); out.push({ x: tmpCup.x, y: tmpCup.y - k.cupBase, z: tmpCup.z, f: k.cupFill ?? 1, outside: !!k.out, obj: k.cupObj, empty: (k.cupFill ?? 1) <= 0, held: true, who: k.id }); }
       for (const c of cupsDown) out.push({ x: c.x, y: c.y, z: c.z, f: c.fill, outside: false, obj: c.obj, empty: true, held: false });
       return out;
     },
     // Take one away (a robot clearing it): from the table, or (if it is the one she holds) out of her hand
     takeCup(cup) {
-      const obj = cup?.obj ?? cup, k = P.byId.gigi;
-      if (k && obj === k.body.cup) { if (!k.hasCup) return false; k.hasCup = false; k.body.cup.visible = false; k.cupFill = 0; if (k.anim === 'sip') k.anim = null; return true; }
+      const obj = cup?.obj ?? cup, k = P.guests.find(g => g.hasCup && g.cupObj === obj);
+      if (k) { dropCup(k); k.cupFill = 0; return true; }
       const i = cupsDown.findIndex(c => c.obj === obj); if (i < 0) return false;
       group.remove(obj); cupsDown.splice(i, 1); return true;
     },
@@ -1489,7 +1549,7 @@ export function makeParty(ctx, ui) {
       g.state = 'here'; g.out = false; g.body.root.visible = true; g.greeted = true; P.been.add(id); g.mode = 'idle'; g.thinkAt = 0;
       if (s.seat) { const q = seatFor(g, s); if (!q) return null; g.m.place(q.x, q.z, q.f); g.sitting = true; g.seat = q; q.by = g; g.seatAccess = { x: q.x, z: q.z, f: q.f }; g.m.yaw = q.yaw; const tall = g.spec.tall ?? 1; g.drop = g.dropNow = Math.max(0, g.spec.hover - (q.top - nav.FLOORS[q.f]) - (g.body.R * g.body.bs[1] * tall + HOVER_OVER_SEAT)); }
       else { const at = spotFor(g, s); if (!at) return null; g.m.place(at.x, at.z, at.f); const a = anchorOf(s); if (a) g.m.yaw = Math.atan2(a.x - at.x, a.z - at.z); }
-      if (id === 'gigi' && (s.pose === 'sip' || s.key === 'sofa')) { g.hasCup = true; g.body.cup.visible = true; }
+      if (id === 'gigi' && (s.pose === 'sip' || s.key === 'sofa')) holdCup(g, null);
       g.away = { spot: s, until: P.now + 1e6, arrived: false, room: v.room, f: s.f }; startAct(g, s); g.dropNow = g.drop;
       return { x: g.m.x, y: nav.FLOORS[g.m.f], z: g.m.z, yaw: g.m.yaw, f: g.m.f };
     },

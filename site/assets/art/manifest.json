@@ -522,5 +522,18 @@
     "suggested_rooms": [
       "living room (open on the piano)"
     ]
+  },
+  {
+    "slug": "puzzles/moon_apollo_11",
+    "title": "View of a full Moon photographed from Apollo 11 spacecraft (AS11-44-6667)",
+    "artist": "NASA (the crew of Apollo 11)",
+    "year": "21 July 1969",
+    "width_px": 1400,
+    "height_px": 1050,
+    "source_url": "https://images.nasa.gov/details/as11-44-6667",
+    "licence": "Public domain (a NASA photograph, a work of the United States Government; NASA images and media guidelines)",
+    "suggested_rooms": [
+      "dining room (the round jigsaw from the catalogue)"
+    ]
   }
 ]

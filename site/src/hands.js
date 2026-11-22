@@ -43,7 +43,10 @@ export function setupHands(ctx) {
   const useTerm = () => { sitTo(extras.find(e => e.canvas === 'screenA')); return getScreens().then(s => s.term()); };
   at(extras.find(e => e.canvas === 'screenA'), 'use the computer', useTerm);
   at(extras.find(e => e.canvas === 'screenB'), 'use the computer', useTerm);
-  at(extras.find(e => e.canvas === 'imac'), 'use the pink computer', () => { sitTo(extras.find(e => e.canvas === 'imac')); return getScreens().then(s => s.imac()); }, 1.1);
+  // (a game disc from the catalogue, in the hand, goes in first: catalogue.js)
+  { const e = extras.find(e => e.canvas === 'imac'), disc = () => api.holding?.key === 'game-disc';
+    if (e) ctx.interact.push({ x: e.x, y: e.y, z: e.z, reach: 6.5, size: 1.1, label: () => (disc() ? 'put the disc in the pink computer' : 'use the pink computer'),
+      act: () => { const had = disc(); if (had) { ctx.catalogueInsert?.('game-disc'); window.houseUI?.toast?.('The pink computer swallows the disc, thinks about it, and chimes.', 4200); ctx.sound?.note?.(72, 0, 1.2, 0.12); ctx.sound?.note?.(79, 0.12, 1.4, 0.1); } sitTo(e); return getScreens().then(s => { s.imac(); if (had) setTimeout(() => document.querySelector('.hd-pink [data-win="game"]')?.click(), 700); }); } }); }
   at(extras.find(e => e.draw?.name === 'laptop'), 'look at the laptop', () => { sitTo(extras.find(e => e.draw?.name === 'laptop')); return getScreens().then(s => s.laptop()); }, 0.9);
 
   // ---- Books: one entry that moves to whichever book is under the centre of view ----------------

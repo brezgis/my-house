@@ -228,5 +228,29 @@
   "source_url": "https://commons.wikimedia.org/wiki/File:Bach_Cello_Suite_1_Prelude_(BWV_1007)_Played_by_Chris.ogg",
   "licence": "CC0 1.0 (performer's own recording, released by the uploader)",
   "loop": false
+ },
+ {
+  "file": "joplin_maple_leaf_rag_marine_band_1906.mp3",
+  "kind": "music",
+  "title": "Maple Leaf Rag",
+  "composer": "Scott Joplin",
+  "performer": "United States Marine Band, conducted by William H. Santelmann (Victor 4911, recorded 15 October 1906)",
+  "duration_s": 143.65,
+  "source_url": "https://adp.library.ucsb.edu/index.php/matrix/detail/200005528/B-3887-Maple_leaf_rag_",
+  "licence": "Public domain (rag published 1899; recording published January 1907, and US sound recordings published before 1923 entered the public domain on 1 January 2022; transfer by the UCSB Library, Discography of American Historical Recordings)",
+  "loop": false,
+  "order": "record-maple-leaf-rag"
+ },
+ {
+  "file": "villoldo_el_choclo_victor_orchestra_1912.mp3",
+  "kind": "music",
+  "title": "El Choclo (Tango argentino)",
+  "composer": "Ángel Villoldo",
+  "performer": "Victor Orchestra, in Elsie Janis's orchestration (Victor 17242, recorded 22 October 1912)",
+  "duration_s": 145.03,
+  "source_url": "https://www.loc.gov/item/jukebox-132231/",
+  "licence": "Public domain (tango published 1903; recording published February 1913, and US sound recordings published before 1923 entered the public domain on 1 January 2022; transfer by the Library of Congress, National Jukebox)",
+  "loop": false,
+  "order": "record-el-choclo"
  }
 ]

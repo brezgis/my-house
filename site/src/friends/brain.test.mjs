@@ -85,18 +85,22 @@ for (const s of BANTER) ok(s.lines.every(([w]) => s.who.includes(w)) && s.who.ev
 
 // 6. every line everywhere: no stray braces, fits a bubble
 let n = 0, longest = '';
-const check = (t, where) => { n++; if (t.length > longest.length) longest = t; ok(typeof t === 'string' && t.length > 1 && t.length <= 190, `${where}: length ${t.length}: ${t}`); ok(!/\{(?!,? ?(name|Name|other|Other|topic|Topic|like|Like|time)\})/.test(t), `${where}: unknown token: ${t}`); };
+const check = (t, where) => { n++; if (t.length > longest.length) longest = t; ok(typeof t === 'string' && t.length > 1 && t.length <= 190, `${where}: length ${t.length}: ${t}`); ok(!/\{(?!,? ?(name|Name|other|Other|topic|Topic|like|Like|time|drink|Drink)\})/.test(t), `${where}: unknown token: ${t}`); };
 for (const id of ORDER) { const C = CAST[id];
   for (const [k, l] of Object.entries(C.pools)) l.forEach(t => check(t, `${id}.${k}`));
   for (const s of C.subjects) s.lines.forEach(t => check(t, `${id}.${s.id}`));
   for (const grp of ['others', 'staffNear', 'drift', 'atSpot']) for (const [k, l] of Object.entries(C[grp])) l.forEach(t => check(t, `${id}.${grp}.${k}`));
   for (const [k, l] of Object.entries(C.react)) (k === 'topics' ? Object.values(l).flat() : l).forEach(t => check(t, `${id}.react.${k}`));
-  for (const need of ['phone', 'phoneAgain', 'arrive', 'arriveAlone', 'greet', 'howareyou', 'who', 'real', 'house', 'garden', 'staff', 'barty', 'mort', 'fig', 'reggie', 'gardeners', 'owner', 'drink', 'food', 'music', 'dance', 'danceQuiet', 'danceJoin', 'compliment', 'thanks', 'insult', 'joke', 'feelingBad', 'feelingGood', 'loveyou', 'why', 'how', 'opinion', 'yes', 'no', 'laugh', 'nameIntro', 'likes', 'sorry', 'help', 'weather', 'night', 'fallback', 'callback', 'likeback', 'repeat', 'shared', 'absent', 'heard', 'handoff', 'bye', 'follow', 'upstairs', 'waitOutside', 'goOutPorch', 'welcomeBack', 'sitDown', 'idle', 'seated', 'sentHome', 'leave', 'hum'])
+  for (const need of ['phone', 'phoneAgain', 'arrive', 'arriveAlone', 'greet', 'howareyou', 'who', 'real', 'house', 'garden', 'staff', 'barty', 'mort', 'fig', 'reggie', 'gardeners', 'owner', 'drink', 'food', 'music', 'dance', 'danceQuiet', 'danceJoin', 'compliment', 'thanks', 'insult', 'joke', 'feelingBad', 'feelingGood', 'loveyou', 'why', 'how', 'opinion', 'yes', 'no', 'laugh', 'nameIntro', 'likes', 'sorry', 'help', 'weather', 'night', 'fallback', 'callback', 'likeback', 'repeat', 'shared', 'absent', 'heard', 'handoff', 'bye', 'follow', 'upstairs', 'waitOutside', 'goOutPorch', 'welcomeBack', 'sitDown', 'idle', 'seated', 'sentHome', 'leave', 'hum', 'gift', 'giftNo', 'served'])
     ok(C.pools[need]?.length >= 1, `${id} has a "${need}" pool`);
   for (const k of ['greet', 'howareyou', 'house', 'garden', 'drink', 'music', 'compliment', 'joke', 'why', 'opinion', 'fallback']) ok(C.pools[k].length >= 3 || (k === 'compliment' && C.pools[k].length >= 3), `${id}.${k} has several variants (${C.pools[k].length})`);
 }
 BANTER.forEach((s, i) => s.lines.forEach(([, t]) => check(t, 'banter' + i)));
 { const b = fresh(); ok(b.say('gigi', 'staffNear:barty').length > 3 && b.say('feyn', 'drift:chalkboard').length > 3 && b.say('nano', 'atSpot:desk').length > 3, 'place and staff remarks'); ok(!/[{}]/.test(b.say('gigi', 'greet')), 'pet name when the name is unknown: ' + b.say('gigi', 'greet')); }
+// 6b. a drink in the hand: every thanks comes out whole, with the drink named where the line names it
+ok(CAST.gigi.pools.giftFav.length >= 3 && CAST.gigi.pools.giftFav.every(t => /brown sugar|my (actual )?order/i.test(t)), 'Geneva knows her own order when she is given it');
+for (const id of ORDER) for (const k of ['gift', 'giftNo', 'served', ...(id === 'gigi' ? ['giftFav'] : [])]) { const b = fresh(13), n = CAST[id].pools[k].length; ok(n >= 2, `${id}.${k}: ${n} lines`);
+  for (let i = 0; i < n; i++) { const t = b.say(id, k, { drink: 'an iced ube coconut latte' }); ok(t.length > 3 && !/[{}]/.test(t) && !/\b(a|an) (a|an)\b|  /i.test(t) && /^[A-Z*]/.test(t), `${id}.${k} reads whole: ${t}`); } }
 // 7. suggestions always lead somewhere
 for (const id of ORDER) { const b = fresh(12); let world = { present: ORDER }; let chips = b.chips(id, world); const seen = new Set();
   for (let i = 0; i < 30; i++) { ok(chips.length >= 3 && chips.length <= 4, `${id}: ${chips.length} suggestions`); const c = chips[i % chips.length]; seen.add(c); const r = b.reply(id, c, world); ok(r.topic !== 'fallback' && !(r.topic === 'opinion' && !/think/.test(c)), `${id}: suggestion "${c}" -> ${r.topic}`); chips = r.chips; }

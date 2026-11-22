@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sir Reginald's Rounds: test page</title>
+<style>
+  body { margin: 0; padding: 24px; background: #6f9c94; font: 12px/1.4 Geneva, Verdana, sans-serif; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+  .win { border: 2px solid #2b1a2a; border-radius: 6px 6px 3px 3px; background: #fff; box-shadow: 3px 3px 0 #2b1a2a; }
+  .bar { height: 20px; display: flex; align-items: center; gap: 6px; padding: 0 6px; border-bottom: 2px solid #2b1a2a; background: #ffd0df; font-weight: bold; }
+  .bar::before, .bar::after { content: ""; flex: 1; height: 10px; background: repeating-linear-gradient(#2b1a2a 0 1px, transparent 1px 2px); }
+  .box { overflow: auto; }
+</style>
+</head>
+<body>
+<script type="module">
+// The game from the catalogue disc (src/catalogue/game.js), alone, in a box the size of the pink
+// computer's window (500 x 380).
+//   ?level=5        open at room 5         ?moves=RDLU    play these moves at once (no animation)
+//   ?solved         play the solver's own answer for the room          ?w=300&h=420   another box size
+//   ?sound          tiny sine blips, to hear where the notes fall (the house has its own piano)
+//   ?sheet          four boxes at once: a fresh start, mid-room with a butler, a sock eaten, and a
+//                   solved room in a phone-sized box
+//   ?all            all twelve rooms, small, to look the furniture over
+// With any of level/moves/solved/sheet/all nothing is read from or saved to localStorage.
+import { mountGame, LEVELS, solve, GAME } from './src/catalogue/game.js';
+const Q = new URLSearchParams(location.search), num = (k, d) => (Q.has(k) ? +Q.get(k) : d);
+
+function open({ w = 500, h = 380, level, moves, solved, save = false }) {
+  const win = document.createElement('div'); win.className = 'win';
+  const bar = document.createElement('div'); bar.className = 'bar'; bar.textContent = GAME.title;
+  const box = document.createElement('div'); box.className = 'box'; box.style.width = w + 'px'; box.style.height = h + 'px';
+  win.append(bar, box); document.body.append(win);
+  const i = level ? level - 1 : undefined;
+  let ctx = null;
+  const sound = Q.has('sound') ? { note(midi, when = 0, len = 1.6, vol = 0.22) {
+    ctx ??= new AudioContext(); const o = ctx.createOscillator(), g = ctx.createGain(), t = ctx.currentTime + when;
+    o.frequency.value = 440 * 2 ** ((midi - 69) / 12); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + len); o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + len);
+  } } : undefined;
+  return mountGame(box, { sound, save, level: i, moves: solved ? solve(LEVELS[i ?? 0]).moves : moves, onQuit: Q.has('quit') ? () => { bar.textContent = 'Quit pressed'; } : undefined });
+}
+
+if (Q.has('sheet')) {
+  open({});
+  open({ level: 7, moves: 'UL' });
+  open({ level: 9, moves: 'U' });
+  open({ w: 300, h: 440, level: 12, solved: true });
+} else if (Q.has('all')) {
+  document.body.style.cssText = 'padding:8px;gap:8px';
+  LEVELS.forEach((_, n) => open({ w: 280, h: 222, level: n + 1 }));
+} else {
+  const hooked = ['level', 'moves', 'solved'].some(k => Q.has(k));
+  window.game = open({ w: num('w', 500), h: num('h', 380), level: Q.has('level') ? num('level') : undefined, moves: Q.get('moves') ?? undefined, solved: Q.has('solved'), save: !hooked });
+}
+</script>
+</body>
+</html>

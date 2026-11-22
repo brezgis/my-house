@@ -63,6 +63,10 @@ const DET_C = new Int32Array(512), DET_W = new Uint8Array(512);       // cells b
 const has = (name, key) => !!name && name.toLowerCase().includes(key.toLowerCase());
 const roomLines = name => (name ? ROOMS[name] ?? Object.entries(ROOMS).find(([k]) => has(name, k))?.[1] : null);
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+// A drink brought unasked to a visiting friend (treat, below): what each would choose from the menu, and when each is
+// next due one (in H.now seconds; go: whether that time is taken up at all: not every visit, not every guest)
+const FRIEND_LIKES = { feyn: ['tea', 'espresso', 'cocoa'], gigi: ['latte', 'phin', 'espresso'], nano: ['tea', 'jasmine', 'sparkling', 'chamomile'] };
+const TREATS = new WeakMap();
 const a_an = s => (/^[aeiou]/i.test(s) ? 'an ' : 'a ') + s;
 
 export class Robot extends Agent {
@@ -244,6 +248,7 @@ export class Robot extends Agent {
     if (this.wantsToGreet()) return this.run('greet', this.greet(), false);
     const empty = H.empties.find(e => !e.claimed && e.f === this.f && !!e.outside === !!this.outdoor && H.now - (e.t ?? 0) > (e.inHand ? 8 : 25) && this.nearestFree(e));      // (noticed after a little while, by whoever is free and nearest)
     if (empty && (H.host === this || !H.host || H.host.taskName !== 'host')) { empty.claimed = this; return this.run('clear', this.clear(empty), false); }
+    const friend = this.friendToTreat(); if (friend) return this.run('treat', this.treat(friend), false);
     const partner = H.robots.find(r => r !== this && r.interruptible && !r.engaged && !r.carrying && H.host !== r && r.f === this.f && Math.hypot(r.x - this.x, r.z - this.z) < 30);
     const opts = [
       ['amble', 9],
@@ -463,23 +468,82 @@ export class Robot extends Agent {
     const H = this.H; if (resume && (!H.host || H.host === this) && H.visitor.present) yield* this.host(true);
   }
   *fetch(d) {
-    const H = this.H, spot = H.spots[d.from] ?? H.spots.bar;
+    const H = this.H;
     while (this.engaged) { this.m.faceTo(H.visitor.x, H.visitor.z, H.dt); yield; }     // finish the sentence first
     this.fetching = d; H.events.fetches++;
     try {
-      let ok = false;
-      if (spot) ok = yield* this.go(spot.f, spot.x, spot.z);
-      if (ok) for (let t = 0; t < 1; t += H.dt) { this.m.faceTo(spot.fx, spot.fz, H.dt); yield; }
-      // made on the tray, in front of you if you followed: the glass fills, the phin drips
-      const g = H.makeDrink(d); g.userData.making = true; this.drinkObj = g; this.body.slot.add(g); this.body.tray.visible = true;
-      this.anim = 'make';
-      if (this.visitorDist() < 16 || H.rnd() < 0.3) this.line('making', { expr: 'focus', toGuest: false });
-      const T = d.prep ?? 5;
-      for (let t = 0; t < T; t += H.dt) { this.expr = 'focus'; this.exprUntil = H.now + 0.5; H.fill(g, Math.min(1, t / (T * 0.9)), t); yield; }
-      g.userData.making = false; H.fill(g, 1);
-      this.anim = null; this.carrying = d; this.forGuest = true;
+      yield* this.make(d);
+      this.carrying = d; this.forGuest = true;
     } finally { this.fetching = null; this.anim = null; }
     yield* this.deliver();
+  }
+  // To where it is made (the coffee bar, the kitchen), and made there on the tray: this.drinkObj, full, when done
+  *make(d) {
+    const H = this.H, spot = H.spots[d.from] ?? H.spots.bar;
+    let ok = false;
+    if (spot) ok = yield* this.go(spot.f, spot.x, spot.z);
+    if (ok) for (let t = 0; t < 1; t += H.dt) { this.m.faceTo(spot.fx, spot.fz, H.dt); yield; }
+    // made on the tray, in front of you if you followed: the glass fills, the phin drips
+    const g = H.makeDrink(d); g.userData.making = true; this.drinkObj = g; this.body.slot.add(g); this.body.tray.visible = true;
+    this.anim = 'make';
+    if (this.visitorDist() < 16 || H.rnd() < 0.3) this.line('making', { expr: 'focus', toGuest: false });
+    const T = d.prep ?? 5;
+    for (let t = 0; t < T; t += H.dt) { this.expr = 'focus'; this.exprUntil = H.now + 0.5; H.fill(g, Math.min(1, t / (T * 0.9)), t); yield; }
+    g.userData.making = false; H.fill(g, 1);
+    this.anim = null;
+  }
+  // ---- a drink for a visiting friend, unasked ----------------------------------------------------------
+  // Now and then a butler with nothing better to do brings a friend who has no drink something from the menu that
+  // suits them and the hour. Each friend, each visit: a first time one to ten minutes in (taken up about two times
+  // in three), and after that never within a quarter of an hour. Never by the one who is hosting her, never while
+  // anybody is fetching or carrying a drink of hers, one such errand at a time. The friend is asked first
+  // (wantsDrink: here, indoors, empty-handed, not dancing, not already off to make their own) and takes it (serve)
+  // when the butler is at their side; if they have gone, or found a drink meanwhile, it goes back with him, and
+  // he may try once more a few minutes on.
+  friendToTreat() {
+    const H = this.H, R = H.rnd;
+    if (this.outdoor || H.host === this || this.engaged || H.robots.some(r => r.fetching || r.carrying || r.taskName === 'treat')) return null;
+    for (const g of H.guests()) {
+      if (g.state !== 'here' || !g.wantsDrink) continue;
+      let e = TREATS.get(g);
+      if (H.treatSoon) TREATS.set(g, e = { visit: g.visits, at: 0, go: true });       // (for the test pages: everybody is due one now)
+      if (!e || e.visit !== g.visits) TREATS.set(g, e = { visit: g.visits, at: H.now + 60 + R() * 540, go: R() < 0.66 });
+      if (H.now < e.at) continue;
+      if (!e.go) { e.at = H.now + 900 + R() * 300; e.go = R() < 0.66; continue; }       // (not this time: perhaps in a quarter of an hour)
+      if (g.m.f !== this.f || !g.wantsDrink()) continue;                               // (due, but not now: when they are free of the one they have)
+      e.at = H.now + 900 + R() * 600; e.go = R() < 0.66; e.tries = (e.tries ?? 0) + 1;
+      return g;
+    }
+    return null;
+  }
+  *treat(g) {
+    const H = this.H, nav = this.nav, d = menuFor(H.day.hour, FRIEND_LIKES[g.id] ?? [], H.rnd)[0] ?? MENU[0];
+    let given = false;
+    try {
+      g.expectDrink(90);                                                               // (Geneva does not set off to make her own meanwhile)
+      yield* this.make(d);
+      let at = false;
+      for (let n = 0; n < 4 && !at; n++) {                                             // to their side, as to a cup on a table (clear); they may have moved on
+        if (!g.stillWants()) return;
+        const f = g.m.f, gx = g.m.x, gz = g.m.z, c = nav.nearest(f, gx, gz, 2, 3.5, true, c => !H.taken(this, f, nav.cx(c), nav.cz(c), 2.2));
+        if (c < 0) { yield* this.wait(2); continue; }
+        g.expectDrink(40);
+        yield* this.go(f, nav.cx(c), nav.cz(c), { tries: 2, until: () => g.m.f !== f || Math.hypot(g.m.x - gx, g.m.z - gz) > 4 });
+        at = g.m.f === this.f && Math.hypot(g.m.x - this.x, g.m.z - this.z) < 4.6;
+      }
+      if (!at || !g.stillWants()) return;
+      g.expectDrink(5, this);                                                          // they wait for it, turned to him
+      for (let t = 0; t < 0.8; t += H.dt) { this.m.faceTo(g.m.x, g.m.z, H.dt); yield; }
+      this.say(H.bag(`${this.key}.forFriend`, VOICE[this.key].forFriend), { extra: { drink: d.name, other: g.name }, expr: 'happy', toGuest: false });
+      this.anim = 'reach'; this.reachTo = { x: g.m.x, y: g.m.y + g.spec.hover - 0.3, z: g.m.z }; yield* this.wait(1.4);
+      const obj = this.drinkObj;
+      if (obj && g.serve(obj, d)) { given = true; this.drinkObj = null; this.body.tray.visible = false; H.events.friendDrinks = (H.events.friendDrinks ?? 0) + 1; }
+      this.anim = null; this.reachTo = null;
+      yield* this.wait(1.6);
+    } finally {
+      this.anim = null; this.reachTo = null; if (this.drinkObj && !this.carrying && !this.fetching) this.dropDrink();
+      const e = TREATS.get(g); if (e) { if (given) e.tries = 0; else if (e.tries < 2) { e.at = H.now + 150 + H.rnd() * 150; e.go = true; } }      // (missed them: once more in a few minutes, then not for a quarter of an hour)
+    }
   }
   *deliver() {
     const H = this.H, v = H.visitor;

@@ -347,10 +347,33 @@ export function pondLife(ctx, K) {
   const FED = ['You scatter a handful. Marmalade, the orange one, gets there first. She always does.', 'A handful on the water. Admiral, the old gold one, arrives last and eats the most.', 'They come up as if you were the dinner bell.', 'A pinch of food. Dot, with the one red spot, takes exactly one and looks pleased.'];
   const WATCH = ['The big gold one is Admiral. He came with the house, and behaves accordingly.', 'Marmalade is the quick orange one. She has never once been late for a meal.', 'Dot wears a single red spot on her head, like a small sun. She knows.', 'The two with the long trailing fins are butterfly koi. They are aware of the effect.'];
   let said = 0;
-  for (const f of FEED) interact.push({ x: f.p[0], y: f.p[2], z: f.p[1], reach: f.reach, label: () => (S.feeding ? 'watch the koi' : 'feed the koi'),
-    act: () => { if (S.feeding) toast(WATCH[said++ % WATCH.length]); else { S.feed(f.to[0], f.to[1], clock); toast(FED[said++ % FED.length]); } } });
+  // Stardust, the glittering koi food from the catalogue (catalogue/goods.js): with the tin in the hand, that is what is
+  // thrown. The pellets shine, the water twinkles where they lie and over every fish that has had some, and the fish go
+  // on sparkling for a couple of minutes. The sparks are one small pool of points (catalogue/sparks.js), fetched the
+  // first time and stepped only while something is lit.
+  const STARDUST = ['You shake out the Stardust. The pond lights up like a ballroom ceiling.', 'Glitter on the water. Marmalade gets there first and comes up sparkling, as if she had planned it.', 'Admiral takes his glitter with the gravity of a man receiving a medal.', 'Dot takes exactly one glittering pellet, and wears it.'];
+  const tin = () => window.__hands?.holding?.key === 'koi-glitter';
+  const GLIT = [0xff7ac8, 0xffd75e, 0x7ae0ff, 0xb693ff, 0x8dffb0, 0xffffff], plain = pellets.material.color.getHex();
+  let sparks = null, sparksP = null, shineUntil = -1, dusted = 0;
+  const dress = on => { const M = pellets.material; M.color.setHex(on ? 0xffe6f4 : plain); M.emissive.setHex(on ? 0xff8fd0 : 0); M.emissiveIntensity = on ? 0.9 : 1; M.roughness = on ? 0.25 : 0.9; };
+  function stardust(f) {
+    S.feed(f.to[0], f.to[1], clock); dress(true); shineUntil = clock + 130; toast(STARDUST[dusted++ % STARDUST.length], 5200); window.__catalogue?.used?.('koi-glitter');
+    sparksP ??= import('../catalogue/sparks.js').then(m => { sparks = m.makeSparks(THREE, 420); scene.add(sparks.points); }).catch(e => console.warn('pond: sparks', e));
+  }
+  animated.push((t, dt) => {
+    if (!sparks || (clock > shineUntil && !sparks.alive)) return;
+    if (clock < shineUntil) {
+      const Pl = S.pellets, fresh = S.feeding && pellets.material.emissive.getHex() !== 0;
+      // the glitter lies where the pellets lie and catches the light: nothing rises off it
+      if (fresh) for (let n = 0; n < 5; n++) { const k = Math.floor(Math.random() * NP); if (Pl.alive[k] && Pl.t[k] < clock) sparks.spawn(Pl.x[k] + (Math.random() - 0.5) * 0.22, P.y + 0.035, Pl.z[k] + (Math.random() - 0.5) * 0.22, 0, 0, 0, 0.35 + Math.random() * 0.75, GLIT[Math.floor(Math.random() * GLIT.length)], 0.07 + Math.random() * 0.07, { twinkle: 9 + Math.random() * 14 }); }
+      if (Math.random() < (fresh ? 0.9 : 0.35)) { const i = Math.floor(Math.random() * S.n); sparks.spawn(S.x[i] + (Math.random() - 0.5) * 0.8, P.y + 0.04, S.z[i] + (Math.random() - 0.5) * 0.8, 0, 0, 0, 0.6 + Math.random() * 1.0, GLIT[Math.floor(Math.random() * GLIT.length)], 0.1 + Math.random() * 0.05, { twinkle: 12 }); }
+    }
+    sparks.step(Math.min(dt, 0.05));
+  });
+  for (const f of FEED) interact.push({ x: f.p[0], y: f.p[2], z: f.p[1], reach: f.reach, label: () => (S.feeding ? 'watch the koi' : tin() ? 'scatter the Stardust for the koi' : 'feed the koi'),
+    act: () => { if (S.feeding) toast(WATCH[said++ % WATCH.length]); else if (tin()) stardust(f); else { dress(false); S.feed(f.to[0], f.to[1], clock); toast(FED[said++ % FED.length]); } } });
   interact.push({ x: P.x - 6, y: 0.4, z: P.z - 3, reach: 9, label: () => 'watch the koi', act: () => toast(WATCH[said++ % WATCH.length]) });
-  window.__pond = { school: S, feed: feedKoi, get clock() { return clock; } };
+  window.__pond = { school: S, feed: feedKoi, stardust: () => stardust(FEED[0]), get clock() { return clock; } };
 
   // ---- Two mallards (village animal models) about the willow end. They paddle from place to place, keep their
   // distance from anyone close by, dabble, up-end and preen, and sleep by the reeds after dark; each draws a little

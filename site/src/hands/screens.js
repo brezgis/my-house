@@ -10,6 +10,7 @@
 
 import { makeShell, MENU } from './shell.js';
 import { peek, refresh, onChange, sendNote, markRead, state as gb } from '../guestbook.js';
+import { owns } from '../catalogue/owned.js';
 
 const CSS = `
 .hd-over.sheet { position: fixed; inset: 0; z-index: 30; display: none; place-items: center; padding: 16px; background: rgba(22,15,10,.62); animation: none; font-family: var(--serif, Georgia, serif); color: var(--ink, #2a1c13); }
@@ -67,6 +68,8 @@ const CSS = `
 .hd-desk .icons svg { width: 40px; height: 40px; filter: drop-shadow(0 2px 2px rgba(0,0,0,.4)); }
 .hd-win { position: absolute; left: 20px; top: 40px; width: min(540px, calc(100% - 150px)); max-height: calc(100% - 60px); display: none; flex-direction: column; background: #f4f4f0; border: 1px solid #222; box-shadow: 3px 4px 0 rgba(0,0,0,.45); }
 .hd-win.on { display: flex; }
+.hd-desk .icons:has([data-win="game"]) { gap: 4px; top: 28px; }
+.hd-win.game { left: 8px; top: 30px; width: min(560px, calc(100% - 120px)); max-height: calc(100% - 38px); } .hd-win.game .in { padding: 6px; }
 .hd-win .tb { display: flex; align-items: center; gap: 8px; height: 22px; padding: 0 5px; border-bottom: 1px solid #222; background: repeating-linear-gradient(#f4f4f0 0 2px, #9a9a96 2px 3px); }
 .hd-win .tb b { background: #f4f4f0; padding: 0 8px; margin: 0 auto; } .hd-win .tb button { width: 14px; height: 14px; padding: 0; background: #f4f4f0; border: 1px solid #222; }
 .hd-win .in { padding: 14px 16px; overflow: auto; line-height: 1.5; font-size: 14px; } .hd-win .in p { margin: 0 0 10px; } .hd-win .in h5 { font-size: 15px; margin: 0 0 8px; }
@@ -105,7 +108,7 @@ export function makeScreens(ctx, api) {
     }
   });
   // keys that land outside the screen while it is open (focus lost to the page) still do not walk anybody
-  addEventListener('keydown', e => { if (!open || root.contains(e.target)) return; e.stopImmediatePropagation(); if (e.code === 'Escape' || (open.easy && (e.code === 'KeyE' || e.code === 'Enter') && performance.now() - openedAt > 350)) close(); else root.focus(); }, true);
+  addEventListener('keydown', e => { if (!open || root.contains(e.target)) return; e.stopImmediatePropagation(); if (e.code === 'Escape' || (open.easy && (e.code === 'KeyE' || e.code === 'Enter') && performance.now() - openedAt > 350)) close(); else { root.focus(); if (open.key?.(e, false)) e.preventDefault(); } }, true);      // (and a key the open thing uses is not lost: the catalogue's arrows)
   addEventListener('keyup', e => { if (open && !root.contains(e.target)) e.stopImmediatePropagation(); }, true);
   root.addEventListener('mousedown', e => { if (e.target === root) close(); });
   function show(o, html) {
@@ -174,18 +177,24 @@ export function makeScreens(ctx, api) {
   };
   const clock = () => { const h = ((window.house?.hour ?? 12) % 24 + 24) % 24; return `${Math.floor(h)}:${String(Math.floor((h % 1) * 60)).padStart(2, '0')}`; };
   const nextRecord = () => { try { ctx.sound?.start?.(); return ctx.sound?.next?.() || ''; } catch { return ''; } };
+  // The game that came on a disc from the catalogue (catalogue/game.js), once the disc has been put in
+  let game = null;
+  const stopGame = () => { try { game?.destroy?.(); } catch { /* gone already */ } game = null; };
   function imac(first) {
-    said = '';
-    show({ id: 'imac', name: 'The pink computer', closed: paintPink }, `<div class="hd-mon hd-pink"><div class="hd-desk"><div class="menu"><span>File</span><span>Edit</span><span>Special</span><i>${clock()}</i></div>
+    said = ''; stopGame();
+    if (owns('game-installed') && !WINS.game) { ICON.game = '<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" fill="#2b2b30" stroke="#111"/><circle cx="20" cy="18" r="10" fill="none" stroke="#b9bec4"/><circle cx="14" cy="27" r="4.5" fill="#fff"/><circle cx="26" cy="27" r="4.5" fill="#fff"/><circle cx="15" cy="28" r="2" fill="#111"/><circle cx="27" cy="28" r="2" fill="#111"/></svg>'; WINS.game = ['Sir Reginald’s Rounds', () => '<p>Reading the disc…</p>']; }
+    show({ id: 'imac', name: 'The pink computer', closed: () => { stopGame(); paintPink(); } }, `<div class="hd-mon hd-pink"><div class="hd-desk"><div class="menu"><span>File</span><span>Edit</span><span>Special</span><i>${clock()}</i></div>
       <div class="icons">${Object.entries(WINS).map(([k, [name]], i) => `<button type="button" data-win="${k}"${i ? '' : ' autofocus'}>${ICON[k]}<span>${name}</span></button>`).join('')}</div>
       <div class="hd-win"><div class="tb"><button type="button" data-shut aria-label="Close the window"></button><b></b></div><div class="in"></div></div></div>
       <div class="bar"><span>${touch ? 'Tap an icon.' : 'Click an icon, or use the arrow keys and Enter. Esc steps away.'}</span><button type="button" data-leave>Step away</button></div></div>`);
     const win = root.querySelector('.hd-win');
-    const openWin = k => { if (!WINS[k]) return; win.dataset.k = k; win.querySelector('b').textContent = WINS[k][0]; win.querySelector('.in').innerHTML = WINS[k][1](); win.classList.add('on'); api.win = k; if (k === 'guest') { dial(); if (gb.unread) markRead(); } };
+    const openWin = k => { if (!WINS[k]) return; win.dataset.k = k; win.querySelector('b').textContent = WINS[k][0]; win.querySelector('.in').innerHTML = WINS[k][1](); win.classList.add('on'); api.win = k; if (k === 'guest') { dial(); if (gb.unread) markRead(); }
+      stopGame(); win.classList.toggle('game', k === 'game');
+      if (k === 'game') { const el = win.querySelector('.in'); import('../catalogue/game.js').then(m => { if (!el.isConnected || win.dataset.k !== 'game') return; el.innerHTML = ''; game = m.mountGame(el, { sound: ctx.sound, onQuit: () => win.querySelector('[data-shut]')?.click() }); }).catch(e => { el.innerHTML = '<p>The disc will not read. Try again.</p>'; console.warn('catalogue: game', e); }); } };
     root.querySelector('.hd-pink').addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.win) openWin(b.dataset.win);
-      else if ('shut' in b.dataset) { win.classList.remove('on'); api.win = null; root.querySelector(`[data-win="${win.dataset.k}"]`)?.focus(); }
+      else if ('shut' in b.dataset) { stopGame(); win.classList.remove('on'); api.win = null; root.querySelector(`[data-win="${win.dataset.k}"]`)?.focus(); }
       else if ('leave' in b.dataset) close();
       else if (b.dataset.chip) { const i = win.querySelector('input[name=line]'); i.value = b.dataset.chip; i.focus(); }      // a ready-made line, to send or to change first
       else if ('next' in b.dataset) { nextRecord(); setTimeout(() => open?.id === 'imac' && win.dataset.k === 'music' && openWin('music'), 300); }
@@ -281,5 +290,7 @@ export function makeScreens(ctx, api) {
     pick(n);
   }
 
-  return { book, imac, term, laptop, close, paintPink, paintTerm, get open() { return open?.id ?? null; } };
+  // any other sheet over the view (the catalogue): o = { id, name, closed(), key(e) }; the element it is in comes back
+  const sheet = (o, html) => { show(o, html); return root; };
+  return { book, imac, term, laptop, close, sheet, paintPink, paintTerm, get open() { return open?.id ?? null; } };
 }

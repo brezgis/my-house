@@ -18,6 +18,7 @@ const NOTE = [
   ['Sit anywhere. Light the candles. Play the piano, badly is fine.', 'li'],
   ['Upstairs there is a chess game Fig is winning, and a telescope for when the moon is up.', 'li'],
   ['The telephone by the stair rings friends round.', 'li'],
+  ['Under it is the catalogue. Order anything; it comes to the porch.', 'li'],
   ['Feed the koi. Let Bramble pick you a strawberry.', 'li'],
   ['Stay as long as you like.', 'p'],
   ['A.', 'sign'],

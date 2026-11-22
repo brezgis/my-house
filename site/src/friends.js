@@ -130,9 +130,7 @@ function buildPhone(ctx) {
     for (const k of [-0.13, 0, 0.13]) put(parts, box(0.026, T - 0.99, 0.075), OAK[0], [sx * (hw - 0.085), (T - 0.22 + 0.77) / 2, k]);
   }
   put(parts, box(AT.w - 0.2, 0.045, AT.d - 0.2), OAK[1], [0, 0.72, 0]);
-  // the directory on the shelf
-  put(parts, box(0.44, 0.1, 0.32), '#7a2f2a', [0.04, 0.795, 0.02], [0, 0.12, 0]);
-  put(parts, box(0.42, 0.072, 0.31), '#efe6d2', [0.047, 0.795, 0.034], [0, 0.12, 0]);
+  // (on the shelf: the catalogue, which is catalogue.js's)
   // a linen mat, a notepad and a pencil
   put(parts, cyl(0.3, 0.3, 0.012, 28), '#d6ccb4', [-0.13, T + 0.006, -0.04]);
   put(parts, box(0.3, 0.028, 0.22), '#f3ecd9', [0.31, T + 0.014, 0.2], [0, -0.2, 0]);

@@ -17,18 +17,58 @@
 // For guests (friends.js): JIGSAW is the board's middle and size in world feet, and where to stand.
 // Test hooks: ?toy=jigsaw, ?toy=jigsaw:solve-N, :done, :drag, :snap, :sort, :choose, :lid;
 // &jpic=<picture id or 0-3>&jsize=24|54|96 choose; &jfresh ignores what was saved.
+//
+// Two more come by post (catalogue/): a picture with an `order` is not in the chooser until that
+// order has been delivered (catalogue/owned.js; &own=jigsaw-night,jigsaw-moon for a test).
+//   The Island at Night  drawn here (catalogue/jigsaw_art.js, fetched when first wanted), and it glows:
+//                        the picture is its own emissive map (the same texture, used twice), so the
+//                        stars and the lit windows still show when the dining room is dark.
+//   The Moon             round: 25, 49 or 81 pieces in rings round a round middle piece, no straight
+//                        edge anywhere (roundPuzzle in jigsaw_shapes.js). The lid shows the whole picture.
+// Neither costs more than the others: one mesh, one material, one texture.
 
 import * as THREE from 'three';
 import { F1 } from './house.js';
 import { wx, wz } from './builder.js';
-import { PLACE, REGION, BOARD_UV, SIZES, gridFor, makeCuts, outlines, Puzzle, hash } from './jigsaw_shapes.js';
+import { PLACE, REGION, BOARD_UV, SIZES, ROUND, gridFor, makeCuts, outlines, roundPuzzle, Puzzle, hash } from './jigsaw_shapes.js';
+import { owns } from './catalogue/owned.js';
 
 export const PICTURES = [
   { id: 'ronner_kittens_basket', title: 'Playing Kittens', by: 'Henriëtte Ronner-Knip, about 1890', where: 'Museum Boijmans Van Beuningen, Rotterdam' },
   { id: 'ronner_cat_at_play', title: 'Cat at Play', by: 'Henriëtte Ronner-Knip, about 1860–78', where: 'Rijksmuseum, Amsterdam' },
   { id: 'ronner_cat_with_kittens', title: 'Cat with Kittens', by: 'Henriëtte Knip, 1844', where: 'Rijksmuseum, Amsterdam' },
   { id: 'ronner_infatigables', title: 'Infatigables', by: 'Henriëtte Ronner-Knip, 1895', where: 'RISD Museum, Providence' },
+  // from the catalogue
+  { id: 'island_at_night', order: 'jigsaw-night', title: 'The Island at Night', by: 'drawn for this house', where: 'the stars and the windows show in the dark', drawn: true, glow: 0.6 },
+  { id: 'moon_apollo_11', order: 'jigsaw-moon', title: 'The Moon', by: 'photographed from Apollo 11 on the way home, 21 July 1969', where: 'NASA', round: true },
 ];
+const picOf = id => PICTURES.find(p => p.id === id);
+const have = () => PICTURES.filter(p => !p.order || owns(p.order));      // asked each time: a parcel may have come since
+const sizesOf = p => p.round ? ROUND.sizes : SIZES;
+const fit = (p, size) => sizesOf(p).reduce((a, b) => Math.abs(b - size) < Math.abs(a - size) ? b : a);     // the nearest size this picture comes in
+
+// A picture's address: its file, or (drawn ones) the drawing as a data URL, made once
+const urls = new Map();
+async function pictureUrl(p, small = false) {
+  if (!p.drawn) return `assets/art/puzzles/${p.id}${small && p.order ? '_thumb' : ''}.jpg`;
+  const k = p.id + (small ? ':s' : '');
+  if (!urls.has(k)) {
+    let c = (await import('./catalogue/jigsaw_art.js')).paint(p.id);
+    if (small) { const s = document.createElement('canvas'); s.width = 320; s.height = 240; const g = s.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(c, 0, 0, 320, 240); c = s; }
+    urls.set(k, c.toDataURL('image/jpeg', 0.9));
+  }
+  return urls.get(k);
+}
+// For the catalogue's page: draw a little picture of a puzzle's lid into a 2D canvas (id: its order,
+// 'jigsaw-night', or its picture id). The drawing or the file takes a moment to come, so this returns
+// a promise, kept when the lid has been drawn; nothing else of the jigsaw need be running.
+export async function jigsawThumb(id, g, w, h) {
+  const p = PICTURES.find(p => p.order === id || p.id === id); if (!p) return false;
+  const img = new Image(); img.decoding = 'async'; img.src = await pictureUrl(p, true); await img.decode();
+  const k = Math.max(w / img.naturalWidth, h / img.naturalHeight), iw = img.naturalWidth * k, ih = img.naturalHeight * k;      // fills w x h, cropped evenly if that is not 4:3
+  g.save(); g.beginPath(); g.rect(0, 0, w, h); g.clip(); g.imageSmoothingQuality = 'high'; g.drawImage(img, (w - iw) / 2, (h - ih) / 2, iw, ih); g.restore();
+  return true;
+}
 
 // ---- Where it is, in world feet ---------------------------------------------------------------------
 const tw = (x, y) => [wx(PLACE.table.X + x), wz(PLACE.table.Y + y)];
@@ -145,6 +185,7 @@ function buildGeometry(P, outl) {
 // ---- The picture: fetched when wanted, held at 1024 x 768 ---------------------------------------------
 const TEX_W = 1024, TEX_H = 768;
 function loadPicture(id) {
+  if (picOf(id).drawn) return import('./catalogue/jigsaw_art.js').then(m => { const t = new THREE.CanvasTexture(m.paint(id)); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; });
   return new Promise((ok, bad) => {
     const img = new Image(); img.decoding = 'async';
     img.onload = () => {
@@ -188,15 +229,20 @@ export function setupJigsaw(ctx, modes, hold) {
   const touch = 'ontouchstart' in window;
   // ---- State: which picture and size, and the pieces ----
   let choice = load('jigsaw', null);
-  if (!choice || !PICTURES.some(p => p.id === choice.pic) || !SIZES.includes(choice.size)) choice = { pic: PICTURES[0].id, size: 96 };
-  if (Q.has('jpic')) { const v = Q.get('jpic'), p = PICTURES[Number(v)] ?? PICTURES.find(p => p.id === v); if (p) choice.pic = p.id; }
-  if (Q.has('jsize') && SIZES.includes(Number(Q.get('jsize')))) choice.size = Number(Q.get('jsize'));
+  if (!choice || !have().some(p => p.id === choice.pic) || !sizesOf(picOf(choice.pic)).includes(choice.size)) choice = { pic: PICTURES[0].id, size: 96 };
+  if (Q.has('jpic')) { const v = Q.get('jpic'), p = PICTURES[Number(v)] ?? picOf(v); if (p && have().includes(p)) choice = { pic: p.id, size: fit(p, choice.size) }; }
+  if (Q.has('jsize') && Number(Q.get('jsize')) > 0) choice.size = fit(picOf(choice.pic), Number(Q.get('jsize')));
   const fresh = Q.has('jfresh');
   let P, outl, G, layoutDirty = true;
   function setUp(pic, size, isNew) {
-    const { cols, rows } = gridFor(size, W / H);
-    P = new Puzzle(cols, rows, W, H);
-    outl = outlines(cols, rows, P.cw, P.ch, makeCuts(cols, rows, hash(pic + ':' + size)));
+    if (picOf(pic).round) {
+      const r = roundPuzzle(Math.round(Math.sqrt(size)), hash(pic + ':' + size), W, H);
+      P = new Puzzle(r.cols, r.rows, W, H, r.shape); outl = r.outl;
+    } else {
+      const { cols, rows } = gridFor(size, W / H);
+      P = new Puzzle(cols, rows, W, H);
+      outl = outlines(cols, rows, P.cw, P.ch, makeCuts(cols, rows, hash(pic + ':' + size)));
+    }
     const saved = fresh ? null : load(keyOf(pic, size), null);
     if (!P.restore(saved)) {
       if (pic === PICTURES[0].id && size === 96 && !isNew) P.begin(REGION, hash(pic) % 100000);      // the one the house came with: a third done
@@ -213,6 +259,11 @@ export function setupJigsaw(ctx, modes, hold) {
   const root = new THREE.Group(); root.name = 'jigsaw';
   root.position.set(BX, TOP, BZ); root.rotation.y = Math.PI;         // root x = the picture's right (world -x), root z = down the picture (world -z)
   const material = new THREE.MeshStandardMaterial({ color: 0xdcd7ce, roughness: 0.86, metalness: 0, envMapIntensity: 0.1, vertexColors: true });
+  // A picture that glows does so only where it is bright (stars, lit windows): its dark sky stays dark.
+  // The shader is touched only while such a picture is on the table; otherwise it is the stock one.
+  const glowOnly = sh => { sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+  totalEmissiveRadiance *= smoothstep(0.16, 0.55, max(emissiveColor.r, max(emissiveColor.g, emissiveColor.b)));`); };
+  const stock = material.onBeforeCompile, stockKey = material.customProgramCacheKey;
   let mesh = null;
   setUp(choice.pic, choice.size, false);
   mesh = new THREE.Mesh(G.geo, material); mesh.position.set(-W / 2, 0, -H / 2); mesh.receiveShadow = true; mesh.castShadow = false; mesh.userData.cat = 'extras';
@@ -230,7 +281,10 @@ export function setupJigsaw(ctx, modes, hold) {
     const id = choice.pic; texId = id;
     loading = loadPicture(id).then(async t => {
       if (texId !== id) { t.dispose(); return; }
-      const old = material.map; material.map = t; if (!old) material.needsUpdate = true; old?.dispose();
+      const old = material.map, glow = picOf(id).glow ?? 0, glowed = !!material.emissiveMap; material.map = t;
+      material.emissiveMap = glow ? t : null; material.emissive.setScalar(glow);       // a picture that glows lights itself: the same texture again, no second one
+      material.onBeforeCompile = glow ? glowOnly : stock; material.customProgramCacheKey = glow ? () => 'jigsaw-glow' : stockKey;
+      if (!old || glowed !== !!glow) material.needsUpdate = true; old?.dispose();
       if (!loaded) {          // made ready off the main thread where the browser can, so the first sight of it does not stall
         const was = root.visible; root.visible = true;
         try { await ctx.renderer.compileAsync?.(root, ctx.camera, ctx.scene); } catch { /* compiled on first draw instead */ }
@@ -380,14 +434,14 @@ export function setupJigsaw(ctx, modes, hold) {
     choice = { pic, size }; finished = false; hop = null;
     setUp(pic, size, true); finished = P.solved(); remember();
     if (texId !== pic) ensurePicture();
-    const p = PICTURES.find(p => p.id === pic); note(`${p.title}, ${P.n} pieces${P.placed() ? `: ${P.placed()} already in place` : ''}.`);
+    const p = picOf(pic); note(`${p.title}, ${P.n} pieces${P.placed() ? `: ${P.placed()} already in place` : ''}.`);
   }
 
   // ---- The finishing flourish: a little wave through the pieces and three notes ----
   let flourishT = -1;
   function flourish() {
     finished = true; flourishT = 0; hop = new Float32Array(P.n);
-    const p = PICTURES.find(p => p.id === choice.pic);
+    const p = picOf(choice.pic);
     note(`Finished! ${p.title}, all ${P.n} pieces, done.`);
     const s = ctx.sound; if (s?.note) { s.note(72, 0, 1.4, 0.07); s.note(76, 0.14, 1.3, 0.07); s.note(79, 0.28, 1.3, 0.07); s.note(84, 0.46, 2.2, 0.08); }
   }
@@ -421,7 +475,7 @@ export function setupJigsaw(ctx, modes, hold) {
     if (!lidSheet) {
       lidSheet = el('div', { class: 'jig-sheet' }); lidSheet.addEventListener('click', () => lidSheet.classList.remove('on')); document.body.append(lidSheet);
     }
-    if (on) { const p = PICTURES.find(p => p.id === choice.pic); lidSheet.innerHTML = `<div class="jig-lid"><img alt="${p.title}" src="assets/art/puzzles/${p.id}.jpg"><div><i>${p.title}</i> · ${p.by} · ${p.where}</div></div>`; }
+    if (on) { const p = picOf(choice.pic); lidSheet.innerHTML = `<div class="jig-lid"><img alt="${p.title}"><div><i>${p.title}</i> · ${p.by} · ${p.where}</div></div>`; const img = lidSheet.querySelector('img'); pictureUrl(p).then(u => { img.src = u; }); }
     lidSheet.classList.toggle('on', on);
   }
   function progress(pic, size) {
@@ -435,10 +489,11 @@ export function setupJigsaw(ctx, modes, hold) {
     if (!on) { sheet.classList.remove('on'); return; }
     let pic = choice.pic, size = choice.size;
     const draw = () => {
-      sheet.innerHTML = `<div class="jig-card" role="dialog" aria-label="Choose a jigsaw"><h2>Which jigsaw?</h2><div class="jig-pics">${PICTURES.map(p => `<button type="button" class="jig-pic${p.id === pic ? ' on' : ''}" data-pic="${p.id}"><img alt="" src="assets/art/puzzles/${p.id}.jpg"><b>${p.title}</b><i>${p.by}</i></button>`).join('')}</div>
-        <div class="jig-row">${SIZES.map(n => { const d = progress(pic, n); return `<button type="button" data-size="${n}" class="${n === size ? 'on' : ''}">${n} pieces${d ? ` <small>· ${d === n ? 'finished' : d + ' in place'}</small>` : ''}</button>`; }).join('')}</div>
+      sheet.innerHTML = `<div class="jig-card" role="dialog" aria-label="Choose a jigsaw"><h2>Which jigsaw?</h2><div class="jig-pics">${have().map(p => `<button type="button" class="jig-pic${p.id === pic ? ' on' : ''}" data-pic="${p.id}"><img alt="" ${p.drawn ? `data-drawn="${p.id}"` : `src="assets/art/puzzles/${p.id}.jpg"`}><b>${p.title}</b><i>${p.by}</i></button>`).join('')}</div>
+        <div class="jig-row">${sizesOf(picOf(pic)).map(n => { const d = progress(pic, n); return `<button type="button" data-size="${n}" class="${n === size ? 'on' : ''}">${n} pieces${d ? ` <small>· ${d === n ? 'finished' : d + ' in place'}</small>` : ''}</button>`; }).join('')}</div>
         <div class="jig-row"><button type="button" data-go>Do this one</button><button type="button" data-close>Back to the table</button></div></div>`;
-      sheet.querySelectorAll('[data-pic]').forEach(x => x.addEventListener('click', () => { pic = x.dataset.pic; draw(); }));
+      sheet.querySelectorAll('[data-drawn]').forEach(x => pictureUrl(picOf(x.dataset.drawn), true).then(u => { x.src = u; }));
+      sheet.querySelectorAll('[data-pic]').forEach(x => x.addEventListener('click', () => { pic = x.dataset.pic; size = fit(picOf(pic), size); draw(); }));
       sheet.querySelectorAll('[data-size]').forEach(x => x.addEventListener('click', () => { size = Number(x.dataset.size); draw(); }));
       sheet.querySelector('[data-go]').addEventListener('click', () => { sheet.classList.remove('on'); switchTo(pic, size); });
       sheet.querySelector('[data-close]').addEventListener('click', () => sheet.classList.remove('on'));
@@ -468,7 +523,7 @@ export function setupJigsaw(ctx, modes, hold) {
       if (q) {
         const o = P.p[P.neighbours(q.i).find(k => !P.p[k].home && P.members(P.p[k].g).length === 1)];
         const api = window.__jigsaw; api.grabAt(q.x + P.cw / 2, q.y + P.ch / 2);
-        const tx = o.x - (o.c - q.c) * P.cw + P.cw / 2, ty = o.y - (o.r - q.r) * P.ch + P.ch / 2;
+        const tx = o.x - (P.hx(o.i) - P.hx(q.i)) + P.cw / 2, ty = o.y - (P.hy(o.i) - P.hy(q.i)) + P.ch / 2;
         if (what === 'drag') api.moveTo(tx + P.cw * 0.6, ty + P.ch * 0.35);
         else { api.moveTo(tx + 0.012, ty - 0.01); letGo(); }
       }
