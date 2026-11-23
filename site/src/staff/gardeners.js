@@ -487,13 +487,18 @@ export class Gardener extends Robot {
     return v ?? null;
   }
   asked(n) { return this.H.mem.asked.has(`g.${this.key}.${n.id}`); }
-  // The card, kept to three lines: one thing to talk about (what she is standing by, or the next thing
-  // on this gardener's own list), something from the garden, and goodbye
+  // The card: one thing to talk about (what she is standing by, or the next thing on this gardener's own list), one
+  // thing about the gardener itself, something from the garden, and goodbye
   dialogue() {
     const H = this.H, v = H.visitor, mem = H.mem, out = [];
     const reply = (pool, opts) => () => { this.line(pool, opts); return null; };
     if (H.day.light < 0.35 && !mem.asked.has('gdark')) out.push({ text: "It's dark out here.", act: () => { mem.asked.add('gdark'); this.line(H.ctx.flashlight ? 'lantern' : 'dark', { expr: 'wink' }); return this.followUps(null, null); } });
     else { const lead = this.leadTopic(); if (lead) out.push(this.topicOpt(lead, null)); }
+    // and always one thing about the gardener itself (Anna: "1 line of personal dialogue in the menu ... 1 option that
+    // cycles through others"): the next of its own subjects and what follows from them, turning over each time it is asked
+    { const mine = GARDEN_TALK.filter(n => n.cat === 'us' && n.own).flatMap(n => [n, ...(n.then ?? [])]), shown = out[0]?.text;
+      const left = mine.filter(n => this.voice(n.ask, n.id + '.ask') !== shown), k = this.aboutMe ?? 0, n = left.find(q => !this.asked(q)) ?? left[k % Math.max(1, left.length)];
+      if (n) out.push({ text: this.voice(n.ask, n.id + '.ask'), act: () => { this.aboutMe = k + 1; this.answer(n, null); return this.dialogue(); } }); }
     const coming = this.fetching ?? this.promised;
     if (coming) out.push({ text: `How's my ${coming.name} coming?`, act: reply('busy') });
     else if (v.holding) out.push({ text: `This ${v.holding.name} is lovely.`, act: reply(v.holding.food ? 'enjoyingFood' : v.holding.gift ? 'enjoying' : 'enjoyingDrink', { extra: { drink: v.holding.name }, expr: 'love' }) });
