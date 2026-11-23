@@ -62,6 +62,7 @@ import { firewoodMaterials, ashMaterial, ashBed, Heap } from './kit/firewood.js'
 import { buildAirstop, airstopLife } from './garden/airstop.js';
 import { smoresLife } from './garden/smores.js';
 import { inPoly } from './garden/flora.js';
+import { buildCellar } from './garden/cellar.js';
 
 export { CHAPEL };
 export const BOUNDS = { x0: -110, x1: 100, z0: -142, z1: 68 };
@@ -536,6 +537,7 @@ export function plantGarden(B, items) {
   // ======================================================================================
   buildChapel(K, items);
   buildAirstop(K);      // the airship stop at the front lookout (garden/airstop.js)
+  buildCellar(K);       // the cellar doors behind the living room, and the skylight in the meadow (garden/cellar.js)
 
   // ======================================================================================
   // Built once materials exist, and the things that move

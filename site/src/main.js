@@ -9,6 +9,7 @@ import { makeMaterials } from './materials.js';
 import { buildHouse } from './house.js';
 import { furnish, furnishStart, furnishSteps } from './furnish.js';
 import * as gardenModule from './garden.js';
+import { cellarArrival } from './garden/cellar.js';
 const { plantGarden, TREES, CHAPEL } = gardenModule;
 import { makeTrees } from './trees.js';
 import { bringToLife } from './life.js';
@@ -301,7 +302,8 @@ else if (Q.has('view')) {
   walk(false); walker.place(x, y, z, yaw, pitch);
 }
 if (Q.has('view') && Q.has('open')) for (const d of house.doors) if (!d.fixed) { d.isOpen = true; d.stop.off = true; }
-if (!Q.has('view') && /^(town|vesper|harbor|school)$/.test(Q.get('from') ?? '')) walk(false);      // off the airship from Vesper Street or Cloud Spring Harbor: no welcome card; the ride in sets you down at the stop (garden/airstop.js)
+if (!Q.has('view') && Q.get('from') === 'spanya') setView(cellarArrival());
+else if (!Q.has('view') && /^(town|vesper|harbor|school)$/.test(Q.get('from') ?? '')) walk(false);      // off the airship from Vesper Street or Cloud Spring Harbor: no welcome card; the ride in sets you down at the stop (garden/airstop.js)
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
