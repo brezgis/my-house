@@ -22,6 +22,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PAINT } from './tools.js';
 import { place, buildPart, ownPlants } from './little_library.js';
 import { rng } from './cards.js';
+import { drawSkylightGlass, EYE, CAPTION } from './skylight_glass.js';
 
 // The paired Tailscale previews serve each site's working tree at its own port.
 function basementAddress() {
@@ -70,7 +71,7 @@ function wood(fr, x0, x1, y0, y1, z0, z1, o = {}) {
 }
 
 // ---- The skylight ------------------------------------------------------------------------------------------------
-const SKY = { x: -80, z: -68 };                   // the meadow: 18 ft from the nearest mown path, 17 from the birches
+const SKY = { x: 37, z: 41 };                     // the front lawn, a few steps to the street side of the three birches: the side of the house the chapel really lies on (it stood in the south-west meadow, 180 ft from where the basement's plan puts it, and could not be found)
 const RI = 2.45, RO = 3.3, RH = 1.0;              // the ring's inside and outside radius (6.6 ft across), its height
 const SPLANE = 0.6, SDEEP = -4.5;                   // the shaft is drawn through the glass below SPLANE; its floor
 
@@ -243,10 +244,12 @@ export function buildCellar(K) {
     // longer grass and a few daisies grown up round it; the meadow's own plants kept off the stones
     const keep = [[-3.35, 3.35, -1.3, 1.3], [-1.3, 1.3, -3.35, 3.35], [-2.6, 2.6, -2.6, 2.6]];
     for (const [x0, x1, z0, z1] of keep) (K.F.keepOut ??= []).push([SKY.x + x0, SKY.x + x1, SKY.z + z0, SKY.z + z1]);
-    const clear = (dx, dz) => !keep.some(([x0, x1, z0, z1]) => dx > x0 && dx < x1 && dz > z0 && dz < z1);
+    const clear = (dx, dz) => !keep.some(([x0, x1, z0, z1]) => dx > x0 && dx < x1 && dz > z0 && dz < z1) && !(dz < 0 && Math.abs(dx) < 1.5);      // (and a mown way up to it from the birches' side, so that it can be found)
     ownPlants(K, 9061, F => {
       const sow = (n, d0, d1, kind, s0, s1, o = {}) => { for (let i = 0; i < n; i++) { const a = (i + F.r() * 0.7) / n * Math.PI * 2, d = d0 + F.r() * (d1 - d0), dx = Math.cos(a) * d, dz = Math.sin(a) * d; if (clear(dx, dz)) F.add(kind, SKY.x + dx, SKY.z + dz, s0 + F.r() * (s1 - s0), o); } };
-      sow(16, 3.75, 4.5, 'grass', 0.75, 1.05); sow(7, 3.7, 4.3, 'wildflowers', 0.55, 0.75); sow(6, 3.65, 4.0, 'clover', 0.5, 0.7, { y: 0.1 }); sow(3, 3.8, 4.4, 'dandelion', 0.5, 0.6, { tilt: 0 });
+      // a drift about twelve feet across thinning into the lawn: tall grasses, wildflowers (the daisies), lavender for the
+      // blue of the glass, clover and a dandelion or two at its edge
+      sow(30, 3.75, 6.3, 'grass', 0.8, 1.2); sow(16, 3.7, 5.7, 'wildflowers', 0.6, 0.85); sow(10, 3.9, 5.6, 'lavender', 0.55, 0.8); sow(8, 3.65, 5.0, 'clover', 0.5, 0.7, { y: 0.1 }); sow(4, 4.6, 6.2, 'dandelion', 0.5, 0.6, { tilt: 0 });
     });
   }
 
@@ -327,7 +330,7 @@ function cellarLife(ctx, f, pit, leafParts) {
   if (Q.has('cellaropen')) { set(true); k = 1; pose(); }
 
   // ---- the skylight: the shaft and the glow far down it, and the glass ----
-  const toMouth = new THREE.Matrix4().makeTranslation(-SKY.x, 0, -SKY.z), sz = [RI, 0, 0];
+  const toMouth = new THREE.Matrix4().makeTranslation(-SKY.x, 0, -SKY.z), sz = [RI * EYE - 0.02, 0, 0];      // (the shaft is seen down through the glass's clear eye only)
   const wall = new THREE.CylinderGeometry(RI, RI, SPLANE - SDEEP, 24, 8, true);
   { const ix = wall.index.array; for (let i = 0; i < ix.length; i += 3) { const t = ix[i + 1]; ix[i + 1] = ix[i + 2]; ix[i + 2] = t; }      // turned inside out
     const n = wall.attributes.normal; for (let i = 0; i < n.count; i++) n.setXYZ(i, -n.getX(i), -n.getY(i), -n.getZ(i));
@@ -343,9 +346,15 @@ function cellarLife(ctx, f, pit, leafParts) {
   const glowMat = deep(new THREE.MeshBasicMaterial({ vertexColors: true }), { plane: SPLANE, floor: 0.35, dark: 0, mouth: toMouth, size: sz, disc: true });
   const glow = new THREE.Mesh(floor, glowMat); glow.name = 'skylight glow'; scene.add(glow);
   glow.onBeforeRender = () => { const v = 0.4 + 0.9 * (ctx.day?.night ?? 0); glowMat.color.setRGB(v, v, v); };      // a little stronger after dark
-  const R = (RI * RI + 0.7 * 0.7) / (2 * 0.7), dome = new THREE.SphereGeometry(R, 32, 6, 0, Math.PI * 2, 0, Math.asin((RI + 0.03) / R));
-  dome.translate(SKY.x, RH + 0.04 + 0.7 - R, SKY.z);
-  const glass = new THREE.Mesh(dome, new THREE.MeshStandardMaterial({ color: 0xdde8ee, roughness: 0.05, metalness: 0, transparent: true, opacity: 0.2, depthWrite: false, envMapIntensity: 1.4 }));
+  // The glass (skylight_glass.js: Varela, Maturana and Uribe's autopoiesis, a ring that makes itself). It lies flat in
+  // the bronze rim: a clear eye in the middle, the chapel's shaft seen down through it, and round it the coloured ring.
+  // By day it is lit from above; after dark it glows a little from the candles below.
+  const glassY = RH + 0.065, tex = new THREE.CanvasTexture(drawSkylightGlass(1024)); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  const ringMat = new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.12, roughness: 0.18, metalness: 0, transparent: true, alphaTest: 0.5, envMapIntensity: 0.9, side: THREE.DoubleSide });
+  const ring = new THREE.Mesh(new THREE.RingGeometry(RI * EYE - 0.01, RI + 0.02, 96, 1).rotateX(-Math.PI / 2).rotateY(Math.PI).translate(SKY.x, glassY, SKY.z), ringMat); ring.name = 'skylight glass ring'; scene.add(ring);
+  ring.onBeforeRender = () => { ringMat.emissiveIntensity = 0.1 + 0.55 * (ctx.day?.night ?? 0); };
+  const glass = new THREE.Mesh(new THREE.CircleGeometry(RI * EYE, 48).rotateX(-Math.PI / 2).translate(SKY.x, glassY - 0.01, SKY.z), new THREE.MeshStandardMaterial({ color: 0xdde8ee, roughness: 0.05, metalness: 0, transparent: true, opacity: 0.16, depthWrite: false, envMapIntensity: 1.4 }));
   glass.name = 'skylight glass'; scene.add(glass);
-  ctx.interact.push({ x: SKY.x, y: RH + 0.3, z: SKY.z, reach: 7.5, size: 2.4, label: () => 'look down', act: () => window.houseUI?.toast?.('A long way down, a candle.') });
+  const came = new THREE.Mesh(new THREE.TorusGeometry(RI * EYE, 0.03, 6, 48).rotateX(Math.PI / 2).translate(SKY.x, glassY + 0.01, SKY.z), new THREE.MeshStandardMaterial({ color: 0x7d6543, roughness: 0.4, metalness: 1 })); came.name = 'skylight came'; scene.add(came);
+  ctx.interact.push({ x: SKY.x, y: RH + 0.3, z: SKY.z, reach: 7.5, size: 2.4, label: () => 'look at the glass', act: () => window.houseUI?.toast?.(`${CAPTION.title}. ${CAPTION.kicker}. A ring that keeps making itself: the star makes the amber links, the links close round it, and where one breaks another mends it. Through the clear middle, a long way down, a candle.`, 14000) });
 }
