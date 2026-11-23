@@ -60,7 +60,7 @@ export function attendVisitor(st, me, v, dt, o = {}) {
 //
 //   engageVisitor(st, me, v, dt, o)  ->  st
 //     st   its own state ({} the first time, the same object after); me { x, z }; v the visitor { present, x, z, fx, fz }
-//     o    { talking: false (a conversation is open: its card, its words, the order it is taking), near: 6, far: 8
+//     o    { talking: false (a conversation is open: its card, its words, the order it is taking), near: 7, far: 9
 //          (feet: it engages inside near, lets go beyond far), grace: 1.5 (seconds beyond far before it lets go),
 //          after: 4 (seconds it stays with her after the conversation closes, though she has not moved),
 //          ignored: 8 (seconds she may stand near with her back to it, not talking, before it goes back to work),
@@ -72,7 +72,7 @@ export function attendVisitor(st, me, v, dt, o = {}) {
 export function engageVisitor(st, me, v, dt, o = {}) {
   st ??= {};
   if (st.on === undefined) Object.assign(st, { on: false, why: null, near: false, gone: 0, after: 0, away: 0, vx: 0, vz: 0, px: null, pz: null, toward: 0, talk: false });
-  const near = o.near ?? 6, far = o.far ?? 8, here = !!v?.present && o.level !== false;
+  const near = o.near ?? 7, far = o.far ?? 9, here = !!v?.present && o.level !== false;
   let dist = Infinity, facing = false;
   if (here) {
     // how she is moving, from where she was (a jump, as when she is set down somewhere, is not walking)
@@ -84,13 +84,13 @@ export function engageVisitor(st, me, v, dt, o = {}) {
     facing = fl > 1e-3 && dist > 1e-3 && (fx * dx + fz * dz) / (fl * dist) > 0.8;           // (within about 35 degrees)
   } else { st.px = null; st.vx = st.vz = 0; st.toward = 0; }
   const speed = Math.hypot(st.vx, st.vz);
-  st.give = here && dist < far && st.toward > (o.walkUp ?? 2.2);
+  st.give = here && dist < (facing ? o.giveAt ?? 3.2 : far) && st.toward > (o.walkUp ?? 2.2);      // (looking at it as she comes, she is coming TO it: it gives way only if she is about to walk into it)
   if (o.talking) { st.talk = true; st.on = true; st.why = 'talk'; st.near = here && dist < far; st.gone = 0; st.away = 0; return st; }
   if (st.talk) { st.talk = false; st.after = o.after ?? 4; st.near = here && dist < far; st.gone = 0; st.away = 0; }      // the conversation has just closed
   st.after = Math.max(0, st.after - dt);
   // she comes up to it: near, and walking up to it (slowing, as one does to speak to someone: at full stride she is
   // only passing, and that is the manners' business, stepping aside) or stopped and looking at it
-  if (here && dist < near && ((st.toward > 0.7 && speed < (o.walkUp ?? 2.2)) || (speed < 0.6 && facing))) { st.near = true; st.away = 0; }
+  if (here && dist < near && ((st.toward > 0.7 && (speed < (o.walkUp ?? 2.2) || facing)) || (speed < 0.6 && facing))) { st.near = true; st.away = 0; }      // (at a walk, too, if she is looking at it as she comes: it stops what it is doing and turns to her before she arrives. Anna: "robots do not pause and turn to you when you approach")
   if (st.near) {
     st.gone = here && dist < far ? 0 : st.gone + dt;
     st.away = facing || st.toward > 0.3 ? 0 : st.away + dt;                                // standing about near it, busy with something else

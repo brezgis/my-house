@@ -1,13 +1,15 @@
 // Speech bubbles: small DOM cards that float over a character's head, in the
 // page's own voice (serif, cream on translucent dark brown).
 
+import { readTime, minTime, FADE } from '../robokit/speech.js';      // the pace of speech, shared by all four places
+
 const CSS = `
 #staff-bubbles { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 3; }
 .staff-bubble { position: absolute; left: 0; top: 0; width: max-content; max-width: min(300px, 78vw); transform-origin: 50% 100%; will-change: transform; }
 .staff-bubble .card { position: relative; padding: 8px 13px 9px; border-radius: 4px; background: rgba(24, 17, 12, .74); color: #f4ead8;
   font-family: var(--serif); font-size: 15.5px; line-height: 1.36; letter-spacing: .01em; text-shadow: 0 1px 2px rgba(0,0,0,.45);
-  box-shadow: 0 3px 14px rgba(0,0,0,.2); opacity: 0; transform: translateY(7px); transition: opacity .9s ease, transform .9s ease; }
-.staff-bubble.on .card { opacity: 1; transform: none; transition: opacity .45s ease, transform .45s cubic-bezier(.2,.7,.3,1); }
+  box-shadow: 0 3px 14px rgba(0,0,0,.2); opacity: 0; transform: translateY(7px); transition: opacity ${FADE.out}s ease, transform ${FADE.out}s ease; }
+.staff-bubble.on .card { opacity: 1; transform: none; transition: opacity ${FADE.in}s ease, transform ${FADE.in}s cubic-bezier(.2,.7,.3,1); }
 .staff-bubble .card::after { content: ''; position: absolute; left: 50%; bottom: -7px; margin-left: -7px; border: 7px solid transparent;
   border-bottom: 0; border-top-color: rgba(24, 17, 12, .74); }
 .staff-bubble.moved .card::after { display: none; }
@@ -32,8 +34,6 @@ export function makeBubbles(THREE, camera, headless = false) {
   // How long a line needs: time to notice it, then a comfortable reading pace. Callers may ask for
   // longer, never shorter. A line is never replaced before it has had its minimum on screen: a
   // newer one waits its turn (only the newest waits; older waiting lines are dropped).
-  const readTime = text => Math.min(15, 2.6 + text.length * 0.075);
-  const minTime = text => Math.min(6, 1.3 + text.length * 0.04);
 
   function make(name, { cat = false } = {}) {
     const el = root ? document.createElement('div') : null, card = el ? document.createElement('div') : null;
@@ -43,7 +43,7 @@ export function makeBubbles(THREE, camera, headless = false) {
       b.text = text; b.until = now + Math.max(secs ?? 0, readTime(text)); b.minUntil = now + minTime(text); b.pending = null;
       if (card) {
         card.innerHTML = `<span class="who">${name}</span>${escape(text)}`; b.w = null; b.h = null;
-        if (b.shown) card.animate?.([{ opacity: 0.25, transform: 'translateY(5px)' }, { opacity: 1, transform: 'none' }], { duration: 380, easing: 'ease-out' });
+        if (b.shown) card.animate?.([{ opacity: 0, transform: 'translateY(5px)' }, { opacity: 1, transform: 'none' }], { duration: FADE.swap, easing: 'ease-out' });
       }
     };
     b.say = (text, secs, now) => {

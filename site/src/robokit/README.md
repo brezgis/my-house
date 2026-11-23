@@ -70,6 +70,14 @@ shared the same way and is kept separate; it does not use robokit.)
   it is looking off somewhere.
 - `talkMouth(t)`: a mouth moving with speech.
 
+## speech.js: the pace of what they say
+
+- `readTime(text)`, `minTime(text)`: how long a line stays up, and the least it is given before the next.
+- `turnTime(text)`: one turn of a conversation between two robots.
+- `FADE`: `{ in, out, lost }` in seconds and `swap` in milliseconds. A line always fades; it is never cut.
+- Each site's own bubbles (`staff/bubbles.js`, `clerks/bubbles.js`, `faculty/bubbles.js`) import these. The basement
+  (`basement_spa`) is the fourth place that carries this folder.
+
 ## Who uses what
 
 - **Anna's House:** `staff/models.js` and `friends/bodies.js` (shells, screens, fitted hats and headphones),
