@@ -75,8 +75,9 @@ shared the same way and is kept separate; it does not use robokit.)
 - `readTime(text)`, `minTime(text)`: how long a line stays up, and the least it is given before the next.
 - `turnTime(text)`: one turn of a conversation between two robots.
 - `FADE`: `{ in, out, lost }` in seconds and `swap` in milliseconds. A line always fades; it is never cut.
-- Each site's own bubbles (`staff/bubbles.js`, `clerks/bubbles.js`, `faculty/bubbles.js`) import these. The basement
-  (`basement_spa`) is the fourth place that carries this folder.
+- Only the basement's bubbles (`basement_spa` `faculty/bubbles.js`) and staff use these. The house, the town and the lab
+  keep their own pace, which Anna found right as it was (she tried the shared one in the house on 22 November 2026 and
+  asked for it back). The basement is the fourth place that carries this folder.
 
 ## Who uses what
 
