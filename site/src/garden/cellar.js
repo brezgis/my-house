@@ -73,7 +73,7 @@ function wood(fr, x0, x1, y0, y1, z0, z1, o = {}) {
 // ---- The skylight ------------------------------------------------------------------------------------------------
 const SKY = { x: 37, z: 41 };                     // the front lawn, a few steps to the street side of the three birches: the side of the house the chapel really lies on (it stood in the south-west meadow, 180 ft from where the basement's plan puts it, and could not be found)
 const RI = 2.45, RO = 3.3, RH = 1.0;              // the ring's inside and outside radius (6.6 ft across), its height
-const SPLANE = 0.6, SDEEP = -4.5;                   // the shaft is drawn through the glass below SPLANE; its floor
+const SPLANE = 0.6, SDEEP = -19;                   // the shaft is drawn through the glass below SPLANE; its floor
 
 // ---- Drawing below the lawn ---------------------------------------------------------------------------------------
 // The lawn is one unbroken sheet (main.js), so, as with the pond (pond_water.js, sink()), what is below it is drawn
@@ -240,7 +240,7 @@ export function buildCellar(K) {
       const r = top ? (RI + RO) / 2 : RO + 0.02; K.rock(PAINT.moss, SKY.x + Math.cos(a) * r, top ? RH + 0.02 : 0.06, SKY.z + Math.sin(a) * r, sx, top ? 0.05 : 0.16, sx * 0.7, -a, 1);
     }
     const rim = new THREE.TorusGeometry(RI + 0.03, 0.06, 6, 40); rim.rotateX(Math.PI / 2); rim.translate(SKY.x, RH + 0.04, SKY.z); K.put('c#7d6543/0.4/1', rim);      // the bronze rim
-    K.collide(SKY.x - RO, SKY.x + RO, SKY.z - RO, SKY.z + RO, 1.9);
+    K.collide(SKY.x - RO, SKY.x + RO, SKY.z - RO, SKY.z + RO, RH + 0.04);      // (only as tall as the stones: a jump clears it, and one lands on the ring: cellarLife's floorAt)
     // longer grass and a few daisies grown up round it; the meadow's own plants kept off the stones
     const keep = [[-3.35, 3.35, -1.3, 1.3], [-1.3, 1.3, -3.35, 3.35], [-2.6, 2.6, -2.6, 2.6]];
     for (const [x0, x1, z0, z1] of keep) (K.F.keepOut ??= []).push([SKY.x + x0, SKY.x + x1, SKY.z + z0, SKY.z + z1]);
@@ -276,7 +276,8 @@ function cellarLife(ctx, f, pit, leafParts) {
   const hook = () => {
     const w = walker(); if (!w) { setTimeout(hook, 250); return; }
     const base = w.floorAt.bind(w);
-    w.floorAt = (x, z, y) => ((open || y < -0.2) && inWell(x, z) ? stairY(local(x, z)[1]) : base(x, z, y));
+    // (and the skylight can be stood on: its stones and its glass are a floor to anyone who has got up onto them)
+    w.floorAt = (x, z, y) => ((open || y < -0.2) && inWell(x, z) ? stairY(local(x, z)[1]) : y > -0.4 && Math.hypot(x - SKY.x, z - SKY.z) < RO - 0.03 ? RH + 0.08 : base(x, z, y));
   };
   setTimeout(hook, 0);
   // the colliders: the shut doors, the sides of the areaway and the house end (each under 5.5 ft tall, so life.js does not
@@ -330,29 +331,46 @@ function cellarLife(ctx, f, pit, leafParts) {
   if (Q.has('cellaropen')) { set(true); k = 1; pose(); }
 
   // ---- the skylight: the shaft and the glow far down it, and the glass ----
-  const toMouth = new THREE.Matrix4().makeTranslation(-SKY.x, 0, -SKY.z), sz = [RI * EYE - 0.02, 0, 0];      // (the shaft is seen down through the glass's clear eye only)
-  const wall = new THREE.CylinderGeometry(RI, RI, SPLANE - SDEEP, 24, 8, true);
+  // Looking down through the clear eye you look down a shaft: nineteen feet of coursed stone, paler at the top where the
+  // day gets in and darkening as it goes, and at the bottom the chapel as it is from straight above: its slate floor,
+  // the stone table, the bronze bowl of dark water with the sky's disc in it, and the candles. (The lawn is one sheet
+  // and lies under the glass too: everything seen through the ring's opening is drawn over it, so no grass shows in
+  // the hole.)
+  const toMouth = new THREE.Matrix4().makeTranslation(-SKY.x, 0, -SKY.z), sz = [RI - 0.02, 0, 0];
+  const SEG = 28, ROWS = 46, wall = new THREE.CylinderGeometry(RI, RI * 0.985, SPLANE - SDEEP, SEG, ROWS, true);
   { const ix = wall.index.array; for (let i = 0; i < ix.length; i += 3) { const t = ix[i + 1]; ix[i + 1] = ix[i + 2]; ix[i + 2] = t; }      // turned inside out
-    const n = wall.attributes.normal; for (let i = 0; i < n.count; i++) n.setXYZ(i, -n.getX(i), -n.getY(i), -n.getZ(i));
-    const p = wall.attributes.position, col = new Float32Array(p.count * 3), q = rng(7717);
-    for (let i = 0; i < p.count; i++) { const v = 0.035 + q() * 0.03; col[i * 3] = v * 1.05; col[i * 3 + 1] = v; col[i * 3 + 2] = v * 0.9; }
-    wall.setAttribute('color', new THREE.BufferAttribute(col, 3)); wall.translate(SKY.x, (SPLANE + SDEEP) / 2, SKY.z); }
-  const shaft = new THREE.Mesh(wall, deep(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, envMapIntensity: 0.2 }), { plane: SPLANE, floor: 0.35, dark: 0.75, mouth: toMouth, size: sz, disc: true }));
+    const n = wall.attributes.normal; for (let i = 0; i < n.count; i++) n.setXYZ(i, -n.getX(i), -n.getY(i), -n.getZ(i)); }
+  { const g = wall.toNonIndexed(), p = g.attributes.position, col = new Float32Array(p.count * 3), H = SPLANE - SDEEP, hash = (a, b) => { const v = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return v - Math.floor(v); };
+    for (let i = 0; i < p.count; i += 3) {      // each stone its own tone, a course at a time, the courses breaking joint
+      const yc = (p.getY(i) + p.getY(i + 1) + p.getY(i + 2)) / 3, row = Math.floor((H / 2 - yc) / (H / ROWS)), ac = Math.atan2((p.getZ(i) + p.getZ(i + 1) + p.getZ(i + 2)) / 3, (p.getX(i) + p.getX(i + 1) + p.getX(i + 2)) / 3);
+      const stone = Math.floor((ac / (Math.PI * 2) + 1) * (SEG / 2) + (row % 2) * 0.5), v = 0.12 + 0.09 * hash(row, stone) - (hash(row, 99) > 0.8 ? 0.03 : 0);
+      for (let k = 0; k < 3; k++) { col[(i + k) * 3] = v * 1.04; col[(i + k) * 3 + 1] = v * 0.98; col[(i + k) * 3 + 2] = v * 0.88; }
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.translate(SKY.x, (SPLANE + SDEEP) / 2, SKY.z); wall.dispose(); var wallG = g; }
+  const shaft = new THREE.Mesh(wallG, deep(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, envMapIntensity: 0.15, flatShading: true }), { plane: SPLANE, floor: 0.35, dark: 0.15, mouth: toMouth, size: sz, disc: true }));
   shaft.name = 'skylight shaft'; scene.add(shaft);
-  const floor = new THREE.RingGeometry(0.01, RI, 28, 8); floor.rotateX(-Math.PI / 2);
-  { const p = floor.attributes.position, col = new Float32Array(p.count * 3);
-    for (let i = 0; i < p.count; i++) { const r = Math.hypot(p.getX(i), p.getZ(i)), g = Math.exp(-((r / 0.8) ** 2)); col[i * 3] = 0.004 + g * 0.95; col[i * 3 + 1] = 0.003 + g * 0.45; col[i * 3 + 2] = 0.002 + g * 0.12; }
-    floor.setAttribute('color', new THREE.BufferAttribute(col, 3)); floor.translate(SKY.x, SDEEP, SKY.z); }
-  const glowMat = deep(new THREE.MeshBasicMaterial({ vertexColors: true }), { plane: SPLANE, floor: 0.35, dark: 0, mouth: toMouth, size: sz, disc: true });
+  // the chapel from straight above, painted small
+  const belowTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'), u = 256 / (RI * 2), X = x => 128 + x * u;
+    g.fillStyle = '#17150f'; g.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 6; i++) for (let j = 0; j < 6; j++) { g.fillStyle = (i + j) % 2 ? '#1c1a15' : '#141210'; g.fillRect(i * 44 - 4, j * 44 - 4, 43, 43); }      // slate flags
+    g.fillStyle = '#6f675a'; g.fillRect(X(-1.95), X(-1.95), 3.9 * u, 3.9 * u); g.strokeStyle = '#8a8172'; g.lineWidth = 2; g.strokeRect(X(-1.95), X(-1.95), 3.9 * u, 3.9 * u);      // the table
+    g.fillStyle = '#6a4a22'; g.beginPath(); g.arc(128, 128, 1.36 * u, 0, 7); g.fill(); g.fillStyle = '#08161a'; g.beginPath(); g.arc(128, 128, 1.2 * u, 0, 7); g.fill();      // the bowl, its water
+    { const gr = g.createRadialGradient(128 - 6, 128 - 5, 1, 128 - 6, 128 - 5, 0.75 * u); gr.addColorStop(0, 'rgba(190,215,235,.95)'); gr.addColorStop(0.7, 'rgba(120,160,190,.5)'); gr.addColorStop(1, 'rgba(120,160,190,0)'); g.fillStyle = gr; g.beginPath(); g.arc(128, 128, 1.2 * u, 0, 7); g.fill(); }      // the sky's disc in it
+    for (const [x, z] of [[-1.5, -1.5], [-1.25, -1.62], [-1.62, -1.2], [1.5, -1.45], [1.3, -1.6], [-1.45, 1.4]]) { const gr = g.createRadialGradient(X(x), X(z), 0, X(x), X(z), 0.55 * u); gr.addColorStop(0, 'rgba(255,225,150,1)'); gr.addColorStop(0.18, 'rgba(255,170,70,.75)'); gr.addColorStop(1, 'rgba(255,140,40,0)'); g.fillStyle = gr; g.beginPath(); g.arc(X(x), X(z), 0.55 * u, 0, 7); g.fill(); }      // the candles
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+  const floor = new THREE.CircleGeometry(RI, 40); floor.rotateX(-Math.PI / 2); floor.translate(SKY.x, SDEEP, SKY.z);
+  const glowMat = deep(new THREE.MeshBasicMaterial({ map: belowTex }), { plane: SPLANE, floor: 0.35, dark: 0, mouth: toMouth, size: sz, disc: true });
   const glow = new THREE.Mesh(floor, glowMat); glow.name = 'skylight glow'; scene.add(glow);
-  glow.onBeforeRender = () => { const v = 0.4 + 0.9 * (ctx.day?.night ?? 0); glowMat.color.setRGB(v, v, v); };      // a little stronger after dark
+  glow.onBeforeRender = () => { const v = 0.5 + 0.5 * (ctx.day?.night ?? 0); glowMat.color.setRGB(v, v, v); };      // the candles carry further after dark
   // The glass (skylight_glass.js: Varela, Maturana and Uribe's autopoiesis, a ring that makes itself). It lies flat in
   // the bronze rim: a clear eye in the middle, the chapel's shaft seen down through it, and round it the coloured ring.
-  // By day it is lit from above; after dark it glows a little from the candles below.
+  // Stained glass seen from its lit side, over a dark shaft, does not glow: by day it is deep-coloured and glossy, the
+  // sky lying on it, and only what little light comes back up shows its colours. After dark the candles nineteen feet
+  // down give it the faintest light from behind.
   const glassY = RH + 0.065, tex = new THREE.CanvasTexture(drawSkylightGlass(1024)); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
-  const ringMat = new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.12, roughness: 0.18, metalness: 0, transparent: true, alphaTest: 0.5, envMapIntensity: 0.9, side: THREE.DoubleSide });
+  const ringMat = new THREE.MeshStandardMaterial({ map: tex, color: 0x9a9a9a, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.07, metalness: 0, transparent: true, alphaTest: 0.5, envMapIntensity: 1.7, side: THREE.DoubleSide });
   const ring = new THREE.Mesh(new THREE.RingGeometry(RI * EYE - 0.01, RI + 0.02, 96, 1).rotateX(-Math.PI / 2).rotateY(Math.PI).translate(SKY.x, glassY, SKY.z), ringMat); ring.name = 'skylight glass ring'; scene.add(ring);
-  ring.onBeforeRender = () => { ringMat.emissiveIntensity = 0.1 + 0.55 * (ctx.day?.night ?? 0); };
+  ring.onBeforeRender = () => { ringMat.emissiveIntensity = 0.13 * (ctx.day?.night ?? 0); };
   const glass = new THREE.Mesh(new THREE.CircleGeometry(RI * EYE, 48).rotateX(-Math.PI / 2).translate(SKY.x, glassY - 0.01, SKY.z), new THREE.MeshStandardMaterial({ color: 0xdde8ee, roughness: 0.05, metalness: 0, transparent: true, opacity: 0.16, depthWrite: false, envMapIntensity: 1.4 }));
   glass.name = 'skylight glass'; scene.add(glass);
   const came = new THREE.Mesh(new THREE.TorusGeometry(RI * EYE, 0.03, 6, 48).rotateX(Math.PI / 2).translate(SKY.x, glassY + 0.01, SKY.z), new THREE.MeshStandardMaterial({ color: 0x7d6543, roughness: 0.4, metalness: 1 })); came.name = 'skylight came'; scene.add(came);

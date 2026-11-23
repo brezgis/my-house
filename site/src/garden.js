@@ -62,6 +62,7 @@ import { firewoodMaterials, ashMaterial, ashBed, Heap } from './kit/firewood.js'
 import { buildAirstop, airstopLife } from './garden/airstop.js';
 import { smoresLife } from './garden/smores.js';
 import { inPoly } from './garden/flora.js';
+import { ownPlants } from './garden/little_library.js';
 import { buildCellar } from './garden/cellar.js';
 
 export { CHAPEL };
@@ -537,7 +538,15 @@ export function plantGarden(B, items) {
   // ======================================================================================
   buildChapel(K, items);
   buildAirstop(K);      // the airship stop at the front lookout (garden/airstop.js)
-  buildCellar(K);       // the cellar doors behind the living room, and the skylight in the meadow (garden/cellar.js)
+  buildCellar(K);       // the cellar doors behind the living room, and the skylight by the front birches (garden/cellar.js)
+  // The north side of the front walk, from where its bed ended (z 39) out to the gate, was thin beside the south side's
+  // (Anna: "seems a bit bare there"): the same cottage planting carried on along it. Sown from a seed of its own, last,
+  // so that nothing else in the garden moves.
+  ownPlants(K, 5522, F => {
+    const sow = (kind, x, z, rx, rz, n, s) => { for (let i = 0; i < n; i++) { const a = F.r() * Math.PI * 2, d = Math.sqrt(F.r()); F.add(kind, x + Math.cos(a) * rx * d, z + Math.sin(a) * rz * d, s * (0.85 + F.r() * 0.3)); } };
+    sow('lavender', 6.3, 45, 1.1, 5, 7, 1); sow('catmint', 6.4, 55, 1.1, 4, 5, 1); sow('cosmos', 9.6, 49, 2.2, 5, 6, 0.9); sow('wildflowers', 9, 43, 2.2, 3, 6, 0.9);
+    sow('spires', 11, 56, 1.6, 3.5, 4, 0.9); sow('rose', 10, 60.5, 1.8, 2, 2, 1); sow('grass', 11.5, 52, 1.5, 7, 4, 0.8);
+  });
 
   // ======================================================================================
   // Built once materials exist, and the things that move
