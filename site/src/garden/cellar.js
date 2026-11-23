@@ -6,10 +6,13 @@
 // the shakes, a timber sill at the low end; and two slanted leaves of boards running down the slope, framed on
 // the face and ledged and braced beneath, on wrought-iron strap hinges, with a ring pull each and a weather strip
 // over the meeting edge. Nothing says what it is for. E swings the leaves open (the one with the weather strip
-// first) on a flight of stone steps between brick walls
-// going down into the dark; the walker can go down them (the island's lawn has no hole in it, so the walker is
-// given the stair's floor here, and what lies below the lawn is drawn as the pond's is: see deep() below). At the
-// bottom is a dark doorway under the house; E there ("go down") fades the view to black and takes you to the basement. E on an open leaf closes them again.
+// first) on the head of the basement's own stair: dark slate
+// treads between walls of pale coursed stone, a moss-green runner with a cream edge and a line of ochre laid down
+// the middle, all of it going down under the house and into the dark, so that only the first four or five steps are
+// seen and beyond them nothing. The walker can go down them (the island's lawn has no hole in it, so the walker is
+// given the stair's floor here, and what lies below the lawn is drawn as the pond's is: see deep() below). A few
+// steps down, where the light gives out, the view fades to black and you are taken to the basement (E, "go down",
+// does the same from anywhere on the flight). E on an open leaf closes them again.
 //
 // The skylight. Out in the meadow, well clear of the paths, a low ring of weathered stone in the long grass holding
 // a shallow glass dome on a thin bronze rim: the top of a light shaft. Looking down through it there is only dark,
@@ -45,17 +48,21 @@ export function cellarArrival() {
 const TOP = 3.0, LOW = 0.75, Z0 = 0.3, Z1 = 5.75; // the leaves' slope: TOP at Z0 by the wall, down to LOW at Z1
 const SLOPE = Math.atan2(TOP - LOW, Z1 - Z0), LEAF = Math.hypot(Z1 - Z0, TOP - LOW) + 0.06;
 const OPEN = 1.66;                                // how far the leaves swing (a little past upright)
-const MOUTH = 5.6;                                // the areaway runs from the wall (z 0) to here
-const RISE = 0.6, BOTTOM = -6 * RISE;             // six risers; the eye at the bottom is still above the lawn
+const MOUTH = 5.6;                                // the well runs from the wall (z 0) to here
+const RISE = 0.6, BOTTOM = -6 * RISE;             // six risers walked; the eye at the bottom is still above the lawn
+const STEPS = 7, UNDER = -STEPS * RISE - 0.8;     // (one more is drawn, in the dark, and the slab under it all)
 const HINGES = [0.75, LEAF - 0.75];                 // the strap hinges, down the slope from the head
-const TREAD = [MOUTH, 4.75, 3.95, 3.15, 2.35, 1.55, 0];       // tread i (1..6) runs from TREAD[i] to TREAD[i - 1]
+const TREAD = [MOUTH, 4.75, 3.95, 3.15, 2.35, 1.55, 0.75, -0.05];       // tread i (1..7) runs from TREAD[i] to TREAD[i - 1]
 const FEET = [[MOUTH, 0.05], [5.15, -0.6], [4.35, -1.2], [3.55, -1.8], [2.75, -2.4], [1.95, -3.0], [1.5, -3.6], [0, -3.6]];      // the walker's floor down the flight
-const PLANE = 0.3;                                // below this the areaway is drawn through its mouth only
+const PLANE = 0.3;                                // below this the stair is drawn through its mouth only
+const FADE = [1.5, 3.6], HOP = 2.75;              // the light gives out between these (z, toward the house: black from the first on); and where the walker is taken below (on the fourth step)
 const IRON = PAINT.iron, BLACK = 'c#050404/1';
-// Below the lawn everything is plain colour (see sinkGeometry): these are the house's brick, its mortar and its
-// dark-stained timber as they come out on screen
-const BRICKS = ['c#b8502f', 'c#a8472b', 'c#c25a35', 'c#9e482e', 'c#b05233', 'c#96492f'], MORTAR = 'c#7a6654', STAIN = 'c#6a4030';
-const COURSE = 3.3 / 19, BRICK = 3.3 / 5.7;       // the brick photo's courses and bricks, at the size the house lays it
+// Below the lawn everything is plain colour (see sinkGeometry): these are the basement's own stair (basement_spa
+// spanya.js and furnish/stair_hall.js) as it comes out on screen there: its walls' pale warm stone in long thin
+// courses ('coursed'), its slate treads ('slate_floor'), and its runner's wools, moss green, cream and ochre
+const STONES = ['c#e2c8a2', 'c#d4b890', 'c#ead4b2', 'c#c8ac86', 'c#dcc09a', 'c#bfa27c'], GROUT = 'c#9c8462', SLATE = ['c#86745e', 'c#7e6d58', 'c#8e7c66'];
+const WOOL = { m: 'c#3e5232', b: 'c#e6dcc4', o: 'c#c4902e' }, RUG = 1.3, BANDS = [[0, 0.2, 'b'], [0.2, 0.28, 'o'], [0.28, 2 * RUG - 0.28, 'm'], [2 * RUG - 0.28, 2 * RUG - 0.2, 'o'], [2 * RUG - 0.2, 2 * RUG, 'b']];      // the runner: its bands across, as the basement's (which is 3.2 ft wide in a 6 ft stair; this one 2.6 in 3.9)
+const COURSE = 0.3;                               // a course of the stone
 
 // A piece of the house's dark-stained timber, its grain along its length (or along axis o.along: 0 x, 1 y, 2 z)
 function wood(fr, x0, x1, y0, y1, z0, z1, o = {}) {
@@ -82,18 +89,19 @@ const SPLANE = 0.6, SDEEP = -19;                   // the shaft is drawn through
 // plane and `floor` (just above the lawn), in order along that line (so near and far still hide one another
 // correctly, and the lawn and everything else round the mouth lie behind). With the eye below the plane (crouched on
 // the steps) the test is made just under the eye instead; with the eye down at the lawn or below it, what is below
-// is drawn as it is. It also darkens with depth (`dark` per foot).
-function deep(mat, { plane, floor, dark, mouth, size, disc }) {
+// is drawn as it is. It also darkens with depth (`dark` per foot), and, given `fade` [z0, z1] (the mouth's own z), the
+// whole mesh, above the plane as well, goes from its own light at z1 to black at z0 and beyond.
+function deep(mat, { plane, floor, dark, mouth, size, disc, fade }) {
   const head = 'varying vec3 vDW; varying float vDZ; varying vec2 vDPJ;';
   mat.onBeforeCompile = sh => {
     sh.uniforms.uDeep = { value: new THREE.Vector3(plane, floor, dark) };
     sh.uniforms.uMouth = { value: mouth };
-    sh.uniforms.uMouthSize = { value: new THREE.Vector3(...size) };
+    sh.uniforms.uMouthSize = { value: new THREE.Vector3(...size) }; sh.uniforms.uFade = { value: new THREE.Vector2(...(fade ?? [0, 0])) };
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\n' + head)
       .replace('#include <project_vertex>', `#include <project_vertex>
   vDW = (modelMatrix * vec4(transformed, 1.0)).xyz; vDZ = mvPosition.z; vDPJ = vec2(projectionMatrix[2][2], projectionMatrix[3][2]);`);
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
-${head} uniform vec3 uDeep, uMouthSize; uniform mat4 uMouth;`)
+${head} uniform vec3 uDeep, uMouthSize; uniform vec2 uFade; uniform mat4 uMouth;`)
       .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
   float hm = min(uDeep.x, cameraPosition.y - 0.02);
   if (vDW.y < hm && hm > uDeep.y + 0.01) {
@@ -106,10 +114,10 @@ ${head} uniform vec3 uDeep, uMouthSize; uniform mat4 uMouth;`)
     float vz = vDZ * (hf - cameraPosition.y) / ray.y;
     gl_FragDepth = (vDPJ.x * vz + vDPJ.y) / (-vz) * 0.5 + 0.5;
   } else gl_FragDepth = gl_FragCoord.z;`)
-      .replace('#include <opaque_fragment>', `outgoingLight *= exp(-max(uDeep.x - vDW.y, 0.0) * uDeep.z);
+      .replace('#include <opaque_fragment>', `outgoingLight *= exp(-max(uDeep.x - vDW.y, 0.0) * uDeep.z)${fade ? ' * smoothstep(uFade.x, uFade.y, (uMouth * vec4(vDW, 1.0)).z)' : ''};
   #include <opaque_fragment>`);
   };
-  mat.customProgramCacheKey = () => 'cellar-deep-' + (disc ? 'disc' : 'rect') + (mat.isMeshBasicMaterial ? '-basic' : '');
+  mat.customProgramCacheKey = () => 'cellar-deep-' + (disc ? 'disc' : 'rect') + (fade ? '-fade' : '') + (mat.isMeshBasicMaterial ? '-basic' : '');
   return mat;
 }
 // The plain-painted parts collected in a part's sink, as one vertex-coloured geometry in world space
@@ -125,16 +133,16 @@ function sinkGeometry(part) {
   });
   return mergeGeometries(list).applyMatrix4(part.world);
 }
-// A brick wall face in running bond, as boxes in a frame: the face at x = x0 looking toward -x (s = 1) or +x
-// (s = -1), from z0 to z1, y0 to y1, with joints of mortar
-function courses(p, q, s, x0, z0, z1, y0, y1, skip = () => false) {
-  p.box(MORTAR + '/1', x0 + s * 0.05, x0 + s * 0.3, y0, y1, z0, z1);
+// A wall face of coursed stone, as boxes in a frame: the wall's body on the s side of x = x0 (s = 1: toward +x), its
+// stones standing a little proud of that on the other, from z0 to z1, y0 to y1 (and no higher than top(z)), in long
+// thin courses breaking joint, each stone its own tone
+function stones(p, q, s, x0, z0, z1, y0, y1, top = () => Infinity) {
   const rows = Math.max(1, Math.round((y1 - y0) / COURSE)), rh = (y1 - y0) / rows;
   for (let i = 0; i < rows; i++) {
-    let z = z0 - (i % 2 ? BRICK / 2 : 0) - q() * 0.04;
+    let z = z0 - q() * 1.2;
     while (z < z1 - 0.05) {
-      const len = BRICK, a = Math.max(z0, z), b = Math.min(z1, z + len), ya = y0 + i * rh, yb = ya + rh;
-      if (b - a > 0.08 && !skip(a, b, ya, yb)) p.box(BRICKS[Math.floor(q() * BRICKS.length)] + '/1', x0 + s * (0.035 - q() * 0.02), x0 + s * 0.12, ya + 0.012, yb - 0.012, a + 0.014, b - 0.014);
+      const len = 0.9 + q() * 1.5, a = Math.max(z0, z), b = Math.min(z1, z + len), ya = y0 + i * rh, yb = Math.min(ya + rh, top(a), top(b));
+      if (b - a > 0.1 && yb - ya > 0.07) p.box(STONES[Math.floor(q() * STONES.length)], x0 - s * (0.03 + q() * 0.022), x0 + s * 0.1, ya + 0.01, yb - 0.01, a + 0.012, b - 0.012);
       z += len;
     }
   }
@@ -154,13 +162,9 @@ export function buildCellar(K) {
   f.box('brick', -CH, CH, -0.1, 0.56, MOUTH, CL);                                             // the low end
   wood(f, -CH - 0.07, CH + 0.07, 0.56, 0.72, MOUTH - 0.08, CL + 0.07, { u: 1.3 });           // and its sill, where the leaves land
   wood(f, -CH - 0.05, CH + 0.05, TOP - under, TOP + 0.16, -0.06, Z0, { u: 0.4 });            // the head, against the shakes
-  wood(f, -CI, CI, 2.62, TOP - under, -0.06, 0.22, { u: 2.1 });                               // the board under it, down to the doorway
+  wood(f, -CI, CI, 2.62, TOP - under, -0.06, 0.22, { u: 2.1 });                               // the board under it (below it the stair goes in under the house: nothing but dark, see below)
   f.box('copper', -CH - 0.09, CH + 0.09, TOP + 0.16, TOP + 0.185, -0.06, Z0 + 0.04);         // copper flashing over the head,
   f.box('copper', -CH - 0.09, CH + 0.09, TOP + 0.185, TOP + 0.31, -0.06, -0.035);            // turned up behind the shakes
-  // the doorway in the base of the house, seen under the head: dark, in a timber frame
-  f.box(BLACK, -1.2, 1.2, 0, 2.4, -0.02, 0.065);
-  for (const s of [-1, 1]) f.box('timber', s > 0 ? 1.2 : -1.38, s > 0 ? 1.38 : -1.2, 0, 2.4, -0.02, 0.12);
-  wood(f, -1.5, 1.5, 2.4, 2.62, -0.02, 0.15, { u: 3.2 });
   // the sill at the low end, stepped over on the way in
   { const [a, b, c, d] = f.aabb(-CH, CH, MOUTH, CL); K.surface(a, b, c, d, LOW); }
   f.keepOut(-CH - 0.1, CH + 0.1, -0.1, CL + 0.1); f.keepOut(-1.7, 1.7, CL, CL + 2.2);      // nothing grows in it, or in the way in
@@ -171,23 +175,30 @@ export function buildCellar(K) {
     }
   });
 
-  // ---- below ground: the areaway in brick, its stone steps and the doorway at the bottom (one mesh, drawn through the mouth) ----
-  const pit = f.part(0, 0, 0), q = rng(3301);
+  // ---- inside: the head of the basement's stair (one mesh, drawn through the mouth below the lawn, and only while the doors are open) ----
+  // Its walls of coursed stone from under the leaves' plates down, the slate treads and the runner on them, going on
+  // down under the house at the pitch they have in the well. The light gives out toward the house (FADE), so a wall
+  // of plain black across the house end, from the slab to the board under the head, is all there is beyond.
+  const pit = f.part(0, 0, 0), q = rng(3301), top = z => yS(Math.max(z, Z0)) - under;
   // (every piece runs into the next, and a slab lies under it all: a crack anywhere would show the lawn through it)
-  for (const s of [-1, 1]) courses(pit, q, s, s * CI, -0.3, MOUTH + 0.3, BOTTOM - 0.4, PLANE);
-  { const fr = pit.sub(0, 0, MOUTH, -Math.PI / 2); courses(fr, q, 1, 0, -CI - 0.1, CI + 0.1, -RISE - 0.3, PLANE); }      // the outer end, above the top tread
-  { const fr = pit.sub(0, 0, 0, Math.PI / 2);                                                                              // the house end, round the doorway
-    courses(fr, q, 1, 0, -CI - 0.1, -1.38, BOTTOM - 0.4, PLANE); courses(fr, q, 1, 0, 1.38, CI + 0.1, BOTTOM - 0.4, PLANE); }      // (the doorway and its frame fill the middle)
-  pit.box('c#2a2723/1', -CI - 0.35, CI + 0.35, BOTTOM - 0.6, BOTTOM - 0.3, -0.5, MOUTH + 0.4);
-  for (let i = 1; i <= 6; i++) {
-    const y = -i * RISE, za = TREAD[i], zb = TREAD[i - 1], w = CI + 0.07;              // (the ends are built into the walls)
-    const stone = ['c#9a8a72', 'c#92826b', 'c#a09078'][i % 3] + '/1';      // (the terrace's flagstone, in the shade)
-    pit.box(stone, -w, w, y - 0.2, y, za - (i < 6 ? 0.07 : 0), zb);                       // the tread, its nose a little over the one below
-    pit.box('c#5c5348/1', -w, w, BOTTOM - 0.35, y - 0.2, za, zb);                        // and the stone under it
+  for (const s of [-1, 1]) {
+    pit.box(GROUT, s * (CI - 0.012), s * (CI + 0.3), UNDER, PLANE, -0.3, MOUTH + 0.3);                                     // the wall's body below the lawn,
+    pit.sub(s > 0 ? CI : -CI + 0.025, 0, 0, -Math.PI / 2).prism(GROUT, [[0, PLANE - 0.02], [MOUTH, PLANE - 0.02], [MOUTH, top(MOUTH)], [Z0, top(Z0)], [0, top(0)]], 0, 0.025);      // a skin of it over the cheek's brick above,
+    stones(pit, q, s, s * CI, -0.3, MOUTH + 0.3, UNDER + 0.2, PLANE); stones(pit, q, s, s * CI, 0, MOUTH, PLANE, PLANE + Math.round((TOP - under - PLANE) / COURSE) * COURSE, top);      // and its stones, to the slope
   }
-  pit.box(BLACK, -1.2, 1.2, BOTTOM, PLANE, -0.4, 0.065);                                 // the doorway: nothing to see
-  for (const s of [-1, 1]) pit.box(STAIN + '/1', s > 0 ? 1.2 : -1.38, s > 0 ? 1.38 : -1.2, BOTTOM, PLANE, -0.02, 0.12);
-  pit.box('c#2e2a25/1', -1.2, 1.2, BOTTOM - 0.05, BOTTOM + 0.04, -0.3, 0.12);           // a worn sill
+  { const fr = pit.sub(0, 0, MOUTH, -Math.PI / 2); fr.box(GROUT, -0.012, 0.3, -RISE - 0.3, PLANE, -CI - 0.1, CI + 0.1); fr.box(GROUT, -0.012, 0, PLANE, 0.56, -CI, CI); stones(fr, q, 1, 0, -CI, CI, -RISE - 0.3, 0.6, () => 0.57); }      // the outer end, above the top tread and up the curb to its sill
+  pit.box(BLACK, -CI - 0.35, CI + 0.35, UNDER - 0.2, UNDER + 0.1, -0.5, MOUTH + 0.4);                                     // the slab
+  pit.box(BLACK, -CI - 0.35, CI + 0.35, UNDER, PLANE, -0.5, 0.07); pit.box(BLACK, -CI + 0.02, CI - 0.02, PLANE, 2.62, -0.02, 0.07);      // the house end: nothing to see
+  for (let i = 1; i <= STEPS; i++) {
+    const y = -i * RISE, za = TREAD[i], zb = TREAD[i - 1], w = CI + 0.07;              // (the ends are built into the walls)
+    pit.box(SLATE[i % 3], -w, w, y - 0.2, y, za - 0.07, zb);                             // the tread, its nose a little over the one below
+    pit.box('c#62564a', -w, w, UNDER, y - 0.2, za, zb);                                  // and the stone under it: the riser
+    for (const [a, b, k] of BANDS) {                                                     // the runner: over the tread, round its nose and down the riser
+      pit.box(WOOL[k], a - RUG, b - RUG, y, y + 0.035, za - 0.105, zb - 0.02); pit.box(WOOL[k], a - RUG, b - RUG, y - 0.2, y + 0.035, za - 0.105, za - 0.07);
+      if (i < STEPS) pit.box(WOOL[k], a - RUG, b - RUG, y - RISE, y - 0.2, za - 0.035, za);
+    }
+    pit.beam('c#7d6543', [-RUG - 0.12, y + 0.06, zb - 0.06], [RUG + 0.12, y + 0.06, zb - 0.06], 0.036, 0.036, 6);      // a bronze rod at the tread's back
+  }
 
   // ---- the two leaves, each built about its hinge on the slope; right (s = -1) carries the weather strip ----
   // Boards down the slope, a frame planted on the face, three ledges and two braces beneath (seen when they stand
@@ -258,9 +269,9 @@ export function buildCellar(K) {
 
 function cellarLife(ctx, f, pit, leafParts) {
   const scene = ctx.scene, Q = new URLSearchParams(location.search);
-  // the areaway, drawn only while the doors stand open
+  // the stair's head, drawn only while the doors stand open
   const inv = f.m.clone().invert();
-  const pitMesh = new THREE.Mesh(sinkGeometry(pit), deep(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, envMapIntensity: 0.3 }), { plane: PLANE, floor: 0.06, dark: 0.45, mouth: inv, size: [CI, 0, MOUTH], disc: false }));
+  const pitMesh = new THREE.Mesh(sinkGeometry(pit), deep(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, envMapIntensity: 0.3 }), { plane: PLANE, floor: 0.16, dark: 0.2, mouth: inv, size: [CI, 0, MOUTH], disc: false, fade: FADE }));      // (its floor above the lamplight that the windows lay on the lawn after dark, 0.12 ft up: at 0.06 a bar of it lay across the dark of the stair)
   pitMesh.name = 'cellar steps'; pitMesh.receiveShadow = true; pitMesh.visible = false; scene.add(pitMesh);
   const leaves = leafParts.map((p, i) => buildPart(ctx, p, 'cellar door ' + (i ? 'right' : 'left')));
   // where a point (world x, z) is in the bulkhead's frame
@@ -280,12 +291,12 @@ function cellarLife(ctx, f, pit, leafParts) {
     w.floorAt = (x, z, y) => ((open || y < -0.2) && inWell(x, z) ? stairY(local(x, z)[1]) : y > -0.4 && Math.hypot(x - SKY.x, z - SKY.z) < RO - 0.03 ? RH + 0.08 : base(x, z, y));
   };
   setTimeout(hook, 0);
-  // the colliders: the shut doors, the sides of the areaway and the house end (each under 5.5 ft tall, so life.js does not
+  // the colliders: the shut doors, the sides of the well and the house end (each under 5.5 ft tall, so life.js does not
   // count them as walls in the way of what one is looking at)
   const box = (x0, x1, z0, z1, y0, y1) => { const [a, b, cz, d] = f.aabb(x0, x1, z0, z1), o = { x0: a, x1: b, z0: cz, z1: d, y0, y1 }; ctx.colliders.push(o); return o; };
   const shut = box(-CH, CH, 0, CL, -0.5, 3.1);
   for (const sx of [-1, 1]) box(sx > 0 ? CI : -CH - 0.15, sx > 0 ? CH + 0.15 : -CI, 0, CL, -3, 2.4);
-  box(-CI, CI, -0.5, 0.75, -3, 2.4);      // (one stops on the landing, a step back from the doorway)
+  box(-CI, CI, -0.5, 0.75, -3, 2.4);      // (one stops on the sixth step, in the dark: by then the view has gone black, see `descend`)
 
   // the leaves' swing: the right one (with the weather strip) leads opening, the left one leads closing
   let k = 0, aim = 0;
@@ -300,7 +311,7 @@ function cellarLife(ctx, f, pit, leafParts) {
     if (!sun) { let top = leaves[0]; while (top.parent) top = top.parent; top.traverse(o => { if (o.isDirectionalLight && o.castShadow) sun = o; }); }
     if (sun) sun.shadow.needsUpdate = true;
   });
-  // E: on the shut doors, open them; on an open leaf, close them (not from down the steps); at the bottom, go down
+  // E: on the shut doors, open them; on an open leaf, close them (not from down the steps); on the steps, go down
   const centre = f.w(0, 2.0, 3.0), leafAt = i => {
     const m = new THREE.Matrix4().copy(leafParts[i].world).multiply(new THREE.Matrix4().makeRotationZ((i ? -1 : 1) * OPEN));
     return new THREE.Vector3((i ? -1 : 1) * 1.15, 0.1, LEAF * 0.5).applyMatrix4(m);
@@ -317,17 +328,26 @@ function cellarLife(ctx, f, pit, leafParts) {
   for (const e of ents) ctx.interact.push(e);
   const door = f.w(0, 0.6, 0.1);      // (about where the eye falls on it, standing at the bottom)
   let going = false;
+  const descend = () => {
+    if (going) return; going = true;      // the view fades to black, then on to the site under the island
+    const veil = document.createElement('div');
+    veil.style.cssText = 'position:fixed;inset:0;z-index:7;pointer-events:none;background:#000;opacity:0;transition:opacity 1.2s ease-in';
+    document.body.appendChild(veil); requestAnimationFrame(() => { veil.style.opacity = '1'; });
+    addEventListener('pageshow', () => { going = false; veil.remove(); }, { once: true });
+    setTimeout(() => { location.assign(basementAddress() + '?from=house'); }, 1300);
+  };
   ctx.interact.push({ x: door.x, y: door.y, z: door.z, size: 1.3,
     get reach() { return open && below() ? 4.6 : 0; },
-    label: () => 'go down',
-    act: () => {
-      if (going) return; going = true;      // the view fades to black, then on to the site under the island
-      const veil = document.createElement('div');
-      veil.style.cssText = 'position:fixed;inset:0;z-index:7;pointer-events:none;background:#000;opacity:0;transition:opacity 1.2s ease-in';
-      document.body.appendChild(veil); requestAnimationFrame(() => { veil.style.opacity = '1'; });
-      addEventListener('pageshow', () => { going = false; veil.remove(); }, { once: true });
-      setTimeout(() => { location.assign(basementAddress() + '?from=house'); }, 1300);
-    } });
+    label: () => 'go down', act: descend });
+  // and without asking: coming down onto the fourth step, where the light gives out, one is taken below. (Only on the
+  // way down: come back by the browser and found standing in the dark, one has to climb above it before it will take one again.)
+  let above = false;
+  ctx.animated.push(() => {
+    const w = walker(); if (!w) return;
+    const low = open && inWell(w.pos.x, w.pos.z) && local(w.pos.x, w.pos.z)[1] < HOP;
+    if (low && above) descend();
+    above = !low;
+  });
   if (Q.has('cellaropen')) { set(true); k = 1; pose(); }
 
   // ---- the skylight: the shaft and the glow far down it, and the glass ----
